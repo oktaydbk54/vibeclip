@@ -4,6 +4,19 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>VibeClip Studio — AI Video Editing Studio</title>
+<link rel="icon" type="image/svg+xml" href="/static/favicon.svg">
+<link rel="icon" type="image/x-icon" href="/static/favicon.ico" sizes="any">
+<link rel="apple-touch-icon" href="/static/apple-touch-icon.png">
+<meta name="theme-color" content="#9b5cff">
+<!-- Google Analytics (GA4) -->
+<script async src="https://www.googletagmanager.com/gtag/js?id=G-VLDS78ZF9K"></script>
+<script>
+  window.dataLayer = window.dataLayer || [];
+  function gtag(){dataLayer.push(arguments);}
+  gtag('js', new Date());
+  gtag('config', 'G-VLDS78ZF9K');
+</script>
+<!-- Google Search Console: domain ownership verified via DNS TXT (Namecheap) -->
 <meta name="description" content="VibeClip turns your long videos into viral-ready clips in seconds — an AI editing studio you control by talking.">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -21,6 +34,7 @@
   </a>
   <div class="nav-links mono">
     <a href="#how">How it works</a>
+    <a href="#blog">Blog</a>
     <a href="#pricing">Pricing</a>
   </div>
   <div class="nav-cta" id="navCta">
@@ -129,62 +143,274 @@
   </div><!-- /.demo-shell -->
 </section>
 
-<!-- ============ 3 — PRICING ============ -->
+<!-- ============ 3 — FEATURES / WHAT YOU CAN DO ============ -->
+<!-- Editorial "capability ledger": a numbered, asymmetric feature grid (not a
+     flat 3-col card row). Two lead tiles span wide; the rest are compact rows
+     with violet inline-SVG glyphs. -->
+<section id="features" class="sect-feat reveal">
+  <div class="sect-head">
+    <div class="eyebrow mono">WHAT YOU CAN DO</div>
+    <h2>One chat box. The whole edit bay.</h2>
+    <p class="sect-sub">Every tool a creator opens five apps for — folded into a sentence.
+      Ask in plain words; VibeClip proposes, you approve. Nothing is destructive.</p>
+  </div>
+
+  <div class="feat-grid">
+
+    <!-- lead tile — talk-to-edit -->
+    <article class="feat feat-lead">
+      <span class="feat-no mono">01</span>
+      <span class="feat-ico" aria-hidden="true">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"
+             stroke-linecap="round" stroke-linejoin="round">
+          <path d="M21 11.5a8.5 8.5 0 0 1-12.6 7.4L3 21l2.1-5.4A8.5 8.5 0 1 1 21 11.5Z"/>
+          <path d="M8.5 11h7M8.5 14h4"/>
+        </svg>
+      </span>
+      <h3>Talk to edit</h3>
+      <p>“Cut the dead air, caption it, reframe to vertical.” VibeClip reads the
+        instruction, runs the pipeline, and stages a before&nbsp;/&nbsp;after for
+        your call — no timeline scrubbing required.</p>
+    </article>
+
+    <!-- lead tile — smart reframe -->
+    <article class="feat feat-lead">
+      <span class="feat-no mono">02</span>
+      <span class="feat-ico" aria-hidden="true">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"
+             stroke-linecap="round" stroke-linejoin="round">
+          <rect x="3" y="4" width="18" height="16" rx="2"/>
+          <rect x="9" y="4" width="6" height="16" rx="1" opacity=".55"/>
+          <circle cx="12" cy="10" r="2"/>
+        </svg>
+      </span>
+      <h3>Smart reframe to 9:16</h3>
+      <p>Face- and motion-aware cropping keeps the speaker centered as the frame
+        moves to vertical — landscape footage becomes a clean phone-native short.</p>
+    </article>
+
+    <article class="feat">
+      <span class="feat-no mono">03</span>
+      <span class="feat-ico" aria-hidden="true">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"
+             stroke-linecap="round" stroke-linejoin="round">
+          <path d="M4 7h16M4 12h10M4 17h13"/>
+          <rect x="15.5" y="10" width="5" height="4" rx="1"/>
+        </svg>
+      </span>
+      <h3>Auto-captions</h3>
+      <p>Word-synced karaoke subtitles, burned in and styled — no SRT wrangling.</p>
+    </article>
+
+    <article class="feat">
+      <span class="feat-no mono">04</span>
+      <span class="feat-ico" aria-hidden="true">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"
+             stroke-linecap="round" stroke-linejoin="round">
+          <path d="M3 12h3l2-5 3 13 3-9 2 4h5"/>
+        </svg>
+      </span>
+      <h3>Cut silence &amp; filler</h3>
+      <p>Strips dead pauses and “um”s so the clip lands tight from the first frame.</p>
+    </article>
+
+    <article class="feat">
+      <span class="feat-no mono">05</span>
+      <span class="feat-ico" aria-hidden="true">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"
+             stroke-linecap="round" stroke-linejoin="round">
+          <path d="M12 3l2.4 5 5.6.6-4.2 3.8 1.2 5.6L12 16.8 6.99 18l1.2-5.6L4 8.6 9.6 8Z"/>
+        </svg>
+      </span>
+      <h3>Style presets</h3>
+      <p>One word — “MrBeast-style” — applies the whole zoom, pace &amp; caption look.</p>
+    </article>
+
+    <article class="feat">
+      <span class="feat-no mono">06</span>
+      <span class="feat-ico" aria-hidden="true">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"
+             stroke-linecap="round" stroke-linejoin="round">
+          <rect x="3" y="4" width="18" height="7" rx="1.5"/>
+          <rect x="3" y="13" width="18" height="7" rx="1.5" opacity=".55"/>
+          <path d="M7 7.5h.01M7 16.5h.01"/>
+        </svg>
+      </span>
+      <h3>Gameplay split-screen</h3>
+      <p>Stack a satisfying gameplay loop under your talking head for retention.</p>
+    </article>
+
+    <article class="feat">
+      <span class="feat-no mono">07</span>
+      <span class="feat-ico" aria-hidden="true">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"
+             stroke-linecap="round" stroke-linejoin="round">
+          <path d="M20 6 9 17l-5-5"/>
+        </svg>
+      </span>
+      <h3>Approve in one click</h3>
+      <p>Compare A&nbsp;/&nbsp;B side by side, keep the winner — every edit reversible.</p>
+    </article>
+
+    <article class="feat">
+      <span class="feat-no mono">08</span>
+      <span class="feat-ico" aria-hidden="true">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"
+             stroke-linecap="round" stroke-linejoin="round">
+          <circle cx="12" cy="12" r="9"/>
+          <path d="M3 12h18M12 3c2.5 2.5 2.5 15 0 18M12 3c-2.5 2.5-2.5 15 0 18"/>
+        </svg>
+      </span>
+      <h3>Runs in the browser</h3>
+      <p>No install, no GPU, no render farm. Open a tab, drop a video, start talking.</p>
+    </article>
+
+  </div>
+</section>
+
+<!-- ============ 4 — STATS / SOCIAL-PROOF STRIP ============ -->
+<section class="sect-stats reveal" aria-label="By the numbers">
+  <div class="stats-strip">
+    <div class="stat">
+      <div class="stat-n mono">9:16</div>
+      <div class="stat-l mono">VERTICAL-NATIVE OUTPUT</div>
+    </div>
+    <div class="stat">
+      <div class="stat-n mono">~60s</div>
+      <div class="stat-l mono">FROM UPLOAD TO FIRST CUT</div>
+    </div>
+    <div class="stat">
+      <div class="stat-n mono">0</div>
+      <div class="stat-l mono">INSTALLS · RUNS IN-BROWSER</div>
+    </div>
+    <div class="stat">
+      <div class="stat-n mono">∞</div>
+      <div class="stat-l mono">UNDO · EVERY EDIT REVERSIBLE</div>
+    </div>
+  </div>
+</section>
+
+<!-- ============ 5 — BLOG / RESOURCES TEASER ============ -->
+<section id="blog" class="sect-blog reveal">
+  <div class="sect-head">
+    <div class="eyebrow mono">BLOG &amp; RESOURCES</div>
+    <h2>Field notes from the clip mines.</h2>
+    <p class="sect-sub">Playbooks on shorts that travel, the craft behind talk-to-edit,
+      and how creators actually ship. Writing in progress.</p>
+  </div>
+
+  <div class="blog-grid">
+
+    <a href="#" class="post">
+      <div class="post-thumb" aria-hidden="true"><span class="post-soon mono">SOON</span></div>
+      <div class="post-body">
+        <div class="post-meta mono"><span class="post-tag">PLAYBOOK</span><span class="post-read">6 MIN READ</span></div>
+        <h3>The anatomy of a short that gets watched twice</h3>
+        <p>Hook, pace, payoff — the three-beat structure behind clips that loop, and how to land each one in under 30 seconds.</p>
+      </div>
+    </a>
+
+    <a href="#" class="post">
+      <div class="post-thumb" aria-hidden="true"><span class="post-soon mono">SOON</span></div>
+      <div class="post-body">
+        <div class="post-meta mono"><span class="post-tag">CRAFT</span><span class="post-read">8 MIN READ</span></div>
+        <h3>Why “talk to edit” beats the timeline</h3>
+        <p>What changes when the edit bay listens instead of waiting for keyframes — and where a sentence still beats a mouse.</p>
+      </div>
+    </a>
+
+    <a href="#" class="post">
+      <div class="post-thumb" aria-hidden="true"><span class="post-soon mono">SOON</span></div>
+      <div class="post-body">
+        <div class="post-meta mono"><span class="post-tag">GROWTH</span><span class="post-read">5 MIN READ</span></div>
+        <h3>Repurpose one stream into a week of clips</h3>
+        <p>A repeatable pipeline for turning a single long recording into a steady drip of vertical posts — without burning out.</p>
+      </div>
+    </a>
+
+  </div>
+  <p class="blog-foot mono">More articles coming soon — we're writing them between renders.</p>
+</section>
+
+<!-- ============ 6 — PRICING ============ -->
 <section id="pricing" class="sect-price reveal">
   <div class="sect-head">
     <div class="eyebrow mono">PRICING</div>
-    <h2>Simple plans. Free while we're in early access.</h2>
-    <p class="sect-sub">Start free — no card required. Upgrade when you outgrow it, cancel anytime.</p>
+    <h2>Plans are on the way.</h2>
+    <p class="sect-sub">We're still shaping how VibeClip should be priced. While we figure it out,
+      the whole studio is free.</p>
   </div>
-  <div class="tiers">
 
-    <div class="tier">
-      <div class="tier-name mono">STARTER</div>
-      <p class="tier-desc">Try VibeClip on your first handful of clips.</p>
-      <div class="tier-price"><span class="cur">$</span>0<span class="per">/mo</span></div>
-      <a href="/signup" class="btn btn-ghost btn-full">Start free</a>
-      <ul class="tier-feats">
-        <li>10 clips per month</li>
-        <li>SIMPLE mode</li>
-        <li>720p export</li>
-        <li>VibeClip watermark</li>
-      </ul>
+  <!-- "coming soon" treatment: a single centered card sitting over a softly
+       ghosted preview of future tiers, with a SOON badge. Intentional, not empty. -->
+  <div class="price-soon">
+    <div class="price-ghost" aria-hidden="true">
+      <div class="ghost-tier"></div>
+      <div class="ghost-tier ghost-pop"></div>
+      <div class="ghost-tier"></div>
     </div>
 
-    <div class="tier tier-pop">
-      <div class="tier-tag mono">MOST POPULAR</div>
-      <div class="tier-name mono">CREATOR</div>
-      <p class="tier-desc">For creators shipping clips every week.</p>
-      <div class="tier-price"><span class="cur">$</span>19<span class="per">/mo</span></div>
-      <a href="/signup" class="btn btn-solid btn-glow btn-full">Start free</a>
-      <ul class="tier-feats">
-        <li><b>Everything in Starter, plus</b></li>
-        <li>Unlimited clips</li>
-        <li>PRO mode + full timeline</li>
-        <li>All style presets</li>
-        <li>1080p export, no watermark</li>
-      </ul>
+    <div class="price-card">
+      <span class="price-badge mono">SOON</span>
+      <div class="tier-name mono">EARLY ACCESS</div>
+      <h3 class="price-card-h">Free while we're in early access</h3>
+      <p class="price-card-p">No tiers to choose yet, no card required. Use the full studio —
+        every mode, every preset — and we'll give you plenty of notice before anything changes.</p>
+      <a href="/signup" class="btn btn-solid btn-glow btn-lg">Start free →</a>
+      <p class="price-card-foot mono">NO CARD REQUIRED · CANCEL ANYTIME</p>
     </div>
-
-    <div class="tier">
-      <div class="tier-name mono">STUDIO</div>
-      <p class="tier-desc">For teams and high-volume output.</p>
-      <div class="tier-price"><span class="cur">$</span>49<span class="per">/mo</span></div>
-      <a href="/signup" class="btn btn-ghost btn-full">Start free</a>
-      <ul class="tier-feats">
-        <li><b>Everything in Creator, plus</b></li>
-        <li>Team workspace &amp; seats</li>
-        <li>Brand kit</li>
-        <li>API access</li>
-        <li>Priority rendering</li>
-      </ul>
-    </div>
-
   </div>
-  <p class="price-foot mono">Free during early access · No card required · Cancel anytime</p>
 </section>
 
-<!-- ============ 4 — FINAL CTA ============ -->
+<!-- ============ 7 — FAQ (CSS-only accordion) ============ -->
+<section id="faq" class="sect-faq reveal">
+  <div class="sect-head">
+    <div class="eyebrow mono">FAQ</div>
+    <h2>Questions, answered.</h2>
+  </div>
+
+  <div class="faq-list">
+    <details class="faq-item">
+      <summary>Do I need to install anything?<span class="faq-mark" aria-hidden="true"></span></summary>
+      <div class="faq-a">No. VibeClip runs entirely in your browser — open a tab, drop in a video,
+        and start editing by chat. No app, no GPU, no render farm.</div>
+    </details>
+
+    <details class="faq-item">
+      <summary>How does “editing by talking” actually work?<span class="faq-mark" aria-hidden="true"></span></summary>
+      <div class="faq-a">You describe the edit in plain words — “cut the silences,” “add captions,”
+        “make it punchier.” VibeClip runs the matching pipeline and stages a
+        before&nbsp;/&nbsp;after so you approve the result before it sticks.</div>
+    </details>
+
+    <details class="faq-item">
+      <summary>Can I undo an edit I don't like?<span class="faq-mark" aria-hidden="true"></span></summary>
+      <div class="faq-a">Always. Every edit is proposed as a B version next to your current A.
+        Keep it or discard it — nothing is destructive, and the full history is reversible.</div>
+    </details>
+
+    <details class="faq-item">
+      <summary>What kind of videos work best?<span class="faq-mark" aria-hidden="true"></span></summary>
+      <div class="faq-a">Talking-head footage, podcasts, streams, lectures, interviews — any long
+        landscape recording you want to turn into vertical 9:16 shorts. Smart reframe keeps
+        the speaker centered as it crops.</div>
+    </details>
+
+    <details class="faq-item">
+      <summary>How much does it cost?<span class="faq-mark" aria-hidden="true"></span></summary>
+      <div class="faq-a">Free during early access — no card required. We're still shaping our
+        paid plans and will give you ample notice before anything changes.</div>
+    </details>
+
+    <details class="faq-item">
+      <summary>Can I export in 1080p without a watermark?<span class="faq-mark" aria-hidden="true"></span></summary>
+      <div class="faq-a">Yes — high-resolution, clean exports are part of what we're building.
+        Specifics will firm up alongside our pricing; for now, early-access creators get the full studio.</div>
+    </details>
+  </div>
+</section>
+
+<!-- ============ 8 — FINAL CTA ============ -->
 <section class="sect-final reveal">
   <h2>Your next clip is one sentence away.</h2>
   <a href="/signup" class="btn btn-solid btn-glow btn-lg">START FREE →</a>

@@ -1290,6 +1290,11 @@ def media(clip_id: int):
     return FileResponse(path, media_type="video/mp4")
 
 
+@app.get("/favicon.ico", include_in_schema=False)
+def favicon():
+    return FileResponse(str(STATIC / "favicon.ico"), media_type="image/x-icon")
+
+
 app.mount("/static", StaticFiles(directory=str(STATIC)), name="static")
 
 

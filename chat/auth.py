@@ -1,4 +1,4 @@
-"""Email/password auth for KESİM Studio — stdlib only (no new deps).
+"""Email/password auth for VibeClip Studio — stdlib only (no new deps).
 
 A tiny SQLite-backed user store with a signed-cookie session (HMAC over the
 cookie's own value, no server-side session table). All user-facing strings are

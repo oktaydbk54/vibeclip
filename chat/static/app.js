@@ -1,4 +1,4 @@
-/* KESİM Studio — client logic. Talks to the FastAPI chat backend. */
+/* VibeClip Studio — client logic. Talks to the FastAPI chat backend. */
 
 const $ = (id) => document.getElementById(id);
 const chat = $("chat"), input = $("input"), send = $("send");
@@ -1311,7 +1311,7 @@ async function boot() {
     const want = "/studio?project=" + encodeURIComponent(d.name);
     if (location.pathname + location.search !== want)
       history.replaceState(null, "", want);
-    document.title = d.name + " · KESİM studio";
+    document.title = d.name + " · VibeClip studio";
   }
   CLIPS = d.clips || []; COMPS = d.compilations || [];
   if (d.queue) QUEUE = d.queue;        // Phase 4 — initial batch progress

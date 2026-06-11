@@ -1,4 +1,4 @@
-/* KESİM Studio — /projects switcher (B design: one global SESSION).
+/* VibeClip Studio — /projects switcher (B design: one global SESSION).
    Lists projects with a derived pipeline status, lets the user open one in the
    studio, start/retry processing, rename, delete, or create a new one (long
    video -> auto-clip, or own finished clips). Live status via one EventSource;

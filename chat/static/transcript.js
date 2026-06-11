@@ -1,4 +1,4 @@
-/* KESİM Studio — text-based editing (Pro Faz 2).
+/* VibeClip Studio — text-based editing (Pro Faz 2).
    Click a word → seek. Select a span → cut (remove_section). Filler chip →
    remove_fillers. Shares app.js globals (player, activeClip, setBusy, addMsg,
    reloadState) via the classic-script global scope. */

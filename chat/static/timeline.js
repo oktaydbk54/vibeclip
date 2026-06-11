@@ -1,4 +1,4 @@
-/* KESİM Studio — CapCut-style pro timeline (Pro Faz 4 → Faz 5 MVP).
+/* VibeClip Studio — CapCut-style pro timeline (Pro Faz 4 → Faz 5 MVP).
    View of /api/timeline/{id}. x-axis = player time. A MAIN VIDEO track (row 0)
    shows a thumbnail filmstrip; below it the stage tracks (zoom/broll/…).
    Gestures: scrub, split (S) at playhead, ripple-delete a segment, trim the

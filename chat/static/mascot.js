@@ -1,4 +1,4 @@
-/* KESİM mascot cursor — "Snip".
+/* VibeClip mascot cursor — "Snip".
    Self-contained: no dependencies, no required DOM. Builds an inline-SVG
    scissors character that replaces the cursor with spring/lerp easing.
    Activates only on fine-pointer devices that allow motion.

@@ -1,4 +1,4 @@
-/* KESİM landing — auth-aware nav, scroll reveal, interactive mini-studio. */
+/* VibeClip landing — auth-aware nav, scroll reveal, interactive mini-studio. */
 (function () {
   "use strict";
 

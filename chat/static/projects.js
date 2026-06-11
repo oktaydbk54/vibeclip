@@ -611,7 +611,16 @@ async function loadUser() {
       try { await fetch("/api/auth/logout", { method: "POST" }); } catch (e) {}
       location.href = "/";
     };
-    chip.appendChild(nm); chip.appendChild(out);
+    chip.appendChild(nm);
+    if (me.is_admin) {
+      const adm = document.createElement("a");
+      adm.href = "/admin"; adm.textContent = "ADMIN";
+      adm.style.cssText = "margin:0 4px; padding:5px 9px; border:1px solid var(--line-hi,#3a2c54);" +
+        "border-radius:6px; color:var(--accent-hi,#c08bff); text-decoration:none;" +
+        "font-size:.66rem; letter-spacing:.14em";
+      chip.appendChild(adm);
+    }
+    chip.appendChild(out);
   } catch (e) {}
 }
 

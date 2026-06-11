@@ -192,6 +192,62 @@ def projects_page(request: Request):
     return HTMLResponse(_serve_html("projects.html"))
 
 
+# ------------------------------------------------------------------- admin
+@app.get("/admin", response_class=HTMLResponse)
+def admin_page(request: Request):
+    """Admin dashboard. Logged-out → /login; logged-in non-admins → /projects
+    (no leak that the page exists). Admin status comes from the ADMIN_EMAILS
+    allowlist, applied on signup/verify/login."""
+    user = auth.get_user(request)
+    if user is None:
+        return RedirectResponse("/login?next=/admin", 302)
+    if not user.get("is_admin"):
+        return RedirectResponse("/projects", 302)
+    return HTMLResponse(_serve_html("admin.html"))
+
+
+def _content_counts() -> dict:
+    """Global project + clip totals scanned off SESSIONS_DIR (projects are not
+    per-user in this app, so these are studio-wide numbers)."""
+    projects = clips = 0
+    if SESSIONS_DIR.exists():
+        for sdir in SESSIONS_DIR.iterdir():
+            pfile = sdir / "project.json"
+            if not pfile.exists():
+                continue
+            projects += 1
+            try:
+                clips += len(json.loads(pfile.read_text()).get("clips") or [])
+            except Exception:  # noqa: BLE001 — skip unparseable projects
+                continue
+    return {"projects": projects, "clips": clips}
+
+
+@app.get("/api/admin/stats")
+def admin_stats(_admin: dict = Depends(auth.require_admin)) -> dict:
+    return {
+        "users": auth.list_users(),
+        "counts": auth.user_counts(),
+        "content": _content_counts(),
+    }
+
+
+class AdminDeleteIn(BaseModel):
+    id: int
+
+
+@app.post("/api/admin/users/delete")
+def admin_delete_user(body: AdminDeleteIn,
+                      admin: dict = Depends(auth.require_admin)):
+    if int(body.id) == int(admin["id"]):
+        return JSONResponse(
+            {"error": "You can't delete your own admin account."},
+            status_code=400)
+    if not auth.delete_user(int(body.id)):
+        return JSONResponse({"error": "No such user."}, status_code=404)
+    return {"ok": True}
+
+
 @app.get("/api/state")
 def state():
     if SESSION is None:

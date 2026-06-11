@@ -1,0 +1,256 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>VibeClip Studio — Admin</title>
+<link rel="icon" type="image/svg+xml" href="/static/favicon.svg">
+<link rel="icon" type="image/x-icon" href="/static/favicon.ico" sizes="any">
+<link rel="apple-touch-icon" href="/static/apple-touch-icon.png">
+<meta name="theme-color" content="#9b5cff">
+<meta name="robots" content="noindex">
+<!-- Google Analytics (GA4) -->
+<script async src="https://www.googletagmanager.com/gtag/js?id=G-VLDS78ZF9K"></script>
+<script>
+  window.dataLayer = window.dataLayer || [];
+  function gtag(){dataLayer.push(arguments);}
+  gtag('js', new Date());
+  gtag('config', 'G-VLDS78ZF9K');
+</script>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Archivo:wght@400;500;600;700;800&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+:root{
+  --ink:#0a0712; --panel:#130d1f; --panel2:#181020; --panel-quiet:#0e0a16;
+  --line:#2a2040; --line-hi:#3a2c54;
+  --bone:#e7e2f2; --bone-dim:#918aa6; --bone-faint:#615a73;
+  --accent:#9b5cff; --accent-hi:#c08bff; --accent-glow:rgba(155,92,255,.14);
+  --green:#3ddc97; --red:#f4524d; --orange:#ffb454; --blue:#6b8dff;
+  --shadow-card:0 14px 36px -18px rgba(0,0,0,.8); --r:10px;
+}
+@media (prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}}
+*{box-sizing:border-box; margin:0; padding:0}
+html,body{height:100%}
+body{background:var(--ink); color:var(--bone); font-family:'Archivo',system-ui,sans-serif;
+  min-height:100%; display:flex; flex-direction:column}
+.mono{font-family:'IBM Plex Mono',monospace}
+a{color:inherit}
+
+/* appbar */
+.appbar{display:flex; align-items:center; gap:16px; padding:12px 22px;
+  border-bottom:1px solid var(--line); position:relative;
+  background:linear-gradient(180deg,var(--panel),var(--ink))}
+.appbar::before{content:""; position:absolute; left:0; top:0; bottom:0; width:3px; background:var(--accent)}
+.brand{display:flex; align-items:center; gap:9px; user-select:none; text-decoration:none}
+.brand::before{content:""; width:10px; height:18px; border-radius:2px; background:var(--accent)}
+.brand .word{font-weight:800; font-size:1.05rem; letter-spacing:.14em}
+.brand .sub{color:var(--bone-faint); font-size:.7rem; letter-spacing:.3em; text-transform:uppercase}
+.pglabel{font-size:.66rem; letter-spacing:.32em; color:var(--accent-hi);
+  border:1px solid var(--line-hi); border-radius:999px; padding:4px 11px; text-transform:uppercase}
+.spacer{flex:1}
+.userchip{font-size:.74rem; color:var(--bone-dim)}
+.lnk{font-size:.72rem; letter-spacing:.12em; color:var(--bone-dim); text-decoration:none;
+  border:1px solid var(--line); border-radius:7px; padding:7px 12px; text-transform:uppercase;
+  transition:border-color .15s, color .15s; white-space:nowrap}
+.lnk:hover{color:var(--bone); border-color:var(--line-hi)}
+
+.wrap{width:100%; max-width:1080px; margin:0 auto; padding:30px 22px 60px; flex:1}
+.phead{display:flex; align-items:baseline; gap:14px; margin-bottom:6px}
+.phead h1{font-size:1.7rem; font-weight:800; letter-spacing:-.01em}
+.phead .sub{color:var(--bone-faint); font-size:.8rem}
+.note{color:var(--bone-faint); font-size:.78rem; margin:4px 0 26px; line-height:1.5}
+.note a{color:var(--accent-hi)}
+
+/* stat cards */
+.cards{display:grid; grid-template-columns:repeat(auto-fit,minmax(150px,1fr)); gap:14px; margin-bottom:30px}
+.card{background:linear-gradient(180deg,var(--panel),var(--panel-quiet));
+  border:1px solid var(--line); border-radius:var(--r); padding:16px 18px;
+  box-shadow:var(--shadow-card); position:relative; overflow:hidden}
+.card::before{content:""; position:absolute; inset:0 auto 0 0; width:3px; background:var(--accent); opacity:.6}
+.card .k{font-size:.62rem; letter-spacing:.26em; color:var(--bone-faint); text-transform:uppercase}
+.card .v{font-size:2rem; font-weight:800; margin-top:8px; line-height:1}
+.card .v small{font-size:.8rem; color:var(--bone-dim); font-weight:600}
+.card.accent .v{color:var(--accent-hi)}
+
+/* table */
+.tbl-head{display:flex; align-items:baseline; gap:12px; margin:0 2px 12px}
+.tbl-head h2{font-size:1.05rem; font-weight:700; letter-spacing:.01em}
+.tbl-head .c{color:var(--bone-faint); font-size:.74rem}
+.tablecard{background:var(--panel); border:1px solid var(--line); border-radius:var(--r); overflow:hidden}
+table{width:100%; border-collapse:collapse; font-size:.86rem}
+thead th{text-align:left; font-family:'IBM Plex Mono',monospace; font-size:.62rem;
+  letter-spacing:.18em; text-transform:uppercase; color:var(--bone-faint);
+  padding:12px 16px; border-bottom:1px solid var(--line); background:var(--panel-quiet); font-weight:600}
+tbody td{padding:13px 16px; border-bottom:1px solid var(--line); vertical-align:middle}
+tbody tr:last-child td{border-bottom:none}
+tbody tr:hover{background:rgba(155,92,255,.04)}
+.email{font-weight:600}
+.name{color:var(--bone-dim); font-size:.78rem}
+.tag{display:inline-block; font-family:'IBM Plex Mono',monospace; font-size:.6rem;
+  letter-spacing:.1em; padding:3px 8px; border-radius:999px; text-transform:uppercase; border:1px solid transparent}
+.tag.ok{color:var(--green); border-color:rgba(61,220,151,.4); background:rgba(61,220,151,.08)}
+.tag.wait{color:var(--orange); border-color:rgba(255,180,84,.4); background:rgba(255,180,84,.08)}
+.tag.adm{color:var(--accent-hi); border-color:var(--line-hi); background:var(--accent-glow)}
+.tag.muted{color:var(--bone-faint); border-color:var(--line)}
+.when{color:var(--bone-faint); font-size:.74rem; font-family:'IBM Plex Mono',monospace}
+.del{background:none; border:1px solid var(--line); color:var(--bone-dim); cursor:pointer;
+  font-family:'IBM Plex Mono',monospace; font-size:.62rem; letter-spacing:.1em; padding:6px 10px;
+  border-radius:7px; text-transform:uppercase; transition:.15s}
+.del:hover{color:var(--red); border-color:rgba(244,82,77,.5); background:rgba(244,82,77,.07)}
+.del:disabled{opacity:.3; cursor:not-allowed}
+.self{color:var(--bone-faint); font-size:.64rem; font-family:'IBM Plex Mono',monospace; letter-spacing:.08em}
+
+.state{padding:50px 20px; text-align:center; color:var(--bone-faint); font-size:.86rem}
+.state.err{color:var(--red)}
+@media (max-width:620px){
+  .when, thead th.col-when, td.col-when{display:none}
+  .wrap{padding:22px 14px 50px}
+}
+</style>
+</head>
+<body>
+
+<header class="appbar">
+  <a class="brand" href="/projects"><span class="word">VibeClip</span><span class="sub">studio</span></a>
+  <span class="pglabel mono">ADMIN</span>
+  <div class="spacer"></div>
+  <span class="userchip mono" id="userchip"></span>
+  <a class="lnk" href="/projects">← Projects</a>
+  <a class="lnk" id="logout" href="#">Sign out</a>
+</header>
+
+<div class="wrap">
+  <div class="phead">
+    <h1>Dashboard</h1>
+    <span class="sub mono" id="head-sub"></span>
+  </div>
+  <p class="note">Account &amp; content overview for VibeClip. Traffic, sources and page
+    analytics live in <a href="https://analytics.google.com/" target="_blank" rel="noopener">Google&nbsp;Analytics</a>
+    &amp; <a href="https://search.google.com/search-console" target="_blank" rel="noopener">Search&nbsp;Console</a>.</p>
+
+  <div class="cards" id="cards"></div>
+
+  <div class="tbl-head">
+    <h2>Users</h2>
+    <span class="c mono" id="usercount"></span>
+  </div>
+  <div class="tablecard">
+    <table>
+      <thead><tr>
+        <th>User</th><th>Status</th><th class="col-when">Joined</th><th style="text-align:right">Action</th>
+      </tr></thead>
+      <tbody id="rows">
+        <tr><td colspan="4"><div class="state mono" id="loading">Loading…</div></td></tr>
+      </tbody>
+    </table>
+  </div>
+</div>
+
+<script>
+let ME = null;
+
+function esc(s){ return String(s==null?"":s).replace(/[&<>"']/g, c =>
+  ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c])); }
+
+function fmtDate(s){
+  if(!s) return "—";
+  // created_at is sqlite "YYYY-MM-DD HH:MM:SS" (UTC)
+  const d = new Date(s.replace(" ","T") + (/[zZ]|\+/.test(s)?"":"Z"));
+  if(isNaN(d)) return esc(s);
+  return d.toLocaleDateString(undefined,{year:"numeric",month:"short",day:"numeric"});
+}
+
+function card(k, v, sub, accent){
+  return `<div class="card${accent?" accent":""}"><div class="k">${esc(k)}</div>
+    <div class="v">${v}${sub?` <small>${esc(sub)}</small>`:""}</div></div>`;
+}
+
+function render(data){
+  const c = data.counts, ct = data.content;
+  document.getElementById("cards").innerHTML =
+    card("Users", c.total, "", true) +
+    card("Verified", c.verified, `/ ${c.total}`) +
+    card("Onboarded", c.onboarded, "") +
+    card("Admins", c.admins, "") +
+    card("Projects", ct.projects, "") +
+    card("Clips", ct.clips, "");
+  document.getElementById("head-sub").textContent =
+    `${c.total} account${c.total===1?"":"s"} · ${c.pending_codes} pending code${c.pending_codes===1?"":"s"}`;
+  document.getElementById("usercount").textContent =
+    `${data.users.length} total`;
+
+  const tb = document.getElementById("rows");
+  if(!data.users.length){
+    tb.innerHTML = `<tr><td colspan="4"><div class="state mono">No users yet — you'll be the first to sign up.</div></td></tr>`;
+    return;
+  }
+  tb.innerHTML = data.users.map(u => {
+    const status = u.is_admin
+      ? `<span class="tag adm">Admin</span>`
+      : (u.verified ? `<span class="tag ok">Verified</span>` : `<span class="tag wait">Unverified</span>`);
+    const onb = u.onboarded ? `<span class="tag muted">Onboarded</span>` : "";
+    const isMe = ME && u.id === ME.id;
+    const action = isMe
+      ? `<span class="self">YOU</span>`
+      : `<button class="del" data-id="${u.id}" data-email="${esc(u.email)}">Delete</button>`;
+    return `<tr>
+      <td><div class="email">${esc(u.email)}</div>${u.display_name?`<div class="name">${esc(u.display_name)}</div>`:""}</td>
+      <td>${status} ${onb}</td>
+      <td class="col-when"><span class="when">${fmtDate(u.created_at)}</span></td>
+      <td style="text-align:right">${action}</td>
+    </tr>`;
+  }).join("");
+
+  tb.querySelectorAll(".del").forEach(b => b.addEventListener("click", onDelete));
+}
+
+async function onDelete(e){
+  const btn = e.currentTarget;
+  const id = btn.dataset.id, email = btn.dataset.email;
+  if(!confirm(`Delete user "${email}"? This permanently removes their account.`)) return;
+  btn.disabled = true; btn.textContent = "…";
+  try{
+    const r = await fetch("/api/admin/users/delete", {
+      method:"POST", headers:{"Content-Type":"application/json"},
+      body: JSON.stringify({id: Number(id)})
+    });
+    if(!r.ok){ const j = await r.json().catch(()=>({})); throw new Error(j.error||r.status); }
+    load();
+  }catch(err){
+    alert("Could not delete: " + err.message);
+    btn.disabled = false; btn.textContent = "Delete";
+  }
+}
+
+async function load(){
+  try{
+    const r = await fetch("/api/admin/stats");
+    if(r.status === 401){ location.href = "/login?next=/admin"; return; }
+    if(r.status === 403){ location.href = "/projects"; return; }
+    if(!r.ok) throw new Error("HTTP " + r.status);
+    render(await r.json());
+  }catch(err){
+    document.getElementById("rows").innerHTML =
+      `<tr><td colspan="4"><div class="state err mono">Failed to load: ${esc(err.message)}</div></td></tr>`;
+  }
+}
+
+async function boot(){
+  try{
+    const r = await fetch("/api/me");
+    if(r.ok){ ME = await r.json(); document.getElementById("userchip").textContent = ME.email || ""; }
+  }catch(_){}
+  load();
+}
+
+document.getElementById("logout").addEventListener("click", async (e) => {
+  e.preventDefault();
+  try{ await fetch("/api/auth/logout", {method:"POST"}); }catch(_){}
+  location.href = "/login";
+});
+
+boot();
+</script>
+</body>
+</html>

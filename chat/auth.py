@@ -12,6 +12,7 @@ from __future__ import annotations
 import hashlib
 import hmac
 import json
+import os
 import re
 import secrets
 import sqlite3
@@ -85,16 +86,41 @@ OTP_MAX_ATTEMPTS = 5     # wrong-code tries before a new code is required
 RESEND_COOLDOWN = 45     # seconds between code sends to one address
 
 
+def _admin_emails() -> set[str]:
+    """Allowlist of admin emails from the ADMIN_EMAILS env var (comma-separated,
+    case-insensitive). A user whose email is in this set is granted is_admin on
+    signup/verify/login — so admin is configured by env, never by a password we
+    set on the user's behalf."""
+    raw = os.getenv("ADMIN_EMAILS", "")
+    return {e.strip().lower() for e in raw.split(",") if e.strip()}
+
+
+def _is_admin_email(email: str) -> bool:
+    return (email or "").strip().lower() in _admin_emails()
+
+
+def _sync_admin(uid: int, email: str) -> None:
+    """Grant admin to allowlisted emails (and only revoke if it was env-granted —
+    we never auto-demote here, demotion is a manual DB/edit concern)."""
+    if _is_admin_email(email):
+        with _connect() as con:
+            con.execute("UPDATE users SET is_admin = 1 WHERE id = ?", (uid,))
+
+
 def _migrate() -> None:
     """One-time schema upgrade for pre-existing databases: add the `verified`
-    column (grandfathering everyone who signed up before verification existed)
-    and create the email_codes table. Safe to run on every boot."""
+    and `is_admin` columns (grandfathering everyone who signed up before
+    verification existed) and create the email_codes table. Safe to run on
+    every boot."""
     with _connect() as con:
         cols = {r["name"] for r in con.execute("PRAGMA table_info(users)")}
         if "verified" not in cols:
             con.execute(
                 "ALTER TABLE users ADD COLUMN verified INTEGER NOT NULL DEFAULT 0")
             con.execute("UPDATE users SET verified = 1")  # grandfather existing
+        if "is_admin" not in cols:
+            con.execute(
+                "ALTER TABLE users ADD COLUMN is_admin INTEGER NOT NULL DEFAULT 0")
         con.execute("""
             CREATE TABLE IF NOT EXISTS email_codes (
               email     TEXT    NOT NULL COLLATE NOCASE,
@@ -106,6 +132,14 @@ def _migrate() -> None:
               UNIQUE(email, purpose)
             )
         """)
+        # Keep the env allowlist authoritative for granting admin on every boot,
+        # so adding an email to ADMIN_EMAILS promotes an already-registered user.
+        admins = _admin_emails()
+        if admins:
+            qs = ",".join("?" * len(admins))
+            con.execute(
+                f"UPDATE users SET is_admin = 1 WHERE lower(email) IN ({qs})",
+                tuple(admins))
 
 
 def _hash_code(code: str) -> str:
@@ -219,6 +253,44 @@ def verify_password(row: dict, password: str) -> bool:
     return hmac.compare_digest(expect, got)
 
 
+# ---------------------------------------------------------------- admin queries
+def list_users() -> list[dict]:
+    """All users (no password material) for the admin dashboard, newest first."""
+    with _connect() as con:
+        rows = con.execute(
+            "SELECT id, email, display_name, verified, onboarded, is_admin, "
+            "created_at FROM users ORDER BY id DESC").fetchall()
+        return [dict(r) for r in rows]
+
+
+def user_counts() -> dict:
+    """Aggregate account stats for the admin dashboard."""
+    with _connect() as con:
+        r = con.execute(
+            "SELECT COUNT(*) AS total, "
+            "COALESCE(SUM(verified), 0)  AS verified, "
+            "COALESCE(SUM(onboarded), 0) AS onboarded, "
+            "COALESCE(SUM(is_admin), 0)  AS admins FROM users").fetchone()
+        pending = con.execute(
+            "SELECT COUNT(*) AS c FROM email_codes").fetchone()["c"]
+        d = dict(r)
+        d["pending_codes"] = pending
+        return d
+
+
+def delete_user(uid: int) -> bool:
+    """Hard-delete a user account (admin action). Returns True if a row was
+    removed. Also clears any pending verification code for that email."""
+    with _connect() as con:
+        row = con.execute("SELECT email FROM users WHERE id = ?", (uid,)).fetchone()
+        if row is None:
+            return False
+        con.execute("DELETE FROM email_codes WHERE email = ? COLLATE NOCASE",
+                    (row["email"],))
+        cur = con.execute("DELETE FROM users WHERE id = ?", (uid,))
+        return cur.rowcount > 0
+
+
 # --------------------------------------------------------------------- cookie
 def mint_cookie(user_id: int, ttl: int = COOKIE_MAX_AGE) -> str:
     expires = int(time.time()) + ttl
@@ -269,6 +341,15 @@ def require_user(request: Request) -> dict:
     user = get_user(request)
     if user is None:
         raise HTTPException(status_code=401, detail="Sign in required")
+    return user
+
+
+def require_admin(request: Request) -> dict:
+    """Like require_user but additionally requires is_admin (403 otherwise) —
+    for the admin dashboard and its data/management APIs."""
+    user = require_user(request)
+    if not user.get("is_admin"):
+        raise HTTPException(status_code=403, detail="Admin access required")
     return user
 
 
@@ -443,6 +524,7 @@ def verify(body: VerifyIn):
     if not ok:
         return JSONResponse({"error": msg}, status_code=400)
     _mark_verified(int(row["id"]))
+    _sync_admin(int(row["id"]), email)  # promote allowlisted emails to admin
     resp = JSONResponse({"ok": True,
                          "next": "/projects" if row["onboarded"] else "/onboarding"})
     _set_cookie(resp, int(row["id"]))
@@ -475,6 +557,7 @@ def login(body: LoginIn):
             {"error": "Please verify your email first. We sent you a new code.",
              "next": "/verify", "email": row["email"], "unverified": True},
             status_code=403)
+    _sync_admin(int(row["id"]), row["email"])  # keep allowlist authoritative
     nxt = "/projects" if row["onboarded"] else "/onboarding"
     resp = JSONResponse({"ok": True, "next": nxt})
     _set_cookie(resp, int(row["id"]))
@@ -498,6 +581,7 @@ def me(request: Request):
         "name": user["display_name"],
         "email": user["email"],
         "onboarded": bool(user["onboarded"]),
+        "is_admin": bool(user["is_admin"]),
         "profile": profile,
         "default_mode": default_mode,
     }

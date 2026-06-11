@@ -90,6 +90,44 @@ form.on{display:flex; animation:fade .25s ease both}
 .resend a{color:var(--accent); cursor:pointer}
 .resend a:hover{text-decoration:underline}
 .resend a.wait{color:var(--bone-faint); cursor:default; text-decoration:none}
+
+/* ---- split-screen shell: form left, looping product showcase right ---- */
+.auth-shell{display:flex; gap:22px; width:100%; max-width:880px;
+  align-items:stretch; justify-content:center}
+.auth-shell .card{flex:0 0 400px; max-width:400px}
+.auth-right{flex:1 1 0; min-width:0; position:relative; overflow:hidden;
+  border:1px solid var(--line); border-radius:14px;
+  background:linear-gradient(180deg,var(--panel2),var(--ink));
+  display:flex; flex-direction:column; align-items:center; justify-content:center;
+  gap:24px; padding:38px 30px; box-shadow:0 30px 80px -34px rgba(0,0,0,.85)}
+.ar-glow{position:absolute; top:-8%; left:50%; transform:translateX(-50%);
+  width:380px; height:380px; border-radius:50%; pointer-events:none;
+  background:radial-gradient(closest-side, rgba(155,92,255,.22), transparent 70%);
+  filter:blur(8px)}
+.ar-phone{position:relative; z-index:1; width:194px; aspect-ratio:9/16;
+  border-radius:22px; overflow:hidden; background:#000; border:1px solid var(--line-hi);
+  box-shadow:0 36px 84px -30px rgba(155,92,255,.6); transform:rotate(-3deg)}
+.ar-phone video{width:100%; height:100%; object-fit:cover; display:block}
+.ar-copy{position:relative; z-index:1; text-align:center; max-width:300px}
+.ar-h{font-family:'Archivo',sans-serif; font-weight:800; font-size:1.3rem;
+  line-height:1.14; letter-spacing:-.01em; margin-bottom:9px}
+.ar-h b{color:var(--accent-hi)}
+.ar-sub{font-size:.8rem; color:var(--bone-dim); line-height:1.55; margin-bottom:14px}
+.ar-trust{font-size:.54rem; letter-spacing:.16em; color:var(--bone-faint)}
+@media(max-width:760px){
+  .auth-right{display:none}
+  .auth-shell{max-width:400px}
+  .auth-shell .card{flex:1 1 auto}
+}
+
+/* ---- 6-box OTP input ---- */
+.otp{display:flex; gap:8px; justify-content:space-between}
+.otp-box{flex:1; min-width:0; width:100%; text-align:center; background:var(--ink);
+  border:1px solid var(--line-hi); border-radius:8px; padding:13px 0; color:var(--bone);
+  font-size:1.3rem; font-family:'IBM Plex Mono',monospace; outline:none;
+  transition:border-color .15s, box-shadow .15s}
+.otp-box:focus{border-color:var(--accent); box-shadow:0 0 0 1px var(--accent-dim)}
+.otp-box.filled{border-color:var(--accent-dim)}
 </style>
 </head>
 <body>
@@ -99,6 +137,7 @@ form.on{display:flex; animation:fade .25s ease both}
   <span class="word">VibeClip</span><span class="sub">studio</span>
 </a>
 
+<div class="auth-shell">
 <div class="card">
   <div class="tabs">
     <button class="tab on" id="tabLogin" data-tab="login">SIGN IN</button>
@@ -142,9 +181,15 @@ form.on{display:flex; animation:fade .25s ease both}
     <p class="verify-msg mono" id="verifyMsg">We sent a 6-digit code to your email.</p>
     <div class="field">
       <label>Verification code</label>
-      <input type="text" name="code" inputmode="numeric" autocomplete="one-time-code"
-             maxlength="6" pattern="[0-9]*" placeholder="------"
-             class="code-input mono" required>
+      <div class="otp" id="otp">
+        <input class="otp-box" inputmode="numeric" maxlength="1" autocomplete="one-time-code" aria-label="Digit 1">
+        <input class="otp-box" inputmode="numeric" maxlength="1" aria-label="Digit 2">
+        <input class="otp-box" inputmode="numeric" maxlength="1" aria-label="Digit 3">
+        <input class="otp-box" inputmode="numeric" maxlength="1" aria-label="Digit 4">
+        <input class="otp-box" inputmode="numeric" maxlength="1" aria-label="Digit 5">
+        <input class="otp-box" inputmode="numeric" maxlength="1" aria-label="Digit 6">
+      </div>
+      <input type="hidden" name="code">
     </div>
     <button type="submit" class="submit">VERIFY &amp; CONTINUE</button>
     <div class="resend mono" id="resend">
@@ -154,6 +199,21 @@ form.on{display:flex; animation:fade .25s ease both}
 
   <div class="switch" id="switch"></div>
 </div>
+
+<aside class="auth-right" aria-hidden="true">
+  <div class="ar-glow"></div>
+  <div class="ar-phone">
+    <video src="/static/demo/demo_mb.mp4" muted loop autoplay playsinline
+           preload="auto" poster="/static/demo/poster.jpg"></video>
+  </div>
+  <div class="ar-copy">
+    <div class="ar-h">Edit video by <b>talking</b> to it.</div>
+    <div class="ar-sub">Turn long videos into publish-ready vertical clips — captioned,
+      reframed, and scored. Just describe the edit.</div>
+    <div class="ar-trust mono">FREE DURING EARLY ACCESS · NO CARD REQUIRED</div>
+  </div>
+</aside>
+</div><!-- /.auth-shell -->
 
 <script>
 (function () {
@@ -172,6 +232,44 @@ form.on{display:flex; animation:fade .25s ease both}
 
   var pendingEmail = sessionStorage.getItem("vc_pending_email") || "";
   var resendTimer = null;
+
+  // 6-box OTP: visible boxes drive the hidden input[name=code] the verify form
+  // submits. Auto-advance, backspace-to-previous, paste-to-fill, auto-submit at 6.
+  var otp = (function () {
+    var boxes = [].slice.call(formVerify.querySelectorAll(".otp-box"));
+    var hidden = formVerify.querySelector('input[name=code]');
+    function sync() {
+      hidden.value = boxes.map(function (b) { return b.value; }).join("");
+      boxes.forEach(function (b) { b.classList.toggle("filled", !!b.value); });
+    }
+    function maybeSubmit() {
+      if (hidden.value.length === 6) {
+        if (formVerify.requestSubmit) formVerify.requestSubmit();
+        else formVerify.querySelector(".submit").click();
+      }
+    }
+    boxes.forEach(function (b, i) {
+      b.addEventListener("input", function () {
+        b.value = b.value.replace(/\D/g, "").slice(0, 1);
+        if (b.value && i < boxes.length - 1) boxes[i + 1].focus();
+        sync(); maybeSubmit();
+      });
+      b.addEventListener("keydown", function (e) {
+        if (e.key === "Backspace" && !b.value && i > 0) { boxes[i - 1].focus(); }
+      });
+      b.addEventListener("paste", function (e) {
+        e.preventDefault();
+        var t = ((e.clipboardData || window.clipboardData).getData("text") || "")
+                  .replace(/\D/g, "").slice(0, 6);
+        boxes.forEach(function (bb, j) { bb.value = t[j] || ""; });
+        sync(); (boxes[Math.min(t.length, 5)] || boxes[5]).focus(); maybeSubmit();
+      });
+    });
+    return {
+      clear: function () { boxes.forEach(function (b) { b.value = ""; b.classList.remove("filled"); }); hidden.value = ""; },
+      focus: function () { if (boxes[0]) boxes[0].focus(); },
+    };
+  })();
 
   function showErr(msg) {
     errEl.textContent = msg;
@@ -194,8 +292,8 @@ form.on{display:flex; animation:fade .25s ease both}
         ? 'We sent a 6-digit code to <b>' + pendingEmail + '</b>.'
         : 'We sent a 6-digit code to your email.';
       startResendCooldown(45);
-      var ci = formVerify.querySelector('input[name=code]');
-      if (ci) { ci.value = ""; setTimeout(function () { ci.focus(); }, 50); }
+      otp.clear();
+      setTimeout(function () { otp.focus(); }, 50);
       return;
     }
     switchEl.innerHTML = login
@@ -307,6 +405,17 @@ form.on{display:flex; animation:fade .25s ease both}
     return { email: pendingEmail,
              code: formVerify.querySelector('input[name=code]').value.trim() };
   });
+})();
+</script>
+<script>
+/* Belt-and-suspenders autoplay for the showcase loop (muted autoplay can be
+   deferred by the browser until the tab is focused). */
+(function () {
+  var v = document.querySelector(".ar-phone video");
+  if (!v) return;
+  function go() { var p = v.play(); if (p && p.catch) p.catch(function () {}); }
+  v.addEventListener("canplay", go); go();
+  document.addEventListener("visibilitychange", function () { if (!document.hidden) go(); });
 })();
 </script>
 <script src="/static/mascot.js" defer></script>

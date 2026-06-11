@@ -98,6 +98,24 @@ body{min-height:100vh; background:var(--ink); color:var(--bone);
   border:none; border-radius:7px; padding:11px 22px; font-weight:700; cursor:pointer;
   font-family:'IBM Plex Mono',monospace; font-size:.66rem; letter-spacing:.12em}
 .errline{color:var(--red); font-size:.84rem; margin-bottom:14px; display:none}
+
+/* "building your studio" finale — replays the user's answers as a ticking
+   checklist instead of a bare progress bar */
+.buildlist{display:flex; flex-direction:column; gap:11px; max-width:340px;
+  margin:6px auto 0; text-align:left}
+.blitem{display:flex; align-items:center; gap:12px; font-size:.84rem;
+  color:var(--bone-faint); opacity:.45; transition:opacity .3s ease, color .3s ease}
+.blitem.done{opacity:1; color:var(--bone)}
+.blitem .bl-ic{width:21px; height:21px; border-radius:50%; flex:none;
+  border:1.5px solid var(--line-hi); display:flex; align-items:center; justify-content:center;
+  transition:border-color .3s, background .3s}
+.blitem.done .bl-ic{border-color:var(--green); background:rgba(61,220,151,.12)}
+.bl-spin{width:9px; height:9px; border-radius:50%; border:1.5px solid var(--line-hi);
+  border-top-color:var(--accent); animation:blspin .7s linear infinite}
+.blitem.done .bl-spin{display:none}
+.bl-check{display:none; color:var(--green); font-size:.72rem; line-height:1}
+.blitem.done .bl-check{display:block}
+@keyframes blspin{to{transform:rotate(360deg)}}
 </style>
 </head>
 <body>
@@ -111,9 +129,9 @@ body{min-height:100vh; background:var(--ink); color:var(--bone);
   <div class="steps-wrap" id="stepsWrap"></div>
   <div class="final" id="final">
     <div class="errline" id="errline"></div>
-    <h2 id="finalTitle">You're all set! 🎬</h2>
-    <p id="finalSub">Setting up your studio…</p>
-    <div class="fbar"><i id="fbarFill"></i></div>
+    <h2 id="finalTitle">Building your studio…</h2>
+    <p id="finalSub">Personalizing VibeClip from your answers.</p>
+    <div class="buildlist" id="buildlist"></div>
     <button class="retry" id="retry">TRY AGAIN</button>
   </div>
 </div>
@@ -243,7 +261,7 @@ body{min-height:100vh; background:var(--ink); color:var(--bone);
     }
   });
 
-  var fbarFill = document.getElementById("fbarFill");
+  var buildlist = document.getElementById("buildlist");
   var errline = document.getElementById("errline");
   var retry = document.getElementById("retry");
   var finalTitle = document.getElementById("finalTitle");
@@ -256,29 +274,65 @@ body{min-height:100vh; background:var(--ink); color:var(--bone);
     progressBar.style.width = "100%";
   }
 
+  // Human-readable label of the option the user picked for a step.
+  function labelFor(field) {
+    var step = STEPS.filter(function (s) { return s.field === field; })[0];
+    if (!step) return "";
+    var opt = step.opts.filter(function (o) { return o[0] === answers[field]; })[0];
+    return opt ? opt[2] : "";
+  }
+
+  // The checklist lines REPLAY the user's actual answers, so setup feels personal.
+  function buildLines() {
+    return [
+      "Tuning the AI for " + labelFor("content_type"),
+      "Optimizing format & loudness for " + labelFor("platform"),
+      'Setting the interface to “' + labelFor("experience") + '”',
+      "Dialing in the " + labelFor("style_vibe").toLowerCase() + " look",
+      "Prioritizing " + labelFor("goal").toLowerCase()
+    ];
+  }
+
   async function finish() {
     showFinalScreen();
     errline.style.display = "none";
     retry.style.display = "none";
-    finalTitle.textContent = "You're all set! 🎬";
-    finalSub.textContent = "Setting up your studio…";
-    fbarFill.style.width = "0";
+    finalTitle.textContent = "Building your studio…";
+    finalSub.textContent = "Personalizing VibeClip from your answers.";
+
+    // Render the checklist (all pending) and tick them one-by-one.
+    buildlist.style.display = "flex";
+    buildlist.innerHTML = buildLines().map(function (t) {
+      return '<div class="blitem"><span class="bl-ic">' +
+        '<span class="bl-spin"></span><span class="bl-check">✓</span></span>' +
+        '<span>' + t + '</span></div>';
+    }).join("");
+    var items = [].slice.call(buildlist.querySelectorAll(".blitem"));
+    var STEP_MS = 430;
+    var animDone = new Promise(function (resolve) {
+      items.forEach(function (it, i) {
+        setTimeout(function () { it.classList.add("done"); }, (i + 1) * STEP_MS);
+      });
+      setTimeout(resolve, (items.length + 1) * STEP_MS);
+    });
+
     try {
-      var r = await fetch("/api/onboarding", {
+      var post = fetch("/api/onboarding", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(answers),
       });
+      var r = await post;
       if (r.status === 401) { location.href = "/login"; return; }
       var data = {};
       try { data = await r.json(); } catch (e) {}
-      if (r.ok) {
-        requestAnimationFrame(function () { fbarFill.style.width = "100%"; });
-        setTimeout(function () { location.href = data.next || "/studio"; }, 950);
-        return;
-      }
-      throw new Error(data.error || "Something went wrong.");
+      if (!r.ok) throw new Error(data.error || "Something went wrong.");
+      await animDone;                       // let the checklist finish ticking
+      finalTitle.textContent = "You're all set! 🎬";
+      finalSub.textContent = "Opening your studio…";
+      setTimeout(function () { location.href = data.next || "/studio"; }, 500);
     } catch (e) {
+      buildlist.style.display = "none";
       finalTitle.textContent = "Something went wrong";
       finalSub.textContent = "";
       errline.textContent = (e && e.message) ? e.message : "Could not reach the server.";

@@ -557,9 +557,21 @@ function approveAndNext() {
   const cur = CLIPS.find(c => c.id === activeClip);
   if (!cur) return;
   const nxt = nextPending();           // capture target before status flips
+  celebrateApprove();                  // quick green ring-burst over the stage
   setClipStatus(cur, "approved");      // existing helper: optimistic + /api/tool
   if (nxt) goToClip(nxt);
   else { renderQueueChip(); }          // last clip — approved, nothing to advance to
+}
+
+/* A short delight beat when a clip is approved — a green ring + check pulse over
+   the viewer stage. Pure CSS animation, self-removing. */
+function celebrateApprove() {
+  if (!stageEl) return;
+  const b = document.createElement("div");
+  b.className = "approve-burst";
+  b.innerHTML = '<span class="ab-check">✓</span>';
+  stageEl.appendChild(b);
+  setTimeout(() => b.remove(), 760);
 }
 
 document.addEventListener("DOMContentLoaded", () => {

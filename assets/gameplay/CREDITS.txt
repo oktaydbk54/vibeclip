@@ -1,0 +1,51 @@
+Split-screen "gameplay background" packs — footage credits & licenses
+======================================================================
+
+Every clip in this folder is copyright-cleared for reuse. The split-screen
+stage (pipeline/splitscreen.py) uses these only as the muted BOTTOM region
+of a clip; their own audio is never used.
+
+Keep this file in sync with assets/gameplay/. If a clip's license requires
+attribution (CC BY), that attribution must remain visible wherever the
+rendered output is published — same rule as the landing demo footage.
+
+----------------------------------------------------------------------
+minecraft_parkour.mp4   (pack: "minecraft")
+  Source : "Minecraft Parkour Gameplay No Copyright 4K"
+           https://www.youtube.com/watch?v=BXUA2FncVPI
+  Author : Orbital - No Copyright Gameplay
+  License: Creative Commons Attribution (CC BY) — reuse allowed
+           (verified via `yt-dlp --print "%(license)s"` on 2026-06-11)
+  Notes  : ~48s segment (src 60s–108s), re-encoded 1080p30 h264, audio
+           stripped. ATTRIBUTION REQUIRED on published output.
+           Minecraft visuals © Mojang; gameplay videos are permitted under
+           Mojang's commercial usage guidelines.
+----------------------------------------------------------------------
+satisfying.mp4          (pack: "satisfying")
+  Source : "Close-up view of small glittering particles flowing through
+           water" — https://www.pexels.com/video/6208741/
+  License: Pexels License — free for commercial use, NO attribution
+           required. (royalty-free, real-world footage; uploader-owned)
+  Notes  : 1280x720 30fps h264, audio stripped.
+----------------------------------------------------------------------
+runner.mp4              (pack: "runner")
+  Source : "Dynamic drone footage of forest path at high speed"
+           https://www.pexels.com/video/30324643/
+  License: Pexels License — free for commercial use, NO attribution req.
+  Notes  : fast forward FPV motion = an endless-runner "feel" that is
+           100% copyright-clean. NOT real Subway Surfers (that is
+           SYBO-copyrighted — never ship it). 1080p30 h264, audio stripped.
+----------------------------------------------------------------------
+car_ramp.mp4            (pack: "ramp")
+  Source : "Dynamic racing car POV on track"
+           https://www.pexels.com/video/37622449/
+  License: Pexels License — free for commercial use, NO attribution req.
+  Notes  : real racing-car POV = a high-speed "ramp/driving" feel that is
+           copyright-clean. NOT GTA footage (Rockstar-copyrighted — never
+           ship it). 1080x1920 30fps h264, audio stripped.
+----------------------------------------------------------------------
+
+RULE: footage must be CC0 / Pexels-license / verified CC-BY only. NEVER ship
+the actual branded games (Subway Surfers = SYBO; GTA = Rockstar) — their
+recordings stay copyrighted even when a re-uploader tags them "CC". Use a
+copyright-clean lookalike that conveys the same motion instead.

@@ -1,0 +1,272 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>KESİM Studio — AI Video Editor</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Archivo:wght@400;500;600;700;800&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="/static/style.css">
+<link rel="stylesheet" href="/static/mascot.css">
+<script src="/static/mascot.js" defer></script>
+</head>
+<body>
+
+<header class="appbar">
+  <div class="brand"><span class="word">KESİM</span><span class="sub">studio</span></div>
+  <a class="backproj mono" href="/projects" title="All projects">‹ PROJECTS</a>
+  <div class="project mono" id="projname">loading…</div>
+  <button class="replace-vid" id="replaceVideo" title="Replace source video">⇪</button>
+  <input type="file" id="upvideo" style="display:none"
+    accept="video/mp4,video/quicktime,video/webm,video/x-matroska,.mp4,.mov,.webm,.mkv,.m4v,.avi">
+  <div class="spacer"></div>
+  <!-- Phase 4 — sequential-editing-queue progress (centered spine):
+       "clip N / M · X approved" -->
+  <div class="queuechip mono" id="queuechip" style="display:none" title="Editing queue progress"></div>
+  <div class="spacer"></div>
+  <div class="jobchip" id="jobchip" style="display:none">
+    <span class="jc-label mono" id="jcLabel"></span>
+    <span class="jc-bar"><i id="jcFill"></i></span>
+    <span class="jc-pct mono" id="jcPct"></span>
+    <button class="jc-cancel" id="jcCancel" title="cancel">✕</button>
+  </div>
+  <div class="status" id="status"><span class="dot"></span><span id="statusTxt">READY</span></div>
+  <div class="modeswitch" id="modeswitch">
+    <button id="modeBasit" title="Chat-driven — A/B approval for every change">SIMPLE</button>
+    <button id="modePro" title="Adds library, transcript, timeline & deliver tools">PRO</button>
+  </div>
+  <div class="userchip mono" id="userchip"></div>
+</header>
+
+<div class="shell">
+
+  <!-- ============ left: library ============ -->
+  <aside class="library">
+    <div class="tabs">
+      <div class="tab on" data-page="clips">Clips</div>
+      <div class="tab" data-page="assets">Assets</div>
+      <div class="tab" data-page="history">History</div>
+    </div>
+    <div class="tabpage on" id="page-clips"></div>
+    <div class="tabpage" id="page-assets">
+      <button class="upbtn" id="upbtn">＋ UPLOAD ASSET</button>
+      <input type="file" id="upfile" style="display:none" multiple
+        accept=".mp4,.mov,.webm,.png,.jpg,.jpeg,.webp,.gif,.mp3,.wav,.m4a,.aac,.ttf,.otf,.cube">
+      <div class="sub mono" id="assetEmpty"
+        style="color:var(--bone-faint);font-size:.62rem;line-height:1.6">
+        upload your logo, music, b-roll —<br>AI will suggest where they fit</div>
+      <div class="assetgrid" id="assetgrid"></div>
+      <div class="sect" id="soundsect" style="display:none">SOUNDS — drag onto the timeline</div>
+      <div class="soundlist" id="soundlist"></div>
+    </div>
+    <div class="tabpage" id="page-history"></div>
+  </aside>
+
+  <!-- ============ center: viewer ============ -->
+  <main class="viewer">
+    <!-- Phase 3 — plan/variant context line above the decision stage -->
+    <div class="planstrip" id="planStrip" style="display:none"></div>
+    <div class="stagewrap" id="stagewrap">
+      <div class="txtcol" id="txtcol">
+        <div class="txthead">
+          <span class="th-lbl mono">TRANSCRIPT</span>
+          <span class="grow"></span>
+          <button class="th-cuts mono" id="thCuts" style="display:none"></button>
+          <button class="th-filler mono" id="thFiller" style="display:none"></button>
+        </div>
+        <div class="txtbody" id="txtbody">
+          <div class="txt-empty mono">loading transcript…</div>
+        </div>
+        <div class="txtbar" id="txtbar">
+          <span class="tb-info mono" id="tbInfo"></span>
+          <span class="grow"></span>
+          <button class="tb-cancel" id="tbCancel">clear</button>
+          <button class="tb-cut" id="tbCut">CUT</button>
+        </div>
+      </div>
+      <div class="abcol" id="abA">
+        <span class="ablabel" id="abAlabel">A</span>
+        <div class="phone">
+          <video id="player" controls playsinline></video>
+          <div class="empty" id="empty"><b>PREVIEW</b>
+            No clip selected yet.<br>Pick one on the left or ask the AI to generate clips.</div>
+        </div>
+      </div>
+      <div class="abcol" id="abB">
+        <span class="ablabel" id="abBlabel">B</span>
+        <div class="phone"><video id="playerB" playsinline muted></video></div>
+      </div>
+    </div>
+    <!-- Phase 3 — the A/B decision bar: the product's approval gate, the
+         centerpiece. Shown only in compare (CSS adjacency on #stagewrap.compare).
+         pickA / abAudio / pickB moved here; wiring stays by id. -->
+    <div class="abdecide" id="abDecide">
+      <button class="pickbtn" id="pickA">PICK THIS</button>
+      <span class="ab-audio mono" id="abAudio" style="display:none">
+        <span class="aa-lbl">🔊</span>
+        <button class="aa-side on" id="aaA" type="button">A</button>
+        <button class="aa-side" id="aaB" type="button">B</button>
+      </span>
+      <button class="pickbtn" id="pickB">PICK THIS</button>
+    </div>
+    <div class="transport">
+      <div class="row1">
+        <!-- now-playing: timecode (moved from the appbar) + clip title/meta -->
+        <div class="tc" id="tc">00:00:00:00</div>
+        <span class="nowtitle" id="nowtitle">—</span>
+        <span class="nowmeta mono" id="nowmeta"></span>
+        <span class="grow"></span>
+        <!-- toggle cluster: depth (text / timeline / stages / compare / audio) -->
+        <span class="tog-cluster">
+          <button class="txt-toggle" id="txtToggle">📝 TEXT</button>
+          <button class="tl-toggle" id="tlToggle">🎞 TIMELINE</button>
+          <button class="tl-toggle" id="stToggle" style="display:none">STAGES</button>
+          <button class="cmp-toggle" id="cmpToggle" style="display:none">A/B COMPARE</button>
+        </span>
+        <!-- Phase 4 — sequential editing queue nav. Prev/Next move the focus
+             cursor to the prev/next non-skipped clip; "Approve & next" marks the
+             focused clip approved and advances to the next PENDING one. None of
+             these apply edits — editing still flows through the A/B gate. -->
+        <span class="qnav" id="qnav">
+          <button class="qn-btn mono" id="qnPrev" title="Previous clip in the queue">‹ PREV</button>
+          <button class="qn-btn mono" id="qnNext" title="Next clip in the queue">NEXT ›</button>
+          <button class="qn-btn qn-ok mono" id="qnApprove" title="Mark this clip approved (does not edit) and jump to the next pending clip">✓ APPROVE &amp; NEXT</button>
+        </span>
+        <!-- deliver cluster: EXPORT MP4 stays visible in both modes; the pro
+             caption/NLE/QC tools fold into a popover behind the ▾ button. -->
+        <span class="cc-export" id="ccExport" style="display:none">
+          <span class="cc-lbl mono">DELIVER</span>
+          <button class="cc-btn ex-btn" id="exportBtn" title="Render the final full-resolution MP4 from the original source">⤓ EXPORT MP4</button>
+          <button class="cc-btn share-btn" id="shareBtn" title="Connect a social account and share this short">↗ SHARE</button>
+          <a class="cc-btn ex-dl" id="exportDl" download style="display:none" title="Download the full-res export">↓ full-res</a>
+          <button class="cc-btn deliver-more" id="deliverMore" title="More deliverables — captions, NLE, QC">▾</button>
+          <span class="cc-pro" id="ccPro">
+            <span class="cc-lbl mono">CAPTIONS</span>
+            <a class="cc-btn" id="ccSrt" download>.srt</a>
+            <a class="cc-btn" id="ccVtt" download>.vtt</a>
+            <span class="cc-lbl mono">NLE</span>
+            <a class="cc-btn" id="nleXml" download title="DaVinci Resolve / Premiere — FCP7 XML">.xml</a>
+            <a class="cc-btn" id="nleEdl" download title="CMX3600 EDL">.edl</a>
+            <button class="cc-btn qc-btn" id="qcBtn" title="Quality control: loudness, true peak, format">QC</button>
+          </span>
+        </span>
+      </div>
+      <div class="pipeline" id="pipeline"></div>
+      <div class="clipstrip" id="clipstrip"></div>
+    </div>
+  </main>
+
+  <!-- ============ right: copilot ============ -->
+  <aside class="copilot">
+    <div class="copilot-h">
+      <div class="ai">K</div>
+      <div>
+        <div class="nm">DIRECTOR AI</div>
+        <div class="md mono">vibe-edit copilot</div>
+      </div>
+    </div>
+    <div class="chat" id="chat">
+      <div class="msg bot">Hey! I can pull clips from this video, apply styles, place your own assets, and edit by feel — try "make it punchier". What should we do?</div>
+    </div>
+    <div class="composer">
+      <div class="suggest">
+        <div class="suggest-label">Try one of these</div>
+        <div class="chips" id="hintchips"></div>
+      </div>
+      <div class="tier" id="tierToggle"
+           title="Pro uses a stronger AI for sharper intent understanding & planning (a bit slower)">
+        <span class="tier-lbl">AI</span>
+        <button id="tierFast" class="on" type="button">⚡ Fast</button>
+        <button id="tierPro" type="button">✦ Pro</button>
+      </div>
+      <form id="form">
+        <input type="text" id="input" autocomplete="off"
+          placeholder="Type a command… e.g. make clip 1 punchier">
+        <button class="send" id="send" type="submit">SEND</button>
+      </form>
+    </div>
+  </aside>
+
+  <!-- ============ bottom: full-width timeline dock ============ -->
+  <section class="tlpanel" id="tlpanel">
+    <div class="tl-head">
+      <span class="tl-title mono">TIMELINE</span>
+      <span class="tl-toolbar">
+        <button id="tlUndo" class="tl-tb" title="Undo (Ctrl+Z)" disabled>↩</button>
+        <button id="tlRedo" class="tl-tb" title="Redo (Ctrl+Shift+Z)" disabled>↪</button>
+        <span class="tl-sep"></span>
+        <button id="tlSplit" class="tl-tb" title="Split at playhead (S)">✂</button>
+        <button id="tlDelete" class="tl-tb" title="Ripple-delete selected segment (Del)">⌫</button>
+        <span class="tl-sep"></span>
+        <button id="tlSnap" class="tl-tb" title="Magnetic snapping (N)">🧲</button>
+        <button id="tlZoomOut" class="tl-tb" title="Zoom out (−)">−</button>
+        <button id="tlZoomIn" class="tl-tb" title="Zoom in (+)">＋</button>
+        <button id="tlFit" class="tl-tb tl-tb-wide" title="Zoom to fit (Shift+Z)">FIT</button>
+        <span class="tl-sep"></span>
+        <button id="tlSpeed" class="tl-tb tl-tb-wide" title="Playback speed (captions stay in sync)">1×</button>
+      </span>
+      <button class="tl-help mono" id="tlHelp" title="S → split · Del → ripple-delete segment · drag edges → trim · click frames → select segment · ⌃wheel → zoom · I/O → in–out · M → marker · Alt → bypass snap">?</button>
+      <span class="grow"></span>
+      <span class="tl-note mono" id="tlNote"></span>
+      <button class="tl-cut" id="tlCut" style="display:none">CUT (I–O)</button>
+    </div>
+    <div class="tl-wrap">
+      <div class="tl-gutter" id="tlGutter"></div>
+      <div class="tl-scroll" id="tlScroll">
+        <canvas class="tl-ruler" id="tlRuler"></canvas>
+        <div class="tl-body" id="tlBody">
+          <div class="tl-playhead" id="tlPlayhead"></div>
+          <div class="tl-inout" id="tlInOut" style="display:none"></div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+</div>
+
+<!-- ============ share-to-social modal (Phase 1) ============ -->
+<dialog class="share-modal" id="shareModal">
+  <div class="sm-head">
+    <span class="sm-title mono"><b>↗</b> SHARE TO SOCIAL</span>
+    <button class="sm-x" id="smClose" title="Close">✕</button>
+  </div>
+  <div class="sm-body">
+    <div class="sm-left">
+      <div class="sm-phone">
+        <video class="sm-preview" id="smPreview" muted loop playsinline></video>
+      </div>
+      <div class="sm-clip mono" id="smClip"></div>
+    </div>
+    <div class="sm-right">
+      <div class="sm-section">
+        <div class="sm-label mono">Accounts
+          <span class="sm-hint" id="smPlanHint"></span></div>
+        <div class="sm-accounts" id="smAccounts"></div>
+        <div class="sm-connect" id="smConnect"></div>
+      </div>
+      <div class="sm-section">
+        <div class="sm-label mono">POST TYPE</div>
+        <div class="sm-kinds" id="smKinds"></div>
+      </div>
+      <div class="sm-section">
+        <div class="sm-label mono">CAPTION</div>
+        <textarea class="sm-caption" id="smCaption" rows="4"
+          placeholder="Write a caption…"></textarea>
+        <div class="sm-count mono" id="smCount"></div>
+      </div>
+      <div class="sm-issues" id="smIssues"></div>
+      <div class="sm-status" id="smStatus"></div>
+      <button class="sm-publish" id="smPublish" disabled>PUBLISH</button>
+      <div class="sm-note mono">This posts publicly to the selected account(s)
+        as you. Nothing is sent until you press Publish.</div>
+    </div>
+  </div>
+</dialog>
+
+<script src="/static/app.js"></script>
+<script src="/static/share.js"></script>
+<script src="/static/transcript.js"></script>
+<script src="/static/timeline.js"></script>
+</body>
+</html>

@@ -1,0 +1,285 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>KESİM Studio — Setup</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Archivo:wght@400;500;600;700;800&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="/static/mascot.css">
+<style>
+:root{
+  --ink:#0a0712; --panel:#130d1f; --panel2:#181020; --raise:#1d1430;
+  --line:#2a2040; --line-hi:#3a2c54;
+  --bone:#e7e2f2; --bone-dim:#918aa6; --bone-faint:#615a73;
+  --accent:#9b5cff; --accent-dim:#4a2d80; --accent-glow:rgba(155,92,255,.14);
+  --accent-ink:#f7f3ff; --accent-hi:#c08bff; --red:#f4524d;
+}
+*{box-sizing:border-box; margin:0; padding:0}
+body{min-height:100vh; background:var(--ink); color:var(--bone);
+  font-family:'Archivo',system-ui,sans-serif; font-size:15px;
+  display:flex; flex-direction:column;
+  background-image:
+    repeating-linear-gradient(90deg, rgba(155,92,255,.025) 0 1px, transparent 1px 64px),
+    repeating-linear-gradient(0deg, rgba(255,255,255,.012) 0 1px, transparent 1px 64px);}
+.mono{font-family:'IBM Plex Mono',monospace}
+
+/* top bar */
+.top{display:flex; align-items:center; gap:14px; padding:16px 28px;
+  border-bottom:1px solid var(--line); position:relative; background:var(--panel)}
+.top::before{content:""; position:absolute; bottom:0; left:0; height:2px; width:20%;
+  background:var(--accent); transition:width .45s ease; box-shadow:0 0 10px var(--accent-glow)}
+.brand{display:flex; align-items:center; gap:9px}
+.brand-block{width:10px; height:18px; border-radius:2px; background:var(--accent);
+  box-shadow:0 0 12px var(--accent-glow)}
+.brand .word{font-weight:800; font-size:1rem; letter-spacing:.14em}
+.brand .sub{font-size:.54rem; letter-spacing:.34em; color:var(--bone-faint);
+  text-transform:uppercase; font-family:'IBM Plex Mono',monospace}
+.stepc{margin-left:auto; font-family:'IBM Plex Mono',monospace; font-size:.62rem;
+  letter-spacing:.16em; color:var(--bone-dim)}
+
+/* stage */
+.stage{flex:1; display:flex; align-items:center; justify-content:center; padding:40px 28px;
+  position:relative}
+.step{position:absolute; width:100%; max-width:560px; opacity:0; pointer-events:none;
+  transform:translateY(14px); transition:opacity .35s ease, transform .35s ease}
+.step.on{opacity:1; pointer-events:auto; transform:none; position:relative}
+.q-eyebrow{font-family:'IBM Plex Mono',monospace; font-size:.58rem; letter-spacing:.2em;
+  color:var(--accent); text-transform:uppercase; margin-bottom:12px}
+.step h2{font-weight:800; font-size:1.7rem; line-height:1.15; margin-bottom:8px}
+.step .sub{color:var(--bone-dim); font-size:.92rem; margin-bottom:24px}
+.opts{display:flex; flex-direction:column; gap:11px}
+.opt{display:flex; align-items:center; gap:14px; text-align:left; cursor:pointer;
+  background:var(--panel); border:1px solid var(--line); border-radius:11px;
+  padding:15px 18px; color:var(--bone); font-family:inherit; font-size:.95rem;
+  transition:border-color .15s, background .15s; width:100%}
+.opt:hover{border-color:var(--accent-dim); background:var(--raise)}
+.opt.sel{border-color:var(--accent); background:var(--raise);
+  box-shadow:0 0 0 1px var(--accent-dim), inset 3px 0 0 var(--accent)}
+.opt .ic{font-size:1.4rem; flex:none; width:30px; text-align:center}
+.opt .key{margin-left:auto; font-family:'IBM Plex Mono',monospace; font-size:.6rem;
+  color:var(--bone-faint); border:1px solid var(--line-hi); border-radius:4px;
+  padding:2px 7px; flex:none}
+.opt .txt{flex:1; min-width:0}
+.opt .lbl{font-weight:600; font-size:.95rem}
+.opt .osub{font-family:'IBM Plex Mono',monospace; font-size:.6rem; color:var(--bone-faint);
+  margin-top:3px; letter-spacing:.02em}
+
+.back{position:absolute; left:0; bottom:-48px; font-family:'IBM Plex Mono',monospace;
+  font-size:.64rem; color:var(--bone-dim); background:none; border:none; cursor:pointer;
+  letter-spacing:.06em; padding:6px}
+.back:hover{color:var(--accent)}
+.back.hide{display:none}
+
+/* final */
+.final{position:absolute; width:100%; max-width:480px; text-align:center; opacity:0;
+  pointer-events:none; transform:translateY(14px); transition:opacity .4s ease, transform .4s ease}
+.final.on{opacity:1; pointer-events:auto; transform:none; position:relative}
+.final h2{font-weight:800; font-size:2.1rem; margin-bottom:10px}
+.final p{color:var(--bone-dim); font-size:.95rem; margin-bottom:26px}
+.fbar{height:3px; width:100%; max-width:320px; margin:0 auto; border-radius:2px;
+  background:var(--line-hi); overflow:hidden}
+.fbar i{display:block; height:100%; width:0; background:var(--accent);
+  box-shadow:0 0 8px var(--accent-glow); transition:width .9s ease}
+.retry{display:none; margin-top:22px; background:var(--accent); color:var(--accent-ink);
+  border:none; border-radius:7px; padding:11px 22px; font-weight:700; cursor:pointer;
+  font-family:'IBM Plex Mono',monospace; font-size:.66rem; letter-spacing:.12em}
+.errline{color:var(--red); font-size:.84rem; margin-bottom:14px; display:none}
+</style>
+</head>
+<body>
+
+<div class="top">
+  <div class="brand"><span class="brand-block"></span><span class="word">KESİM</span><span class="sub">studio</span></div>
+  <div class="stepc" id="stepc">STEP 1 / 5</div>
+</div>
+
+<div class="stage" id="stage">
+  <div class="steps-wrap" id="stepsWrap"></div>
+  <div class="final" id="final">
+    <div class="errline" id="errline"></div>
+    <h2 id="finalTitle">You're all set! 🎬</h2>
+    <p id="finalSub">Setting up your studio…</p>
+    <div class="fbar"><i id="fbarFill"></i></div>
+    <button class="retry" id="retry">TRY AGAIN</button>
+  </div>
+</div>
+
+<script>
+(function () {
+  "use strict";
+
+  var STEPS = [
+    { field: "content_type", eyebrow: "CONTENT TYPE",
+      q: "What kind of videos will you edit?",
+      sub: "We'll tune the AI's suggestions to match.",
+      opts: [
+        ["podcast", "🎙", "Podcast & Talk", "best moments from long recordings"],
+        ["egitim", "🎓", "Education & How-to", "lessons, explainers, knowledge content"],
+        ["oyun", "🎮", "Gaming & Stream clips", "stream highlights"],
+        ["vlog", "🌍", "Vlog & Lifestyle", "daily life, travel, lifestyle"],
+        ["marka", "💼", "Brand & Product", "promos, ads, social content"]
+      ] },
+    { field: "platform", eyebrow: "PLATFORM",
+      q: "Where will your clips be published?",
+      sub: "Loudness, format and pacing adapt to the platform.",
+      opts: [
+        ["tiktok", "", "TikTok", ""],
+        ["reels", "", "Instagram Reels", ""],
+        ["youtube_shorts", "", "YouTube Shorts", ""],
+        ["multi", "", "All of them", "I publish on multiple platforms"]
+      ] },
+    { field: "experience", eyebrow: "EXPERIENCE",
+      q: "How much editing experience do you have?",
+      sub: "We'll set up the interface to match — you can change it anytime.",
+      opts: [
+        ["yeni", "🌱", "None", "let AI edit, I'll just approve"],
+        ["orta", "⚡", "Some", "I want ideas and options, AI handles the details"],
+        ["pro", "🎛", "I'm a pro", "timeline, transcript, full control"]
+      ] },
+    { field: "style_vibe", eyebrow: "STYLE",
+      q: "What's the vibe of your videos?",
+      sub: "",
+      opts: [
+        ["enerjik", "🔥", "Energetic & fast", "punchy cuts, bold captions"],
+        ["sinematik", "🎬", "Cinematic & emotional", "soft transitions, atmosphere"],
+        ["sade", "◻", "Clean & professional", "minimal, no distractions"],
+        ["eglenceli", "😄", "Fun & meme-y", "stickers, sfx, internet culture"]
+      ] },
+    { field: "goal", eyebrow: "GOAL",
+      q: "What's your priority?",
+      sub: "",
+      opts: [
+        ["viral", "📈", "Views & viral reach", ""],
+        ["topluluk", "🫂", "Followers & community", ""],
+        ["satis", "💰", "Sales & customers", ""],
+        ["zaman", "⏱", "Just saving time", "I don't want to spend hours editing"]
+      ] }
+  ];
+
+  var answers = {};
+  var cur = 0;
+  var wrap = document.getElementById("stepsWrap");
+  var stepc = document.getElementById("stepc");
+  var top = document.querySelector(".top");
+  var finalEl = document.getElementById("final");
+  var els = [];
+
+  // build all steps
+  STEPS.forEach(function (s, si) {
+    var d = document.createElement("div");
+    d.className = "step";
+    var optsHtml = s.opts.map(function (o, oi) {
+      var icon = o[1] ? '<span class="ic">' + o[1] + '</span>' : '';
+      var osub = o[3] ? '<div class="osub">' + o[3] + '</div>' : '';
+      return '<button class="opt" data-val="' + o[0] + '" data-i="' + oi + '">' +
+        icon + '<span class="txt"><span class="lbl">' + o[2] + '</span>' + osub +
+        '</span><span class="key">' + (oi + 1) + '</span></button>';
+    }).join("");
+    var back = si > 0
+      ? '<button class="back" data-back>← back</button>'
+      : '<button class="back hide" data-back>← back</button>';
+    d.innerHTML =
+      '<div class="q-eyebrow">' + s.eyebrow + '</div>' +
+      '<h2>' + s.q + '</h2>' +
+      (s.sub ? '<div class="sub">' + s.sub + '</div>' : '') +
+      '<div class="opts">' + optsHtml + '</div>' + back;
+    wrap.appendChild(d);
+    els.push(d);
+  });
+
+  // progress bar element (sits over the static ::before strip)
+  var progressBar = document.createElement("div");
+  progressBar.style.cssText = "position:absolute;bottom:0;left:0;height:2px;background:var(--accent);box-shadow:0 0 10px var(--accent-glow);transition:width .45s ease;width:20%;z-index:1";
+  top.appendChild(progressBar);
+
+  function show() {
+    els.forEach(function (el, i) { el.classList.toggle("on", i === cur); });
+    finalEl.classList.remove("on");
+    stepc.textContent = "STEP " + (cur + 1) + " / 5";
+    progressBar.style.width = ((cur + 1) / 5 * 100) + "%";
+  }
+
+  function select(si, val) {
+    if (si !== cur) return;
+    var step = els[si];
+    step.querySelectorAll(".opt").forEach(function (b) {
+      b.classList.toggle("sel", b.dataset.val === val);
+    });
+    answers[STEPS[si].field] = val;
+    setTimeout(function () {
+      if (cur < STEPS.length - 1) { cur++; show(); }
+      else { finish(); }
+    }, 250);
+  }
+
+  wrap.addEventListener("click", function (e) {
+    var opt = e.target.closest(".opt");
+    if (opt) { select(cur, opt.dataset.val); return; }
+    if (e.target.closest("[data-back]")) {
+      if (cur > 0) { cur--; show(); }
+    }
+  });
+
+  document.addEventListener("keydown", function (e) {
+    if (finalEl.classList.contains("on")) return;
+    var n = parseInt(e.key, 10);
+    if (n >= 1 && n <= 5) {
+      var opts = els[cur].querySelectorAll(".opt");
+      if (opts[n - 1]) { e.preventDefault(); select(cur, opts[n - 1].dataset.val); }
+    }
+  });
+
+  var fbarFill = document.getElementById("fbarFill");
+  var errline = document.getElementById("errline");
+  var retry = document.getElementById("retry");
+  var finalTitle = document.getElementById("finalTitle");
+  var finalSub = document.getElementById("finalSub");
+
+  function showFinalScreen() {
+    els.forEach(function (el) { el.classList.remove("on"); });
+    finalEl.classList.add("on");
+    stepc.textContent = "DONE";
+    progressBar.style.width = "100%";
+  }
+
+  async function finish() {
+    showFinalScreen();
+    errline.style.display = "none";
+    retry.style.display = "none";
+    finalTitle.textContent = "You're all set! 🎬";
+    finalSub.textContent = "Setting up your studio…";
+    fbarFill.style.width = "0";
+    try {
+      var r = await fetch("/api/onboarding", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(answers),
+      });
+      if (r.status === 401) { location.href = "/login"; return; }
+      var data = {};
+      try { data = await r.json(); } catch (e) {}
+      if (r.ok) {
+        requestAnimationFrame(function () { fbarFill.style.width = "100%"; });
+        setTimeout(function () { location.href = data.next || "/studio"; }, 950);
+        return;
+      }
+      throw new Error(data.error || "Something went wrong.");
+    } catch (e) {
+      finalTitle.textContent = "Something went wrong";
+      finalSub.textContent = "";
+      errline.textContent = (e && e.message) ? e.message : "Could not reach the server.";
+      errline.style.display = "block";
+      retry.style.display = "inline-block";
+    }
+  }
+
+  retry.onclick = function () { finish(); };
+
+  show();
+})();
+</script>
+<script src="/static/mascot.js" defer></script>
+</body>
+</html>

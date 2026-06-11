@@ -1,0 +1,12 @@
+.venv/
+__pycache__/
+**/__pycache__/
+*.pyc
+.git/
+.env
+cache/
+outputs/
+assets/user/
+long_test.mp4
+*.log
+.DS_Store

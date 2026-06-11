@@ -1,0 +1,21 @@
+services:
+  vibeclip:
+    build: .
+    container_name: vibeclip
+    restart: unless-stopped
+    env_file: .env
+    # Bind only to the docker bridge gateway: reachable by the Caddy reverse
+    # proxy (via 172.17.0.1:8765) but NOT exposed on the public IP.
+    ports:
+      - "172.17.0.1:8765:8765"
+    volumes:
+      - vibeclip_cache:/app/cache         # users.db (accounts) + caches
+      - vibeclip_outputs:/app/outputs      # project sessions + rendered videos
+      - vibeclip_user:/app/assets/user     # user uploads + generated assets
+      - vibeclip_models:/root/.cache/huggingface  # faster-whisper model cache
+
+volumes:
+  vibeclip_cache:
+  vibeclip_outputs:
+  vibeclip_user:
+  vibeclip_models:

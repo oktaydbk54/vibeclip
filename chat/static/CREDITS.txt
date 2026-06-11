@@ -1,0 +1,14 @@
+KESİM Studio — third-party media credits
+=========================================
+
+Landing-page demo footage (chat/static/demo/demo_*.mp4, poster.jpg)
+-------------------------------------------------------------------
+Source : "Three tips to talk to camera like a pro" by Andy Dickinson
+URL    : https://www.youtube.com/watch?v=hu0JYxDHpQI
+License: Creative Commons Attribution (CC-BY) — reuse allowed
+Use    : pre-cropped to a centered 9:16 master and edited through the KESİM
+         pipeline (cut / silence-removal / captions / zoom / style) to produce
+         the A/B before-after demo clips shown on the landing page.
+
+Per the CC-BY terms, attribution is provided here and in the landing page
+footer. No endorsement by the original author is implied.

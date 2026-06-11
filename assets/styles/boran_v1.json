@@ -1,0 +1,26 @@
+{
+ "label": "Custom — clip #1 görünümünden kaydedildi",
+ "subtitle": {
+  "scale": 1.2,
+  "y_ratio": 0.55,
+  "karaoke": true,
+  "text_color": "#ffffff",
+  "highlight_color": "#ffd60a",
+  "font": "/System/Library/Fonts/Supplemental/Arial Black.ttf",
+  "stroke": 9,
+  "hilite_pop": 1.18,
+  "uppercase": true
+ },
+ "pacing": {
+  "max_pause": 0.35,
+  "remove_fillers": true,
+  "zoom_density": 0.25,
+  "zoom_strength": 1.22
+ },
+ "audio": {
+  "music_volume": 0.16,
+  "music_mood": "energetic",
+  "sfx_density": "medium",
+  "fade": 0.2
+ }
+}

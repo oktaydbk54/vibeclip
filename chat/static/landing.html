@@ -1,0 +1,212 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>KESİM Studio — AI Video Editing Studio</title>
+<meta name="description" content="KESİM turns your long videos into viral-ready clips in seconds — an AI editing studio you control by talking.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Archivo:wght@400;500;600;700;800&family=Bricolage+Grotesque:opsz,wght@12..96,600;12..96,700;12..96,800&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="/static/landing.css">
+<link rel="stylesheet" href="/static/mascot.css">
+</head>
+<body>
+
+<!-- ============ sticky nav ============ -->
+<nav class="nav" id="nav">
+  <a href="/" class="brand" aria-label="KESİM studio">
+    <span class="brand-block"></span>
+    <span class="word">KESİM</span><span class="sub mono">studio</span>
+  </a>
+  <div class="nav-links mono">
+    <a href="#how">How it works</a>
+    <a href="#pricing">Pricing</a>
+  </div>
+  <div class="nav-cta" id="navCta">
+    <a href="/login" class="btn btn-ghost">Sign in</a>
+    <a href="/signup" class="btn btn-solid">START FREE</a>
+  </div>
+</nav>
+
+<!-- ============ 1 — HERO + LIVE DEMO ============ -->
+<header class="hero reveal">
+  <!-- atmosphere: one soft glow + faint static grid + grain (pure CSS, calm) -->
+  <div class="hero-atmos" aria-hidden="true">
+    <div class="atmos-glow g1"></div>
+    <div class="atmos-grid"></div>
+    <div class="atmos-grain"></div>
+  </div>
+
+  <div class="hero-inner">
+    <a class="hero-badge mono hrise" style="--d:.04s" href="#how">
+      <span class="badge-dot"></span> AI EDITING STUDIO — RUNS IN YOUR BROWSER
+    </a>
+    <h1 class="hero-h1 hrise" style="--d:.1s">
+      Edit video by<br><span class="accent-word">talking</span> to it.
+    </h1>
+    <p class="lead hrise" style="--d:.18s">
+      KESİM turns long videos into publish-ready vertical clips. Describe the
+      edit in plain words — cut, caption, reframe — then review the
+      before&nbsp;/&nbsp;after and approve in one click.
+    </p>
+    <div class="hero-cta hrise" style="--d:.26s">
+      <a href="/signup" class="btn btn-solid btn-glow btn-lg">Start free →</a>
+      <a href="#how" class="btn btn-ghost btn-lg">See how it works</a>
+    </div>
+    <div class="trust mono hrise" style="--d:.34s">NO INSTALL · RUNS IN THE BROWSER · EVERY EDIT REVERSIBLE</div>
+  </div>
+</header>
+
+<!-- ============ 2 — HOW IT WORKS = LIVE INTERACTIVE DEMO ============ -->
+<section id="how" class="sect-how reveal">
+  <div class="sect-head">
+    <div class="eyebrow mono">HOW IT WORKS</div>
+    <h2>Try it yourself — type a command, watch it edit.</h2>
+    <p class="sect-sub">Real footage, real outputs from our pipeline. Pick a command, compare the
+      before&nbsp;/&nbsp;after, and approve the version you like — exactly how the studio works.</p>
+  </div>
+
+  <!-- live A/B demo: the whole "how it works" is this interactive panel -->
+  <div class="demo-shell">
+    <div class="demo-head mono">
+      <span class="demo-live"><span class="rec-dot"></span>LIVE DEMO</span>
+      <span class="demo-sub">REAL VIDEO · REAL EDITS FROM OUR PIPELINE</span>
+    </div>
+
+    <div class="try" id="try">
+    <!-- A/B stage: two real 9:16 phones, mirrors the studio viewer -->
+    <div class="try-stage" id="tryStage">
+      <div class="abcol" id="abA">
+        <div class="ablabel mono" id="abAlabel">A — ORIGINAL · 0:14</div>
+        <div class="phone">
+          <video id="demoA" muted loop playsinline preload="auto"
+                 poster="/static/demo/poster.jpg"></video>
+          <button class="demo-sound mono" id="soundA" type="button"
+                  aria-label="Toggle audio A">🔊</button>
+          <div class="demo-play" id="playA" hidden>▶ TAP TO PLAY</div>
+        </div>
+        <button class="pickbtn ghost" id="pickA" type="button">KEEP A — DISCARD</button>
+      </div>
+      <div class="abcol" id="abB">
+        <div class="ablabel mono" id="abBlabel">B — PROPOSAL</div>
+        <div class="phone">
+          <video id="demoB" muted loop playsinline preload="none"
+                 poster="/static/demo/poster.jpg"></video>
+          <button class="demo-sound mono" id="soundB" type="button"
+                  aria-label="Toggle audio B">🔊</button>
+          <div class="demo-shim" id="shimB" hidden></div>
+        </div>
+        <button class="pickbtn" id="pickB" type="button">APPROVE — APPLY B</button>
+      </div>
+    </div>
+
+    <!-- real chat composer driving the A/B swap -->
+    <div class="try-chat">
+      <div class="tc-head mono">
+        <span class="dot"></span><span class="dot"></span><span class="dot"></span>
+        <span class="tc-title">KESİM · CHAT</span>
+      </div>
+      <div class="tc-log" id="tcLog">
+        <div class="tc-empty mono" id="tcEmpty">▸ Pick a command below to direct the edit.</div>
+      </div>
+      <div class="tc-composer">
+        <div class="tc-line" id="tcLine"><span class="tc-caret"></span></div>
+      </div>
+      <div class="tc-chips" id="tcChips">
+        <button class="chip" data-cmd="mrbeast">make clip 1 mrbeast style</button>
+        <button class="chip" data-cmd="silence">cut the silences</button>
+        <button class="chip" data-cmd="captions">add captions</button>
+        <button class="chip" data-cmd="punchier">make it punchier</button>
+        <button class="chip chip-reset" data-cmd="reset">↺ reset demo</button>
+      </div>
+      <!-- applied confirmation -->
+      <div class="tc-applied mono" id="tcApplied">✓ Applied — B is the new A. Stack another edit.</div>
+    </div>
+
+    <p class="demo-note mono">Both sides are real, unretouched outputs of KESİM's pipeline — pre-rendered so they load instantly.</p>
+    </div><!-- /.try -->
+  </div><!-- /.demo-shell -->
+</section>
+
+<!-- ============ 3 — PRICING ============ -->
+<section id="pricing" class="sect-price reveal">
+  <div class="sect-head">
+    <div class="eyebrow mono">PRICING</div>
+    <h2>Simple plans. Free while we're in early access.</h2>
+    <p class="sect-sub">Start free — no card required. Upgrade when you outgrow it, cancel anytime.</p>
+  </div>
+  <div class="tiers">
+
+    <div class="tier">
+      <div class="tier-name mono">STARTER</div>
+      <p class="tier-desc">Try KESİM on your first handful of clips.</p>
+      <div class="tier-price"><span class="cur">$</span>0<span class="per">/mo</span></div>
+      <a href="/signup" class="btn btn-ghost btn-full">Start free</a>
+      <ul class="tier-feats">
+        <li>10 clips per month</li>
+        <li>SIMPLE mode</li>
+        <li>720p export</li>
+        <li>KESİM watermark</li>
+      </ul>
+    </div>
+
+    <div class="tier tier-pop">
+      <div class="tier-tag mono">MOST POPULAR</div>
+      <div class="tier-name mono">CREATOR</div>
+      <p class="tier-desc">For creators shipping clips every week.</p>
+      <div class="tier-price"><span class="cur">$</span>19<span class="per">/mo</span></div>
+      <a href="/signup" class="btn btn-solid btn-glow btn-full">Start free</a>
+      <ul class="tier-feats">
+        <li><b>Everything in Starter, plus</b></li>
+        <li>Unlimited clips</li>
+        <li>PRO mode + full timeline</li>
+        <li>All style presets</li>
+        <li>1080p export, no watermark</li>
+      </ul>
+    </div>
+
+    <div class="tier">
+      <div class="tier-name mono">STUDIO</div>
+      <p class="tier-desc">For teams and high-volume output.</p>
+      <div class="tier-price"><span class="cur">$</span>49<span class="per">/mo</span></div>
+      <a href="/signup" class="btn btn-ghost btn-full">Start free</a>
+      <ul class="tier-feats">
+        <li><b>Everything in Creator, plus</b></li>
+        <li>Team workspace &amp; seats</li>
+        <li>Brand kit</li>
+        <li>API access</li>
+        <li>Priority rendering</li>
+      </ul>
+    </div>
+
+  </div>
+  <p class="price-foot mono">Free during early access · No card required · Cancel anytime</p>
+</section>
+
+<!-- ============ 4 — FINAL CTA ============ -->
+<section class="sect-final reveal">
+  <h2>Your next clip is one sentence away.</h2>
+  <a href="/signup" class="btn btn-solid btn-glow btn-lg">START FREE →</a>
+  <div class="trust mono">FREE DURING EARLY ACCESS · NO CARD REQUIRED</div>
+</section>
+
+<footer class="foot">
+  <a href="/" class="brand">
+    <span class="brand-block"></span>
+    <span class="word">KESİM</span><span class="sub mono">studio</span>
+  </a>
+  <span class="copy mono">© 2026 KESİM</span>
+  <div class="foot-links mono">
+    <a href="#">Privacy</a><a href="#">Terms</a><a href="#">Contact</a>
+  </div>
+  <!-- CC-BY attribution for the demo footage (required by the license). -->
+  <span class="credit mono">Demo footage: “Three tips to talk to camera like a pro” by
+    <a href="https://www.youtube.com/watch?v=hu0JYxDHpQI" target="_blank" rel="noopener">Andy Dickinson</a>,
+    <a href="https://creativecommons.org/licenses/by/4.0/" target="_blank" rel="noopener">CC&nbsp;BY</a>.</span>
+</footer>
+
+<script src="/static/landing.js"></script>
+<script src="/static/mascot.js" defer></script>
+</body>
+</html>

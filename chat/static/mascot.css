@@ -1,0 +1,137 @@
+/* KESİM mascot cursor — "Snip", the scissors mascot.
+   Self-contained drop-in: include via <link> + <script defer src="mascot.js">.
+   No dependencies, no required DOM. mascot.js adds html.has-mascot only on
+   fine-pointer, motion-OK devices. */
+
+html.has-mascot,
+html.has-mascot * {
+  cursor: none;
+}
+
+/* keep native text cursor on text-entry fields (typing must not be obstructed) */
+html.has-mascot input:not([type="submit"]):not([type="button"]):not([type="checkbox"]):not([type="radio"]),
+html.has-mascot textarea,
+html.has-mascot [contenteditable="true"],
+html.has-mascot [contenteditable=""] {
+  cursor: text;
+}
+
+/* Modal dialogs render in the browser top-layer, ABOVE the mascot element
+   (z-index can't reach the top-layer), so the scissors cursor vanishes inside
+   them. Restore the real OS cursor for any open <dialog> and its children. */
+html.has-mascot dialog[open],
+html.has-mascot dialog[open] * {
+  cursor: auto;
+}
+html.has-mascot dialog[open] button,
+html.has-mascot dialog[open] a,
+html.has-mascot dialog[open] summary,
+html.has-mascot dialog[open] [role="button"],
+html.has-mascot dialog[open] label {
+  cursor: pointer;
+}
+html.has-mascot dialog[open] input,
+html.has-mascot dialog[open] textarea {
+  cursor: text;
+}
+html.has-mascot dialog[open] button:disabled {
+  cursor: default;
+}
+
+#kesim-mascot {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 44px;
+  height: 44px;
+  margin: -22px 0 0 -22px; /* center on pointer */
+  pointer-events: none;
+  z-index: 99999;
+  opacity: 0;
+  will-change: transform, opacity;
+  transition: opacity 0.22s ease;
+  /* transform set inline by JS via translate3d + rotate + scale */
+}
+#kesim-mascot.km-on {
+  opacity: 1;
+}
+#kesim-mascot.km-dim {
+  opacity: 0.35;
+}
+
+#kesim-mascot svg {
+  display: block;
+  width: 100%;
+  height: 100%;
+  overflow: visible;
+  filter: drop-shadow(0 2px 5px rgba(0, 0, 0, 0.55));
+}
+
+/* blade groups rotate around the pivot for the SNIP */
+.km-blade {
+  transform-box: fill-box;
+  transform-origin: 22px 27px;
+  transition: transform 0.09s cubic-bezier(0.3, 0.9, 0.3, 1);
+}
+.km-blade-top {
+  transform: rotate(0deg);
+}
+.km-blade-bot {
+  transform: rotate(0deg);
+}
+/* "ready to cut" — blades open slightly over interactive elements */
+#kesim-mascot.km-ready .km-blade-top {
+  transform: rotate(-9deg);
+}
+#kesim-mascot.km-ready .km-blade-bot {
+  transform: rotate(9deg);
+}
+/* SNIP — quick close */
+#kesim-mascot.km-snip .km-blade-top {
+  transform: rotate(7deg);
+}
+#kesim-mascot.km-snip .km-blade-bot {
+  transform: rotate(-7deg);
+}
+
+/* eyes / blink */
+.km-eye {
+  transform-box: fill-box;
+  transform-origin: center;
+  transition: transform 0.08s linear;
+}
+#kesim-mascot.km-blink .km-eye {
+  transform: scaleY(0.12);
+}
+
+/* idle bob */
+#kesim-mascot.km-idle {
+  animation: kmBob 2.2s ease-in-out infinite;
+}
+@keyframes kmBob {
+  0%, 100% { margin-top: -22px; }
+  50% { margin-top: -27px; }
+}
+
+/* spark particle on snip */
+.km-spark {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 5px;
+  height: 5px;
+  margin: -2.5px 0 0 -2.5px;
+  border-radius: 50%;
+  background: #9b5cff;
+  box-shadow: 0 0 8px 2px rgba(155, 92, 255, 0.7);
+  pointer-events: none;
+  z-index: 99998;
+  opacity: 0;
+}
+.km-spark.km-fire {
+  animation: kmSpark 0.42s ease-out forwards;
+}
+@keyframes kmSpark {
+  0% { opacity: 1; transform: translate(0, 0) scale(1); }
+  100% { opacity: 0; transform: translate(var(--sx, 10px), var(--sy, -10px)) scale(0.3); }
+}

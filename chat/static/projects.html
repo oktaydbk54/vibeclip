@@ -1,0 +1,430 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>KESİM Studio — Projects</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Archivo:wght@400;500;600;700;800&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="/static/mascot.css">
+<script src="/static/mascot.js" defer></script>
+<style>
+:root{
+  --ink:#0a0712; --panel:#130d1f; --panel2:#181020; --panel-quiet:#0e0a16;
+  --raise:#1d1430;
+  --line:#2a2040; --line-hi:#3a2c54;
+  --bone:#e7e2f2; --bone-dim:#918aa6; --bone-faint:#615a73;
+  --accent:#9b5cff; --accent-dim:#4a2d80; --accent-glow:rgba(155,92,255,.14);
+  --accent-ink:#f7f3ff;
+  --accent-hi:#c08bff; --hilite:#e879f9;
+  --green:#3ddc97; --red:#f4524d; --blue:#6b8dff; --orange:#ffb454;
+  --ok:#3ddc97; --warn:#ffb454; --err:#f4524d;
+  --shadow-card:0 14px 36px -18px rgba(0,0,0,.8);
+  --r:8px;
+}
+@media (prefers-reduced-motion:reduce){
+  *{animation:none!important; transition:none!important}
+}
+*{box-sizing:border-box; margin:0; padding:0}
+html,body{height:100%}
+body{
+  background:var(--ink); color:var(--bone);
+  font-family:'Archivo',system-ui,sans-serif; min-height:100%;
+  display:flex; flex-direction:column;
+}
+.mono{font-family:'IBM Plex Mono',monospace}
+
+/* -------- appbar -------- */
+.appbar{
+  display:flex; align-items:center; gap:16px; padding:12px 22px;
+  border-bottom:1px solid var(--line); position:relative;
+  background:linear-gradient(180deg,var(--panel),var(--ink));
+}
+.appbar::before{content:""; position:absolute; left:0; top:0; bottom:0;
+  width:3px; background:var(--accent)}
+.brand{display:flex; align-items:center; gap:9px; user-select:none}
+.brand::before{content:""; width:10px; height:18px; border-radius:2px;
+  background:var(--accent)}
+.brand .word{font-weight:800; font-size:1.05rem; letter-spacing:.14em}
+.brand .sub{font-family:'IBM Plex Mono',monospace; font-size:.56rem;
+  letter-spacing:.34em; color:var(--bone-faint); text-transform:uppercase}
+.pglabel{font-size:.6rem; letter-spacing:.26em; color:var(--bone-faint);
+  text-transform:uppercase; border:1px solid var(--line); padding:5px 10px;
+  border-radius:6px}
+.spacer{flex:1}
+.jobchip{display:flex; align-items:center; gap:9px; padding:5px 10px;
+  border:1px solid var(--accent-dim); border-radius:7px;
+  background:var(--accent-glow)}
+.jc-label{font-size:.56rem; letter-spacing:.14em; color:var(--accent);
+  text-transform:uppercase}
+.jc-bar{width:88px; height:4px; border-radius:2px; background:var(--line-hi);
+  overflow:hidden}
+.jc-bar i{display:block; height:100%; width:0;
+  background:linear-gradient(90deg, var(--accent-dim), var(--accent));
+  transition:width .25s ease}
+.jc-pct{font-size:.6rem; color:var(--bone-dim); min-width:30px; text-align:right}
+.userchip{display:flex; align-items:center; gap:10px; font-size:.66rem;
+  color:var(--bone-dim)}
+.userchip button{background:none; border:1px solid var(--line-hi);
+  color:var(--bone-faint); font-family:'IBM Plex Mono',monospace;
+  font-size:.56rem; letter-spacing:.14em; padding:5px 9px; border-radius:6px;
+  cursor:pointer}
+.userchip button:hover{color:var(--red); border-color:var(--red)}
+
+/* -------- header -------- */
+.wrap{flex:1; padding:34px 5vw 60px; max-width:1500px; width:100%; margin:0 auto}
+.phead{display:flex; align-items:flex-end; gap:14px; margin-bottom:26px}
+.phead h1{font-size:1.7rem; font-weight:700; letter-spacing:.01em}
+.phead .count{font-size:.7rem; color:var(--bone-faint); margin-bottom:5px}
+.btn-primary{
+  margin-left:auto; background:var(--accent); color:var(--accent-ink);
+  border:none; border-radius:7px; padding:11px 18px; font-weight:700;
+  font-size:.78rem; letter-spacing:.04em; cursor:pointer;
+  font-family:'Archivo',sans-serif;
+  display:inline-flex; align-items:center; gap:7px;
+}
+.btn-primary .plus{width:15px; height:15px; flex:none}
+.btn-primary:hover{background:var(--accent-hi)}
+.btn-primary:disabled{opacity:.45; cursor:not-allowed}
+
+/* -------- filter pills -------- */
+.filters{display:flex; gap:8px; margin-bottom:18px; flex-wrap:wrap}
+.pill{background:none; border:1px solid var(--line); color:var(--bone-faint);
+  font-family:'IBM Plex Mono',monospace; font-size:.58rem; letter-spacing:.14em;
+  padding:6px 12px; border-radius:20px; cursor:pointer}
+.pill:hover{color:var(--bone-dim); border-color:var(--line-hi)}
+.pill.on{color:var(--accent); border-color:var(--accent-dim);
+  background:var(--accent-glow)}
+
+/* -------- grid + cards -------- */
+.grid{display:grid; gap:20px; grid-template-columns:repeat(auto-fill,minmax(300px,1fr))}
+.card{
+  background:var(--panel); border:1px solid var(--line); border-radius:10px;
+  overflow:hidden; display:flex; flex-direction:column; position:relative;
+  animation:fadeUp .4s ease both; animation-delay:calc(var(--i,0)*40ms);
+}
+@keyframes fadeUp{from{opacity:0; transform:translateY(10px)} to{opacity:1; transform:none}}
+.card.active{border-color:var(--accent-dim)}
+.card.openable{cursor:pointer; transition:border-color .18s, transform .18s, box-shadow .18s}
+.card.openable:hover{border-color:var(--line-hi); transform:translateY(-2px);
+  box-shadow:var(--shadow-card)}
+.thumb{aspect-ratio:16/9; background:var(--panel2); position:relative;
+  overflow:hidden; display:flex; align-items:center; justify-content:center}
+.thumb img{width:100%; height:100%; object-fit:cover; display:block;
+  transition:transform .25s ease}
+.card.openable:hover .thumb img{transform:scale(1.03)}
+.thumb .glyph{color:var(--line-hi); display:flex; align-items:center; justify-content:center}
+.thumb .glyph svg{width:46px; height:46px}
+.thumb::after{content:""; position:absolute; left:0; right:0; bottom:0; height:46%;
+  background:linear-gradient(180deg,transparent,rgba(7,4,14,.62)); pointer-events:none}
+/* status badge overlaid top-left on the thumbnail */
+.tbadge{position:absolute; top:8px; left:8px; z-index:2;
+  font-family:'IBM Plex Mono',monospace; font-size:.56rem; letter-spacing:.16em;
+  text-transform:uppercase; padding:3px 7px; border-radius:5px;
+  border:1px solid currentColor; background:rgba(7,4,14,.55); backdrop-filter:blur(2px)}
+.st-processing{color:var(--accent); animation:badgepulse 1.4s ease-in-out infinite}
+.st-uploading{color:var(--accent); animation:badgepulse 1.4s ease-in-out infinite}
+.st-ready{color:var(--ok)}
+.st-done{color:var(--ok)}
+.st-edit{color:var(--accent-hi)}
+.st-warn{color:var(--warn)}
+.st-err{color:var(--err)}
+@keyframes badgepulse{0%,100%{opacity:1} 50%{opacity:.5}}
+/* duration chip bottom-right on the thumbnail */
+.tdur{position:absolute; right:8px; bottom:8px; z-index:2;
+  font-family:'IBM Plex Mono',monospace; font-size:.56rem; letter-spacing:.04em;
+  color:var(--bone); padding:2px 6px; border-radius:5px; background:rgba(7,4,14,.6)}
+.cbody{padding:14px 16px 16px; display:flex; flex-direction:column; gap:9px}
+.crow{display:flex; align-items:center; gap:8px}
+.cname{font-weight:600; font-size:1rem; flex:1; overflow:hidden;
+  text-overflow:ellipsis; white-space:nowrap}
+.badge-active{font-size:.56rem; letter-spacing:.16em; color:var(--accent);
+  border:1px solid var(--accent-dim); border-radius:4px; padding:2px 6px;
+  text-transform:uppercase}
+.cmeta{font-size:.62rem; color:var(--bone-faint); letter-spacing:.02em}
+
+.seglabel{font-size:.58rem; letter-spacing:.03em; color:var(--bone-dim);
+  min-height:.9em}
+
+.progress{height:3px; background:var(--line); border-radius:2px; overflow:hidden;
+  display:none}
+.progress.on{display:block}
+.progress i{display:block; height:100%; width:0; background:var(--accent);
+  transition:width .3s}
+.statusline{font-size:.58rem; color:var(--accent); letter-spacing:.04em;
+  min-height:.8em; display:none}
+.statusline.on{display:block}
+.errline{font-size:.6rem; color:var(--red); letter-spacing:.02em}
+
+.cfoot{display:flex; align-items:center; gap:8px; margin-top:4px}
+.act{flex:1; background:var(--accent); color:var(--accent-ink); border:none;
+  border-radius:6px; padding:9px; font-weight:700; font-size:.72rem;
+  letter-spacing:.04em; cursor:pointer; font-family:'Archivo',sans-serif}
+.act.ghost{background:none; border:1px solid var(--line-hi); color:var(--bone-dim)}
+.act:hover{filter:brightness(1.08)}
+.act:disabled{opacity:.45; cursor:not-allowed}
+.more{position:relative; flex:none}
+.ovf{background:none; border:1px solid var(--line-hi); color:var(--bone-dim);
+  border-radius:6px; width:34px; height:34px; cursor:pointer; font-size:1.1rem;
+  line-height:1; flex:none}
+.ovf:hover{color:var(--bone)}
+/* the ⋯ lives in the card footer; the card is overflow:hidden, so a downward
+   menu would be clipped by the card's bottom edge. Open UPWARD instead — it
+   floats over the card body (thumb/meta), fully visible. */
+.menu{position:absolute; right:0; bottom:calc(100% + 6px); background:var(--raise);
+  border:1px solid var(--line-hi); border-radius:6px; z-index:5; min-width:140px;
+  box-shadow:0 -6px 20px rgba(0,0,0,.45);
+  display:none; flex-direction:column; overflow:hidden}
+.menu.on{display:flex}
+.menu button{background:none; border:none; color:var(--bone-dim); text-align:left;
+  padding:9px 12px; font-size:.7rem; cursor:pointer; font-family:'Archivo',sans-serif}
+.menu button:hover{background:var(--panel2); color:var(--bone)}
+.menu button.danger:hover{color:var(--red)}
+.rename-in{background:var(--ink); border:1px solid var(--line-hi);
+  color:var(--bone); border-radius:5px; padding:6px 8px; font-size:.8rem;
+  width:100%; font-family:'Archivo',sans-serif}
+
+/* -------- empty / first-run hero -------- */
+.empty{padding:54px 20px 70px; text-align:center; max-width:880px; margin:0 auto}
+.em-label{font-size:.6rem; letter-spacing:.3em; color:var(--bone-faint);
+  text-transform:uppercase}
+.em-h1{font-size:2rem; font-weight:800; letter-spacing:.005em; margin:14px 0 12px;
+  line-height:1.15}
+.em-sub{max-width:520px; margin:0 auto 36px; font-size:.92rem; line-height:1.6;
+  color:var(--bone-dim)}
+.em-cards{display:grid; grid-template-columns:1fr 1fr; gap:18px; text-align:left}
+.em-card{position:relative; display:flex; flex-direction:column; gap:8px;
+  background:var(--panel); border:1px solid var(--line-hi); border-radius:12px;
+  padding:24px 22px 22px; cursor:pointer; color:var(--bone);
+  font-family:'Archivo',sans-serif; transition:border-color .18s, transform .18s, box-shadow .18s}
+.em-card:hover{border-color:var(--accent); transform:translateY(-2px);
+  box-shadow:var(--shadow-card)}
+.em-tag{position:absolute; top:14px; right:14px; font-size:.56rem; letter-spacing:.16em;
+  color:var(--accent); border:1px solid var(--accent-dim); border-radius:5px;
+  padding:3px 7px}
+.em-glyph{width:44px; height:44px; color:var(--accent); margin-bottom:4px}
+.em-glyph svg{width:44px; height:44px}
+.em-ct{font-size:1.05rem; font-weight:700}
+.em-cd{font-size:.74rem; line-height:1.55; color:var(--bone-dim); flex:1}
+.em-go{margin-top:10px; align-self:flex-start; background:var(--accent);
+  color:var(--accent-ink); font-weight:700; font-size:.7rem; letter-spacing:.05em;
+  padding:9px 15px; border-radius:7px}
+.em-card#emptyOwn .em-go{background:none; border:1px solid var(--line-hi);
+  color:var(--bone-dim)}
+.em-how{display:grid; grid-template-columns:repeat(4,1fr); gap:14px; margin-top:42px;
+  text-align:left}
+.em-step{display:flex; flex-direction:column; gap:3px; padding:14px 14px 16px;
+  border:1px solid var(--line); border-radius:10px; background:var(--panel)}
+.em-num{font-size:.62rem; letter-spacing:.2em; color:var(--accent)}
+.em-step b{font-size:.74rem; letter-spacing:.08em}
+.em-step span:last-child{font-size:.66rem; color:var(--bone-faint); line-height:1.5}
+
+/* -------- modal -------- */
+.scrim{position:fixed; inset:0; background:rgba(7,4,14,.74); z-index:40;
+  display:none; align-items:center; justify-content:center; padding:20px}
+.scrim.on{display:flex}
+.modal{background:var(--panel); border:1px solid var(--line-hi);
+  border-radius:12px; width:min(640px,100%); max-height:90vh; overflow:auto;
+  padding:26px 28px; position:relative}
+.mclose{position:absolute; top:16px; right:16px; width:30px; height:30px;
+  border-radius:7px; background:none; border:1px solid var(--line-hi);
+  color:var(--bone-dim); cursor:pointer; font-size:.8rem; line-height:1}
+.mclose:hover{color:var(--bone); border-color:var(--bone-faint)}
+.modal h2{font-size:1.2rem; margin-bottom:4px}
+.modal .msub{font-size:.72rem; color:var(--bone-faint); margin-bottom:20px}
+.tiles{display:grid; grid-template-columns:1fr 1fr; gap:14px}
+.tile{position:relative; border:1px solid var(--line-hi); border-radius:9px;
+  padding:18px; cursor:pointer; background:var(--panel2);
+  transition:border-color .15s, box-shadow .15s, background .15s}
+.tile:hover{border-color:var(--bone-faint)}
+.tile.on{border-color:var(--accent); background:var(--accent-glow);
+  box-shadow:0 0 0 1px var(--accent), 0 0 20px -6px var(--accent-glow)}
+.tile-tag{position:absolute; top:12px; right:12px; font-size:.56rem;
+  letter-spacing:.16em; color:var(--accent); border:1px solid var(--accent-dim);
+  border-radius:5px; padding:3px 6px}
+.tile h3{font-size:.92rem; margin-bottom:6px}
+.tile p{font-size:.66rem; color:var(--bone-dim); line-height:1.5}
+.tile .ic{width:30px; height:30px; margin-bottom:10px; color:var(--accent)}
+.tile .ic svg{width:30px; height:30px}
+.panel{display:none}
+.panel.on{display:block}
+.opt{color:var(--bone-faint); text-transform:none; letter-spacing:0}
+.uplabel{font-size:.6rem; color:var(--accent); letter-spacing:.04em; margin-top:8px}
+.drop{margin-top:20px; border:1.5px dashed var(--line-hi); border-radius:9px;
+  padding:28px; text-align:center; color:var(--bone-dim); cursor:pointer;
+  font-size:.78rem; display:none}
+.drop.on{display:block}
+.drop.drag{border-color:var(--accent); background:var(--accent-glow)}
+.drop .fn{color:var(--accent); font-size:.7rem; margin-top:8px}
+.nameField{margin-top:18px; display:none}
+.nameField.on{display:block}
+.nameField label{font-size:.62rem; letter-spacing:.1em; color:var(--bone-faint);
+  text-transform:uppercase; display:block; margin-bottom:6px}
+.nameField input{width:100%; background:var(--ink); border:1px solid var(--line-hi);
+  color:var(--bone); border-radius:6px; padding:10px; font-size:.85rem;
+  font-family:'Archivo',sans-serif}
+.modal-foot{display:flex; gap:10px; margin-top:24px; justify-content:flex-end}
+.modal-foot button{padding:10px 18px; border-radius:7px; font-size:.78rem;
+  font-weight:600; cursor:pointer; font-family:'Archivo',sans-serif}
+.btn-cancel{background:none; border:1px solid var(--line-hi); color:var(--bone-dim)}
+.btn-go{background:var(--accent); border:none; color:var(--accent-ink)}
+.btn-go:hover:not(:disabled){background:var(--accent-hi)}
+.btn-go:disabled{opacity:.45; cursor:not-allowed}
+.upbar{height:4px; background:var(--line); border-radius:2px; margin-top:14px;
+  overflow:hidden; display:none}
+.upbar.on{display:block}
+.upbar i{display:block; height:100%; width:0; background:var(--accent);
+  transition:width .2s}
+.busyNote{margin-top:16px; padding:10px 13px; border-radius:7px;
+  border:1px solid var(--orange); background:rgba(255,180,84,.08);
+  color:var(--orange); font-size:.62rem; line-height:1.5; letter-spacing:.02em}
+
+/* -------- toast -------- */
+.toast{position:fixed; bottom:26px; left:50%; transform:translateX(-50%);
+  background:var(--raise); border:1px solid var(--orange); color:var(--bone);
+  padding:12px 20px; border-radius:8px; font-size:.78rem; z-index:60;
+  opacity:0; pointer-events:none; transition:opacity .25s}
+.toast.on{opacity:1}
+.toast.t-err{border-color:var(--red)}
+.toast.t-warn{border-color:var(--orange)}
+.toast.t-ok{border-color:var(--line-hi)}
+
+/* -------- a11y -------- */
+:focus-visible{outline:2px solid var(--accent-dim); outline-offset:2px}
+
+/* -------- responsive -------- */
+@media (max-width:640px){
+  .wrap{padding:20px 16px 50px}
+  .phead{flex-wrap:wrap}
+  .phead .btn-primary{margin-left:0; width:100%; margin-top:10px}
+  .tiles{grid-template-columns:1fr}
+  .em-cards{grid-template-columns:1fr}
+  .em-how{grid-template-columns:1fr 1fr}
+  .em-h1{font-size:1.5rem}
+}
+</style>
+</head>
+<body>
+
+<header class="appbar">
+  <div class="brand"><span class="word">KESİM</span><span class="sub">studio</span></div>
+  <span class="pglabel mono">PROJECTS</span>
+  <div class="spacer"></div>
+  <div class="jobchip" id="busychip" style="display:none"></div>
+  <div class="userchip mono" id="userchip"></div>
+</header>
+
+<div class="wrap">
+  <div class="phead">
+    <h1>Your projects</h1>
+    <span class="count mono" id="count"></span>
+    <button class="btn-primary" id="newBtn">
+      <svg class="plus" viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg>
+      NEW PROJECT</button>
+  </div>
+  <div class="filters" id="filters" style="display:none">
+    <button class="pill on" data-filter="all">ALL</button>
+    <button class="pill" data-filter="processing">PROCESSING</button>
+    <button class="pill" data-filter="ready">READY</button>
+    <button class="pill" data-filter="done">DONE</button>
+  </div>
+  <div class="grid" id="grid"></div>
+  <div class="empty" id="empty" style="display:none">
+    <div class="em-label mono">CREATE YOUR FIRST PROJECT</div>
+    <h1 class="em-h1">Turn one long video into a week of shorts.</h1>
+    <p class="em-sub">Upload a long video and KESİM finds the best moments for you, or
+      bring your own finished clips and jump straight into editing.</p>
+    <div class="em-cards">
+      <button class="em-card" id="emptyLong">
+        <span class="em-tag mono">RECOMMENDED</span>
+        <span class="em-glyph" aria-hidden="true">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round"><rect x="7" y="3" width="10" height="18" rx="2"/><path d="M11 9.5l4 2.5-4 2.5z" fill="currentColor" stroke="none"/></svg>
+        </span>
+        <span class="em-ct">Start from a long video</span>
+        <span class="em-cd">Upload one long video. We find 10–20 clip candidates
+          automatically — you just review and export.</span>
+        <span class="em-go">UPLOAD &amp; FIND CLIPS</span>
+      </button>
+      <button class="em-card" id="emptyOwn">
+        <span class="em-glyph" aria-hidden="true">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="6" cy="6" r="2.5"/><circle cx="6" cy="18" r="2.5"/><path d="M8 7.5L20 18M8 16.5L20 6"/></svg>
+        </span>
+        <span class="em-ct">I have my own clips</span>
+        <span class="em-cd">Upload finished clips. Skip auto-clipping and go straight
+          to editing, captions, and export.</span>
+        <span class="em-go">CREATE PROJECT</span>
+      </button>
+    </div>
+    <div class="em-how">
+      <div class="em-step"><span class="em-num mono">01</span><b>UPLOAD</b><span>Add your video or clips.</span></div>
+      <div class="em-step"><span class="em-num mono">02</span><b>CLIPS</b><span>We find the best moments.</span></div>
+      <div class="em-step"><span class="em-num mono">03</span><b>EDIT</b><span>Reframe, caption, tighten.</span></div>
+      <div class="em-step"><span class="em-num mono">04</span><b>EXPORT</b><span>Download your shorts.</span></div>
+    </div>
+  </div>
+</div>
+
+<!-- new-project modal -->
+<div class="scrim" id="scrim">
+  <div class="modal" role="dialog" aria-modal="true" aria-label="New project">
+    <button class="mclose" id="mClose" aria-label="Close" type="button">✕</button>
+    <h2>New project</h2>
+    <div class="msub mono">Pick how you want to start</div>
+    <div class="tiles">
+      <div class="tile" id="tileLong" data-mode="long_video" role="button" tabindex="0">
+        <span class="tile-tag mono">RECOMMENDED</span>
+        <div class="ic" aria-hidden="true">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round"><rect x="7" y="3" width="10" height="18" rx="2"/><path d="M11 9.5l4 2.5-4 2.5z" fill="currentColor" stroke="none"/></svg>
+        </div>
+        <h3>Long video</h3>
+        <p>We find the best moments for you.</p>
+      </div>
+      <div class="tile" id="tileOwn" data-mode="own_clips" role="button" tabindex="0">
+        <div class="ic" aria-hidden="true">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="6" cy="6" r="2.5"/><circle cx="6" cy="18" r="2.5"/><path d="M8 7.5L20 18M8 16.5L20 6"/></svg>
+        </div>
+        <h3>I have my own clips</h3>
+        <p>Skip auto-clipping, go straight to editing.</p>
+      </div>
+    </div>
+
+    <div class="panel" id="panelLong">
+      <div class="drop on" id="dropLong">
+        <div>Drop a video here, or click to choose</div>
+        <input type="file" id="fileLong" style="display:none"
+          accept="video/mp4,video/quicktime,video/webm,video/x-matroska,.mp4,.mov,.webm,.mkv,.m4v,.avi">
+        <div class="fn mono" id="fnLong"></div>
+      </div>
+      <div class="nameField on" id="longNameField" style="margin-top:16px">
+        <label class="mono">Project name <span class="opt">(optional)</span></label>
+        <input type="text" id="longName" placeholder="Auto-named from the file">
+      </div>
+    </div>
+
+    <div class="nameField" id="ownFields">
+      <label class="mono">Project name</label>
+      <input type="text" id="ownName" placeholder="My clips">
+      <div class="drop on" id="dropOwn" style="margin-top:14px">
+        <div>Drop your finished clips here, or click to choose (multiple)</div>
+        <input type="file" id="fileOwn" multiple style="display:none"
+          accept="video/mp4,video/quicktime,video/webm,video/x-matroska,.mp4,.mov,.webm,.mkv,.m4v,.avi">
+        <div class="fn mono" id="fnOwn"></div>
+      </div>
+    </div>
+
+    <div class="busyNote mono" id="busyNote" style="display:none">A project is processing — you can prepare this one now and create it when the worker is free.</div>
+    <div class="upbar" id="upbar"><i id="upfill"></i></div>
+    <div class="uplabel mono" id="uplabel" style="display:none"></div>
+    <div class="modal-foot">
+      <button class="btn-cancel" id="mCancel">Cancel</button>
+      <button class="btn-go" id="mGo" disabled>Create</button>
+    </div>
+  </div>
+</div>
+
+<div class="toast mono" id="toast"></div>
+
+<script src="/static/projects.js"></script>
+</body>
+</html>

@@ -385,38 +385,21 @@ section{padding:120px 32px; max-width:1280px; margin:0 auto}
 .stat-l{font-size:.54rem; letter-spacing:.16em; color:var(--bone-faint);
   text-transform:uppercase; line-height:1.4}
 
-/* ===================== BLOG / RESOURCES TEASER ===================== */
-.blog-grid{display:grid; grid-template-columns:repeat(3,1fr); gap:18px;
-  max-width:var(--maxw); margin:0 auto}
-.post{display:flex; flex-direction:column; background:var(--panel);
-  border:1px solid var(--line); border-radius:14px; overflow:hidden;
-  transition:border-color .2s, transform .2s; cursor:pointer}
-.post:hover{border-color:var(--line-hi); transform:translateY(-3px)}
-/* editorial thumbnail well — a violet-tinted gradient with a faint grid + SOON tag */
-.post-thumb{position:relative; aspect-ratio:16/9; display:flex;
-  align-items:center; justify-content:center;
+/* ===================== BLOG STRIP (links to /blog) ===================== */
+/* The real blog lives at /blog. This is a single banner that points to it,
+   so the landing stays rich without faking article cards. */
+.blogcta-card{max-width:var(--maxw); margin:0 auto;
+  display:flex; align-items:center; gap:28px; flex-wrap:wrap;
+  padding:clamp(26px,4vw,40px) clamp(24px,4vw,44px);
   background:
-    radial-gradient(120% 120% at 18% 0%, rgba(155,108,242,.22), transparent 60%),
-    linear-gradient(180deg, var(--raise), var(--panel2));
-  border-bottom:1px solid var(--line)}
-.post-thumb::after{content:""; position:absolute; inset:0; opacity:.5;
-  background-image:
-    repeating-linear-gradient(90deg, rgba(155,108,242,.05) 0 1px, transparent 1px 26px),
-    repeating-linear-gradient(0deg, rgba(255,255,255,.02) 0 1px, transparent 1px 26px)}
-.post-soon{position:relative; z-index:1; font-size:.56rem; letter-spacing:.26em;
-  color:var(--accent-hi); border:1px solid var(--accent-dim);
-  background:rgba(10,7,18,.45); padding:6px 13px; border-radius:999px}
-.post-body{padding:20px 22px 22px; display:flex; flex-direction:column; flex:1}
-.post-meta{display:flex; align-items:center; gap:12px; margin-bottom:12px;
-  font-size:.54rem; letter-spacing:.16em}
-.post-tag{color:var(--accent-hi); border:1px solid var(--accent-dim);
-  background:var(--accent-glow); padding:3px 9px; border-radius:5px}
-.post-read{color:var(--bone-faint)}
-.post-body h3{color:var(--bone); line-height:1.25; margin-bottom:9px}
-.post-body p{font-size:.84rem; color:var(--bone-dim); line-height:1.55}
-.post:hover .post-body h3{color:var(--accent-hi)}
-.blog-foot{text-align:center; font-size:.62rem; letter-spacing:.1em;
-  color:var(--bone-faint); margin-top:30px; text-transform:uppercase}
+    radial-gradient(130% 160% at 0% 0%, rgba(155,108,242,.12), transparent 58%),
+    linear-gradient(180deg, var(--panel2), var(--panel));
+  border:1px solid var(--line); border-radius:18px}
+.blogcta-text{flex:1; min-width:260px}
+.blogcta-text .eyebrow{margin-bottom:10px}
+.blogcta-text h2{margin-bottom:8px}
+.blogcta-btn{flex:none; align-self:center}
+@media(max-width:560px){ .blogcta-btn{width:100%} }
 
 /* ===================== PRICING — COMING SOON ===================== */
 /* a single centered early-access card floating over a softly ghosted preview

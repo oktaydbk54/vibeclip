@@ -26,11 +26,13 @@ from urllib.parse import quote
 from fastapi import (Depends, FastAPI, File, Form, Request, UploadFile,
                      HTTPException)
 from fastapi.responses import (FileResponse, HTMLResponse, JSONResponse,
-                               RedirectResponse, StreamingResponse)
+                               PlainTextResponse, RedirectResponse, Response,
+                               StreamingResponse)
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
 
 from chat import auth
+from chat import blog_render
 from chat.agent import run_turn
 from chat.jobs import MANAGER
 from chat.session import SESSIONS_DIR, Session
@@ -190,6 +192,32 @@ def projects_page(request: Request):
     if not user["onboarded"]:
         return RedirectResponse("/onboarding", 302)
     return HTMLResponse(_serve_html("projects.html"))
+
+
+# ------------------------------------------------------------------- blog
+# Public, server-rendered, SEO-first. No auth — these pages exist to be crawled
+# and indexed. Content lives in blog_content.py; HTML is built in blog_render.py.
+@app.get("/blog", response_class=HTMLResponse, include_in_schema=False)
+def blog_index() -> str:
+    return blog_render.render_index()
+
+
+@app.get("/blog/{slug}", response_class=HTMLResponse, include_in_schema=False)
+def blog_post(slug: str):
+    page = blog_render.render_article(slug)
+    if page is None:
+        return RedirectResponse("/blog", 302)
+    return HTMLResponse(page)
+
+
+@app.get("/sitemap.xml", include_in_schema=False)
+def sitemap_xml():
+    return Response(blog_render.render_sitemap(), media_type="application/xml")
+
+
+@app.get("/robots.txt", include_in_schema=False)
+def robots_txt():
+    return PlainTextResponse(blog_render.render_robots())
 
 
 # ------------------------------------------------------------------- admin

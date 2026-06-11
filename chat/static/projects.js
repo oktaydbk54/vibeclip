@@ -6,6 +6,7 @@
 
 const $ = (id) => document.getElementById(id);
 let PROJECTS = [];
+let ME = null;            // /api/me payload — drives the greeting
 let BUSY = false;
 let UPLOADING = null;   // optimistic client-side card while a long-video upload streams
 let LAST_PROGRESS = null; // {pct, message} cache so a processing card seeds its bar without a reset-jump
@@ -119,9 +120,15 @@ function render() {
   $("count").textContent = total ? `${total} project${total === 1 ? "" : "s"}` : "";
   // empty hero only when there are genuinely zero projects; filter bar appears
   // once there are any projects to filter.
-  $("empty").style.display = (total === 0) ? "" : "none";
-  $("filters").style.display = (total === 0) ? "none" : "flex";
-  $("grid").style.display = (total === 0) ? "none" : "grid";
+  const has = total > 0;
+  $("empty").style.display = has ? "none" : "";
+  $("filters").style.display = has ? "flex" : "none";
+  $("grid").style.display = has ? "grid" : "none";
+  // greeting + at-a-glance stats + persistent upload band live above the grid,
+  // only once there are projects (the empty hero owns the zero-state).
+  $("welcome").style.display = has ? "" : "none";
+  $("ingest").classList.toggle("on", has);
+  if (has) updateWelcome();
   // when a filter yields nothing but projects exist, show a small note
   if (total > 0 && cards.length === 0) {
     const note = document.createElement("div");
@@ -130,6 +137,22 @@ function render() {
     note.textContent = "No projects match this filter.";
     grid.appendChild(note);
   }
+}
+
+/* Greeting name + at-a-glance stat chips, derived from the loaded projects. */
+function updateWelcome() {
+  if (ME) $("welcomeName").textContent = ME.name ? `, ${ME.name}` : "";
+  const ps = PROJECTS;
+  const clipsTotal = ps.reduce((s, p) => s + ((p.clips && p.clips.total) || 0), 0);
+  const review = ps.filter((p) => p.status === "clips_ready" || p.status === "editing").length;
+  const mins = Math.round(ps.reduce((s, p) => s + (p.duration || 0), 0) / 60);
+  const chip = (cls, n, label) =>
+    `<span class="wstat ${cls}"><span class="dot"></span><b>${n}</b> ${label}</span>`;
+  const chips = [chip("", ps.length, `project${ps.length === 1 ? "" : "s"}`)];
+  if (clipsTotal) chips.push(chip("", clipsTotal, `clip${clipsTotal === 1 ? "" : "s"}`));
+  if (review) chips.push(chip("is-review", review, "ready to review"));
+  if (mins) chips.push(chip("", mins, "min of footage"));
+  $("welcomeStats").innerHTML = chips.join("");
 }
 
 function uploadingCard() {
@@ -462,6 +485,16 @@ function goCreate() {
   if (MODE === "own_clips") return createOwn();
 }
 
+/* Start a long-video upload straight from the persistent ingest band (no modal).
+   Reuses the same optimistic-card + progress + SSE flow as the modal path. */
+function startLongUpload(file) {
+  if (!file) return;
+  if (UPLOADING && UPLOADING.xhr) { toast("An upload is already in progress."); return; }
+  longFile = file; MODE = "long_video";
+  if ($("longName")) $("longName").value = "";
+  createLong();
+}
+
 /* Long video: POST /api/upload-video with process=1 via XHR (progress bar).
    An optimistic 'uploading' card appears immediately. */
 function createLong() {
@@ -601,6 +634,8 @@ async function loadUser() {
     const r = await fetch("/api/me");
     if (r.status === 401) { location.href = "/login?next=/projects"; return; }
     const me = await r.json();
+    ME = me;
+    if ($("welcomeName")) $("welcomeName").textContent = me.name ? `, ${me.name}` : "";
     const chip = $("userchip");
     chip.innerHTML = "";
     const nm = document.createElement("span");
@@ -632,6 +667,38 @@ function boot() {
   setInterval(load, 10000);   // fallback poll
 
   $("newBtn").onclick = openModal;
+
+  // persistent ingest band: click/keyboard to choose, plus page-level drag-drop.
+  const ingest = $("ingest"), ingestFile = $("ingestFile");
+  const modalOpen = () => $("scrim").classList.contains("on");
+  $("ingestDrop").addEventListener("click", () => ingestFile.click());
+  $("ingestDrop").addEventListener("keydown", (e) => {
+    if (e.key === "Enter" || e.key === " ") { e.preventDefault(); ingestFile.click(); }
+  });
+  ingestFile.addEventListener("change", () => {
+    if (ingestFile.files[0]) startLongUpload(ingestFile.files[0]);
+    ingestFile.value = "";
+  });
+  let dragDepth = 0;
+  const bandActive = () => ingest.classList.contains("on") && !modalOpen();
+  document.addEventListener("dragenter", () => {
+    if (!bandActive()) return;
+    dragDepth++; ingest.classList.add("drag");
+  });
+  document.addEventListener("dragleave", () => {
+    if (!bandActive()) return;
+    dragDepth = Math.max(0, dragDepth - 1);
+    if (dragDepth === 0) ingest.classList.remove("drag");
+  });
+  document.addEventListener("dragover", (e) => { if (bandActive()) e.preventDefault(); });
+  document.addEventListener("drop", (e) => {
+    if (!bandActive()) return;          // modal drops are handled by the modal's own zones
+    e.preventDefault();
+    dragDepth = 0; ingest.classList.remove("drag");
+    const f = e.dataTransfer && e.dataTransfer.files && e.dataTransfer.files[0];
+    if (f) startLongUpload(f);
+  });
+
   $("emptyLong").onclick = () => { openModal(); pickMode("long_video"); };
   $("emptyOwn").onclick = () => { openModal(); pickMode("own_clips"); };
   $("mCancel").onclick = dismissModal;

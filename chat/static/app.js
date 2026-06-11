@@ -7,6 +7,8 @@ const stageEl = $("stagewrap");
 
 let activeClip = null;
 let CLIPS = [], COMPS = [];
+let GENERATING = false;   // a generate/preprocess job is running with no clips yet
+                          // → the library shows shimmer skeleton cards (not bare text)
 // Phase 4 — sequential editing queue: the server-side focus cursor + batch
 // counts. QUEUE mirrors session.queue_summary(); activeClip stays the single
 // source of truth for "which clip is loaded" (we keep it aligned with the
@@ -138,8 +140,20 @@ function parseJobMsg(msg) {
                : { key: msg.slice(0, i), args: msg.slice(i + 1) };
 }
 
+/* Toggle the "generating clips" skeleton state, re-rendering the library only
+   when the flag actually flips (job_progress fires many times a second). */
+function setGenerating(on) {
+  on = !!on;
+  if (on === GENERATING) return;
+  GENERATING = on;
+  renderLibrary();
+}
+
 function showJobChip(job) {
   curJobId = job.id;
+  // With no clips yet, any running job is generation/preprocessing (per-clip
+  // renders only happen after clips exist) → show skeletons in the library.
+  setGenerating(!CLIPS.length);
   const chip = $("jobchip");
   chip.style.display = "flex";
   const { key } = parseJobMsg(job.message);
@@ -157,6 +171,7 @@ function hideJobChip() {
   curJobId = null;
   $("jobchip").style.display = "none";
   setBusy(false);
+  setGenerating(false);
 }
 
 function initEvents() {
@@ -333,6 +348,11 @@ function clipCard(c, i) {
   card.style.animationDelay = (i * 50) + "ms";
   if (c.reason) card.title = c.reason;   // A3 — reason as hover tooltip
   const range = `${c.start.toFixed(1)}–${c.end.toFixed(1)}s`;
+  // Score-tier the badge (green/amber/dim) and crown the top-ranked candidate —
+  // the opus/reap "best clip first" triage cue, on top of the existing sort.
+  const sc = Number(c.score) || 0;
+  const tier = sc >= 80 ? "hi" : sc >= 55 ? "mid" : "lo";
+  const isBest = i === 0 && status !== "skipped" && CLIPS.length > 1;
   const hookLine = c.hook
     ? `<div class="hookq">“${c.hook}”</div>` : "";
   // Phase 3 — skip prunes from the top of the queue without deleting files;
@@ -345,8 +365,9 @@ function clipCard(c, i) {
     <div class="thumb" ${c.url ? `style="background-image:url(/thumb/${c.id}?t=${Date.now()})"` : ""}>${c.url ? "" : "◻"}</div>
     <div class="meta">
       <div class="row"><span class="num mono">#${String(c.id).padStart(2,"0")}</span>
+        ${isBest ? `<span class="bestbadge mono" title="Top-ranked clip">★ BEST</span>` : ""}
         <span class="ttl">${c.title}</span>
-        <span class="vscore mono" title="Virality ${c.score}/99">${c.score}</span></div>
+        <span class="vscore vscore-${tier} mono" title="Clip score ${c.score}/99">${c.score}</span></div>
       <div class="row qrow">
         <span class="pip pip-${status}" title="${STATUS_LABEL[status]}"></span>
         <span class="sub mono">${range}</span>
@@ -370,10 +391,28 @@ function clipCard(c, i) {
   return card;
 }
 
+/* Shimmer ghost cards shown while clips are being generated — turns the dead
+   ~90s wait into something that looks alive (cards resolve as candidates land). */
+function skeletonCards(n) {
+  let h = `<div class="sk-head mono">Scanning your video for the best moments…</div>`;
+  for (let i = 0; i < n; i++) {
+    h += `<div class="clipcard skeleton" style="animation-delay:${i * 70}ms">
+      <div class="thumb sk"></div>
+      <div class="meta">
+        <div class="sk-line sk" style="width:62%"></div>
+        <div class="sk-line sk" style="width:40%"></div>
+        <div class="sk-line sk" style="width:88%"></div>
+        <div class="sk-line sk" style="width:74%"></div>
+      </div></div>`;
+  }
+  return h;
+}
+
 function renderLibrary() {
   const page = $("page-clips");
   page.innerHTML = "";
   if (!CLIPS.length) {
+    if (GENERATING) { page.innerHTML = skeletonCards(6); return; }
     page.innerHTML = `<div class="sub mono" style="padding:8px;color:var(--bone-faint)">
       no clips yet — ask the AI on the right: "extract 3 clips from this video"</div>`;
   }

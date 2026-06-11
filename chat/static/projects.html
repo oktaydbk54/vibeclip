@@ -43,8 +43,21 @@ html,body{height:100%}
 body{
   background:var(--ink); color:var(--bone);
   font-family:'Archivo',system-ui,sans-serif; min-height:100%;
-  display:flex; flex-direction:column;
+  display:flex; flex-direction:column; position:relative;
+  /* faint broadcast timeline-tick grid — same motif as the landing */
+  background-image:
+    repeating-linear-gradient(90deg, rgba(155,92,255,.022) 0 1px, transparent 1px 72px),
+    repeating-linear-gradient(0deg, rgba(255,255,255,.012) 0 1px, transparent 1px 72px);
 }
+/* one soft violet glow pooled behind the header — ports the landing atmosphere
+   onto the (previously flat black) post-login surface */
+body::before{
+  content:""; position:fixed; top:-220px; left:50%; transform:translateX(-50%);
+  width:1100px; height:680px; pointer-events:none; z-index:0;
+  background:radial-gradient(closest-side, rgba(155,92,255,.16), transparent 72%);
+  filter:blur(6px);
+}
+.appbar, .wrap{position:relative; z-index:1}
 .mono{font-family:'IBM Plex Mono',monospace}
 
 /* -------- appbar -------- */
@@ -86,6 +99,49 @@ body{
 
 /* -------- header -------- */
 .wrap{flex:1; padding:34px 5vw 60px; max-width:1500px; width:100%; margin:0 auto}
+
+/* greeting + at-a-glance stats — turns the dead top-of-page into a real "home" */
+.welcome{margin-bottom:22px; animation:fadeUp .45s ease both}
+.welcome-hi{font-family:'Archivo',sans-serif; font-weight:800; letter-spacing:-.01em;
+  font-size:clamp(1.5rem,3.4vw,2.1rem); line-height:1.1}
+.welcome-hi .nm{color:var(--accent-hi)}
+.welcome-stats{display:flex; flex-wrap:wrap; gap:8px; margin-top:14px}
+.wstat{display:inline-flex; align-items:center; gap:7px; padding:6px 12px;
+  border:1px solid var(--line); border-radius:999px; background:var(--panel-quiet);
+  font-size:.62rem; letter-spacing:.06em; color:var(--bone-dim)}
+.wstat b{color:var(--bone); font-weight:700}
+.wstat .dot{width:6px; height:6px; border-radius:50%; background:var(--accent); flex:none}
+.wstat.is-review .dot{background:var(--green)}
+
+/* persistent ingest band — the primary action lives on the page, not buried in
+   a modal. Page-level drag-and-drop highlights it. */
+.ingest{margin-bottom:24px; display:none; animation:fadeUp .5s ease both}
+.ingest.on{display:block}
+.ingest-drop{position:relative; display:flex; align-items:center; gap:18px;
+  padding:20px 24px; border:1.6px dashed var(--line-hi); border-radius:14px;
+  cursor:pointer; overflow:hidden;
+  background:
+    radial-gradient(120% 160% at 0% 0%, rgba(155,92,255,.10), transparent 55%),
+    linear-gradient(180deg, var(--panel2), var(--panel-quiet));
+  transition:border-color .18s, box-shadow .18s, transform .18s}
+.ingest-drop:hover{border-color:var(--accent); box-shadow:0 14px 40px -22px var(--accent)}
+.ingest.drag .ingest-drop{border-color:var(--accent); background:var(--accent-glow);
+  box-shadow:0 0 0 1px var(--accent), 0 18px 50px -24px var(--accent)}
+.ingest-ic{flex:none; width:46px; height:46px; border-radius:11px;
+  display:flex; align-items:center; justify-content:center; color:var(--accent);
+  border:1px solid var(--accent-dim); background:var(--accent-glow)}
+.ingest-ic svg{width:24px; height:24px}
+.ingest-txt{flex:1; min-width:0}
+.ingest-main{display:block; font-weight:700; font-size:1rem; letter-spacing:.01em}
+.ingest-sub{display:block; font-size:.64rem; color:var(--bone-faint); letter-spacing:.04em; margin-top:3px}
+.ingest-cta{flex:none; font-family:'IBM Plex Mono',monospace; font-size:.64rem;
+  letter-spacing:.12em; color:var(--accent-ink); background:var(--accent);
+  padding:10px 16px; border-radius:8px; font-weight:700}
+@media (max-width:640px){
+  .ingest-drop{flex-wrap:wrap; gap:12px}
+  .ingest-cta{width:100%; text-align:center}
+}
+
 .phead{display:flex; align-items:flex-end; gap:14px; margin-bottom:26px}
 .phead h1{font-size:1.7rem; font-weight:700; letter-spacing:.01em}
 .phead .count{font-size:.7rem; color:var(--bone-faint); margin-bottom:5px}
@@ -328,6 +384,26 @@ body{
 </header>
 
 <div class="wrap">
+  <div class="welcome" id="welcome" style="display:none">
+    <div class="welcome-hi">Welcome back<span id="welcomeName"></span>.</div>
+    <div class="welcome-stats mono" id="welcomeStats"></div>
+  </div>
+
+  <div class="ingest" id="ingest">
+    <div class="ingest-drop" id="ingestDrop" role="button" tabindex="0" aria-label="Upload a long video">
+      <span class="ingest-ic" aria-hidden="true">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 16V5M7 10l5-5 5 5"/><path d="M5 19h14"/></svg>
+      </span>
+      <span class="ingest-txt">
+        <span class="ingest-main">Drop a long video here — we'll find the clips</span>
+        <span class="ingest-sub mono">or click to choose · MP4, MOV, WEBM, MKV</span>
+      </span>
+      <span class="ingest-cta mono">UPLOAD</span>
+    </div>
+    <input type="file" id="ingestFile" hidden
+      accept="video/mp4,video/quicktime,video/webm,video/x-matroska,.mp4,.mov,.webm,.mkv,.m4v,.avi">
+  </div>
+
   <div class="phead">
     <h1>Your projects</h1>
     <span class="count mono" id="count"></span>

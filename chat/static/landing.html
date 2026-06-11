@@ -53,22 +53,39 @@
   </div>
 
   <div class="hero-inner">
-    <a class="hero-badge mono hrise" style="--d:.04s" href="#how">
-      <span class="badge-dot"></span> AI EDITING STUDIO — RUNS IN YOUR BROWSER
-    </a>
-    <h1 class="hero-h1 hrise" style="--d:.1s">
-      Edit video by<br><span class="accent-word">talking</span> to it.
-    </h1>
-    <p class="lead hrise" style="--d:.18s">
-      VibeClip turns long videos into publish-ready vertical clips. Describe the
-      edit in plain words — cut, caption, reframe — then review the
-      before&nbsp;/&nbsp;after and approve in one click.
-    </p>
-    <div class="hero-cta hrise" style="--d:.26s">
-      <a href="/signup" class="btn btn-solid btn-glow btn-lg">Start free →</a>
-      <a href="#how" class="btn btn-ghost btn-lg">See how it works</a>
+    <div class="hero-copy">
+      <a class="hero-badge mono hrise" style="--d:.04s" href="#how">
+        <span class="badge-dot"></span> AI EDITING STUDIO — RUNS IN YOUR BROWSER
+      </a>
+      <h1 class="hero-h1 hrise" style="--d:.1s">
+        Edit video by<br><span class="accent-word">talking</span> to it.
+      </h1>
+      <p class="lead hrise" style="--d:.18s">
+        VibeClip turns long videos into publish-ready vertical clips. Describe the
+        edit in plain words — cut, caption, reframe — then review the
+        before&nbsp;/&nbsp;after and approve in one click.
+      </p>
+      <div class="hero-cta hrise" style="--d:.26s">
+        <a href="/signup" class="btn btn-solid btn-glow btn-lg">Start free →</a>
+        <a href="#how" class="btn btn-ghost btn-lg">See how it works</a>
+      </div>
+      <div class="trust mono hrise" style="--d:.34s">NO INSTALL · RUNS IN THE BROWSER · EVERY EDIT REVERSIBLE</div>
     </div>
-    <div class="trust mono hrise" style="--d:.34s">NO INSTALL · RUNS IN THE BROWSER · EVERY EDIT REVERSIBLE</div>
+
+    <!-- live product showcase: a real pipeline output looping in a phone, with a
+         floating chat bubble — the hero now SHOWS the product, not just tells. -->
+    <div class="hero-show hrise" style="--d:.3s">
+      <div class="hero-phone">
+        <video src="/static/demo/demo_mb.mp4" muted loop autoplay playsinline
+               preload="auto" poster="/static/demo/poster.jpg"></video>
+        <span class="hp-scan" aria-hidden="true"></span>
+      </div>
+      <div class="hero-bubble mono">
+        <span class="hb-row"><span class="hb-you">you</span> make it punchier</span>
+        <span class="hb-row hb-ai"><span class="hb-dot"></span> done — captions + tighter cut <b>✓</b></span>
+      </div>
+      <div class="hero-chip mono"><span class="hc-dot"></span>9:16 · CAPTIONED · HOOK 92</div>
+    </div>
   </div>
 </header>
 
@@ -290,6 +307,38 @@
   </div>
 </section>
 
+<!-- ============ 4.5 — TRUST / PUBLISH-READY BAND ============ -->
+<!-- Honest social proof: real output targets + true product guarantees (no
+     fabricated testimonials or user counts). -->
+<section class="sect-trust reveal" aria-label="Publish-ready and trusted">
+  <div class="trust-card">
+    <div class="trust-plats">
+      <div class="eyebrow mono">PUBLISH-READY FOR</div>
+      <div class="tplat-row mono">
+        <span class="tplat">TikTok</span>
+        <span class="tplat">Instagram Reels</span>
+        <span class="tplat">YouTube Shorts</span>
+        <span class="tplat">LinkedIn</span>
+        <span class="tplat">X</span>
+      </div>
+    </div>
+    <div class="trust-pillars">
+      <div class="tpill">
+        <span class="tpill-ic" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="13" rx="2"/><path d="M8 21h8M12 17v4"/></svg></span>
+        <span class="tpill-t"><b>Runs in your browser</b><span>Nothing to install — open a tab and edit.</span></span>
+      </div>
+      <div class="tpill">
+        <span class="tpill-ic" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12a9 9 0 1 0 3-6.7"/><path d="M3 4v4h4"/></svg></span>
+        <span class="tpill-t"><b>Every edit reversible</b><span>See an A/B before anything sticks.</span></span>
+      </div>
+      <div class="tpill">
+        <span class="tpill-ic" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M5 13l4 4L19 7"/></svg></span>
+        <span class="tpill-t"><b>Free to start</b><span>No card required during early access.</span></span>
+      </div>
+    </div>
+  </div>
+</section>
+
 <!-- ============ 5 — BLOG STRIP (real blog lives at /blog) ============ -->
 <section class="sect-blogcta reveal">
   <div class="blogcta-card">
@@ -395,7 +444,7 @@
   </a>
   <span class="copy mono">© 2026 VibeClip</span>
   <div class="foot-links mono">
-    <a href="#">Privacy</a><a href="#">Terms</a><a href="#">Contact</a>
+    <a href="#how">How it works</a><a href="/blog">Blog</a><a href="#pricing">Pricing</a><a href="/signup">Start free</a>
   </div>
   <!-- CC-BY attribution for the demo footage (required by the license). -->
   <span class="credit mono">Demo footage: “Three tips to talk to camera like a pro” by

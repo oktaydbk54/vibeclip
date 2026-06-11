@@ -1085,3 +1085,39 @@ body.deciding .chips{opacity:.4; transition:opacity .2s}
 .sm-publish:disabled{opacity:.32; cursor:default; box-shadow:none}
 .sm-note{font-size:.55rem; color:var(--bone-faint); line-height:1.55;
   text-align:center; padding:0 8px}
+
+/* ---- Phase 2: score-tiered clip badge + "BEST" crown on the top candidate ---- */
+.clipcard .vscore.vscore-hi{color:var(--green)}
+.clipcard .vscore.vscore-mid{color:var(--orange)}
+.clipcard .vscore.vscore-lo{color:var(--bone-faint)}
+.clipcard.st-skipped .vscore{color:var(--bone-faint)}
+.clipcard .bestbadge{flex:none; font-size:.5rem; letter-spacing:.12em; font-weight:700;
+  color:#0a0712; background:linear-gradient(180deg,var(--accent-hi),var(--accent));
+  padding:2px 6px; border-radius:4px; box-shadow:0 0 12px var(--accent-glow)}
+
+/* ---- Phase 1: studio atmosphere — soft violet glow + tick grid behind the
+   center stage, so the previously flat-black viewer matches the landing/projects
+   atmosphere. Subtle by design (the studio is a dense tool). ---- */
+.viewer{
+  background-image:
+    repeating-linear-gradient(90deg, rgba(155,92,255,.020) 0 1px, transparent 1px 64px),
+    repeating-linear-gradient(0deg, rgba(255,255,255,.010) 0 1px, transparent 1px 64px);
+}
+.stagewrap::before{
+  content:""; position:absolute; inset:0; pointer-events:none; z-index:0;
+  background:radial-gradient(46% 42% at 50% 40%, rgba(155,92,255,.13), transparent 72%);
+}
+.stagewrap > *{position:relative; z-index:1}
+
+/* ---- Phase 1: generating-clips skeleton library (shimmer ghost cards) ---- */
+@keyframes sk-shimmer{0%{background-position:200% 0} 100%{background-position:-200% 0}}
+.sk-head{padding:4px 8px 12px; font-size:.6rem; letter-spacing:.04em;
+  color:var(--accent-hi)}
+.clipcard.skeleton{cursor:default; pointer-events:none}
+.clipcard.skeleton .sk,
+.clipcard.skeleton .thumb.sk{
+  background:linear-gradient(90deg, var(--panel2) 25%, var(--raise) 45%, var(--panel2) 65%);
+  background-size:200% 100%; animation:sk-shimmer 1.3s linear infinite;
+  border-radius:5px}
+.clipcard.skeleton .sk-line{height:9px; margin:5px 0}
+.clipcard.skeleton .thumb{border-color:var(--line); color:transparent}

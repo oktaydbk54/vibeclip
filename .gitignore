@@ -7,6 +7,13 @@ outputs/
 assets/user/
 .DS_Store
 
+# Secrets & per-instance state — must NEVER be committed.
+.auth_secret
+.llm_secret
+*.db
+*.sqlite
+*.sqlite3
+
 # Source/test media at the repo root (NOT the bundled CC0 library under assets/).
 # Nested mp4s (assets/gameplay/*, chat/static/demo/*) stay tracked — they ship.
 /long_test.mp4

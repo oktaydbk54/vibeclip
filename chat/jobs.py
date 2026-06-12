@@ -13,15 +13,20 @@ import itertools
 import queue
 import threading
 
+from pipeline import config
 from pipeline import progress as pg
 
 
 class Job:
-    def __init__(self, jid: str, kind: str, label: str, fn):
+    def __init__(self, jid: str, kind: str, label: str, fn, llm_override=None):
         self.id = jid
         self.kind = kind          # 'chat' | 'tool'
         self.label = label
         self.fn = fn              # fn(job) -> result dict
+        # BYOK key active when this job was submitted. The worker runs on a
+        # single background thread that the request's ContextVar can't reach, so
+        # we capture it here and re-apply it around fn() below.
+        self.llm_override = llm_override
         self.status = "queued"    # queued|running|done|error|cancelled
         self.progress = 0.0
         self.message = ""
@@ -52,9 +57,13 @@ class JobManager:
         threading.Thread(target=self._loop, daemon=True).start()
 
     # -------------------------------------------------------- submission
-    def submit(self, kind: str, label: str, fn) -> Job:
+    def submit(self, kind: str, label: str, fn, llm_override=None) -> Job:
         jid = f"job{next(self._ids)}"
-        job = Job(jid, kind, label, fn)
+        # Capture the caller's active BYOK override (set by the request middleware)
+        # unless one was passed explicitly. None = fall back to the env key.
+        if llm_override is None:
+            llm_override = config.current_override()
+        job = Job(jid, kind, label, fn, llm_override=llm_override)
         with self.lock:
             self.jobs[jid] = job
         self.q.put(job)
@@ -114,6 +123,7 @@ class JobManager:
                 self._broadcast("job_progress", job)
 
             pg.set_context(job.cancel_event, emit)
+            llm_token = config.set_llm_override(job.llm_override)
             try:
                 job.result = job.fn(job)
                 job.status = ("cancelled" if job.cancel_event.is_set()
@@ -125,6 +135,7 @@ class JobManager:
                 job.status = "error"
                 job.error = f"{type(e).__name__}: {e}"
             finally:
+                config.reset_llm_override(llm_token)
                 pg.clear_context()
                 self.current = None
             self._broadcast("job_done", job)

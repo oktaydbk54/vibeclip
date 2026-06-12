@@ -33,10 +33,12 @@ from pydantic import BaseModel
 
 from chat import auth
 from chat import blog_render
+from chat import webutil
 from chat.agent import run_turn
 from chat.jobs import MANAGER
 from chat.session import SESSIONS_DIR, Session
 from chat.tools import REGISTRY
+from pipeline import config
 from pipeline import progress as pg
 
 # Serializes all SESSION access. The job worker holds it for the duration of a
@@ -129,7 +131,7 @@ def _serve_html(filename: str) -> str:
     headers, so browsers heuristically cache them — without this, a user (or an
     automation tab) keeps running yesterday's JS/CSS after a change ships. The
     token is each file's own mtime, so only edited assets re-download."""
-    html = (STATIC / filename).read_text()
+    html = webutil.inject_head((STATIC / filename).read_text())
 
     def stamp(m: "re.Match") -> str:
         url = m.group(1)
@@ -380,7 +382,7 @@ async def upload_asset(file: UploadFile = File(...),
 @app.post("/api/upload-video")
 async def upload_video(file: UploadFile = File(...),
                        process: str = Form("0"),
-                       _user: dict = Depends(auth.require_user)):
+                       user: dict = Depends(auth.require_user)):
     """Phase 0 — ingest a new full-res source and make it the active session.
 
     Streams the upload to outputs/sessions/<name>/source.<ext>, ffprobe-validates
@@ -403,6 +405,11 @@ async def upload_video(file: UploadFile = File(...),
         return JSONResponse(
             {"error": "A job is running. Wait for it to finish, then retry."},
             status_code=409)
+
+    # Per-account storage quota — refuse early (before streaming the upload).
+    qb = _quota_block(user["id"])
+    if qb is not None:
+        return qb
 
     ext = Path(file.filename or "").suffix.lower() or ".mp4"
     if ext not in (".mp4", ".mov", ".webm", ".mkv", ".m4v", ".avi"):
@@ -432,6 +439,14 @@ async def upload_video(file: UploadFile = File(...),
         dest.unlink(missing_ok=True)
         return JSONResponse(
             {"error": "File has no decodable video stream."}, status_code=400)
+    limit = config.MAX_UPLOAD_SECONDS
+    if limit and info["duration"] > limit:
+        dest.unlink(missing_ok=True)
+        return JSONResponse(
+            {"error": f"Videos are limited to {limit // 60} minutes on this "
+                      f"instance (yours is {info['duration'] / 60:.1f} min). "
+                      "Trim it shorter and try again.", "too_long": True},
+            status_code=400)
 
     # Re-check the guard under the lock right before swapping, then create/swap
     # the session. load_or_create submits the background proxy build.
@@ -441,6 +456,8 @@ async def upload_video(file: UploadFile = File(...),
                 {"error": "A job started. Retry once it finishes."},
                 status_code=409)
         SESSION = Session.load_or_create(str(dest))
+        SESSION.data["owner_uid"] = user["id"]   # for the per-user quota + list
+        SESSION.save()
         HISTORY = []
         proc_id = None
         if process == "1":
@@ -448,7 +465,7 @@ async def upload_video(file: UploadFile = File(...),
                                       "processing_job": None,
                                       "error": None, "processed_at": None}
             SESSION.save()
-            job = _submit_processing_job(SESSION)
+            job = _submit_processing_job(SESSION, auth.user_llm_override(user))
             proc_id = job.id
             SESSION.data["intake"]["processing_job"] = proc_id
             SESSION.save()
@@ -459,7 +476,37 @@ async def upload_video(file: UploadFile = File(...),
     return resp
 
 
-def _submit_processing_job(sess: Session):
+def _owned_project_count(uid: int) -> int:
+    """How many stored projects belong to this user. Used for the per-account
+    storage quota. Legacy projects (no owner_uid, pre-multi-user) don't count."""
+    n = 0
+    if SESSIONS_DIR.exists():
+        for sdir in SESSIONS_DIR.iterdir():
+            pfile = sdir / "project.json"
+            if not pfile.exists():
+                continue
+            try:
+                if json.loads(pfile.read_text()).get("owner_uid") == uid:
+                    n += 1
+            except Exception:  # noqa: BLE001 — skip unparseable projects
+                continue
+    return n
+
+
+def _quota_block(uid: int) -> JSONResponse | None:
+    """403 if the user is already at their project cap, else None.
+    MAX_PROJECTS_PER_USER=0 disables the cap (self-host with room)."""
+    cap = config.MAX_PROJECTS_PER_USER
+    if cap and _owned_project_count(uid) >= cap:
+        plural = "project" if cap == 1 else "projects"
+        return JSONResponse(
+            {"error": f"You've reached your limit of {cap} {plural} on this "
+                      "instance. Delete your existing project to upload a new one.",
+             "quota": True}, status_code=403)
+    return None
+
+
+def _submit_processing_job(sess: Session, llm_override=None):
     """Submit the auto-clipping job for a long-video project. The closure
     CAPTURES the given Session instance (never the global SESSION) — mirroring
     the _submit_proxy_job pattern — so a later project swap can't redirect this
@@ -488,7 +535,7 @@ def _submit_processing_job(sess: Session):
             sess.save()
         return result
 
-    return MANAGER.submit("tool", "auto-clip", _run)
+    return MANAGER.submit("tool", "auto-clip", _run, llm_override=llm_override)
 
 
 # --------------------------------------------------------------- projects
@@ -510,12 +557,21 @@ def _clip_counts(clips: list[dict]) -> dict:
     return counts
 
 
+def _can_see_project(data: dict, user: dict) -> bool:
+    """A user sees their own projects; legacy/unowned ones are admin-only (so a
+    public instance never leaks other people's work)."""
+    owner = data.get("owner_uid")
+    if owner == user["id"]:
+        return True
+    return owner is None and bool(user.get("is_admin"))
+
+
 @app.get("/api/projects")
-def list_projects(_user: dict = Depends(auth.require_user)) -> dict:
+def list_projects(user: dict = Depends(auth.require_user)) -> dict:
     """Scan SESSIONS_DIR for */project.json and return each project's derived
-    pipeline status + clip counts for the /projects switcher. The ACTIVE project
-    is read live from SESSION under the lock (its in-memory state may be ahead of
-    disk); the rest are parsed tolerantly off disk (unparseable ones skipped)."""
+    pipeline status + clip counts for the /projects switcher, restricted to the
+    caller's own projects. The ACTIVE project is read live from SESSION under the
+    lock; the rest are parsed tolerantly off disk (unparseable ones skipped)."""
     active_name = SESSION.data["name"] if SESSION is not None else None
     busy = MANAGER.current is not None or not MANAGER.q.empty()
     live = _live_job_public()
@@ -529,18 +585,28 @@ def list_projects(_user: dict = Depends(auth.require_user)) -> dict:
             if is_active:
                 with SESSION_LOCK:
                     data = SESSION.data
+                    if not _can_see_project(data, user):
+                        continue
                     rows.append(_project_row(data, sdir, pfile, True, live))
             else:
                 try:
                     data = json.loads(pfile.read_text())
                 except Exception:  # noqa: BLE001 — skip unparseable projects
                     continue
+                if not _can_see_project(data, user):
+                    continue
                 rows.append(_project_row(data, sdir, pfile, False, None))
     # active first, then project.json mtime desc.
     rows.sort(key=lambda r: (not r["active"], -r["_mtime"]))
     for r in rows:
         r.pop("_mtime", None)
-    return {"projects": rows, "active": active_name, "busy": busy}
+    owned = _owned_project_count(user["id"])
+    cap = config.MAX_PROJECTS_PER_USER
+    return {"projects": rows, "active": active_name, "busy": busy,
+            "limits": {"max_seconds": config.MAX_UPLOAD_SECONDS,
+                       "max_projects": cap},
+            "owned": owned,
+            "at_quota": bool(cap and owned >= cap)}
 
 
 def _project_row(data: dict, sdir: Path, pfile: Path,
@@ -576,7 +642,7 @@ class ProjectOpenIn(BaseModel):
 
 @app.post("/api/projects/open")
 def open_project(body: ProjectOpenIn,
-                 _user: dict = Depends(auth.require_user)):
+                 user: dict = Depends(auth.require_user)):
     """Swap the global SESSION to an existing project (the (B) switcher). 404 if
     it has no project.json; 409 if the single worker is busy (double-checked
     under the lock, like upload_video). Routes through Session.open_existing
@@ -584,9 +650,15 @@ def open_project(body: ProjectOpenIn,
     session if the source moved)."""
     global SESSION, HISTORY
     name = body.name
-    if not (SESSIONS_DIR / name / "project.json").exists():
+    pfile = SESSIONS_DIR / name / "project.json"
+    if not pfile.exists():
         return JSONResponse({"error": f"No project '{name}'."},
                             status_code=404)
+    try:
+        if not _can_see_project(json.loads(pfile.read_text()), user):
+            return JSONResponse({"error": "Not your project."}, status_code=403)
+    except Exception:  # noqa: BLE001 — unreadable project.json
+        return JSONResponse({"error": f"No project '{name}'."}, status_code=404)
     if MANAGER.current is not None or not MANAGER.q.empty():
         return JSONResponse(
             {"error": "Another project is rendering."}, status_code=409)
@@ -600,15 +672,21 @@ def open_project(body: ProjectOpenIn,
 
 
 @app.post("/api/projects/{name}/process")
-def process_project(name: str, _user: dict = Depends(auth.require_user)):
+def process_project(name: str, user: dict = Depends(auth.require_user)):
     """Retry/trigger auto-clipping for a long-video project (no chat turn). 409
     if busy. If the project isn't the active one, open-swap to it first (safe:
     we just verified not-busy, all under the lock). Then submit a job whose
     closure CAPTURES sess (never the global SESSION)."""
     global SESSION, HISTORY
-    if not (SESSIONS_DIR / name / "project.json").exists():
+    pfile = SESSIONS_DIR / name / "project.json"
+    if not pfile.exists():
         return JSONResponse({"error": f"No project '{name}'."},
                             status_code=404)
+    try:
+        if not _can_see_project(json.loads(pfile.read_text()), user):
+            return JSONResponse({"error": "Not your project."}, status_code=403)
+    except Exception:  # noqa: BLE001
+        return JSONResponse({"error": f"No project '{name}'."}, status_code=404)
     if MANAGER.current is not None or not MANAGER.q.empty():
         return JSONResponse(
             {"error": "Another project is rendering."}, status_code=409)
@@ -625,7 +703,7 @@ def process_project(name: str, _user: dict = Depends(auth.require_user)):
                                         "error": None, "processed_at": None})
         sess.data["intake"]["error"] = None
         sess.save()
-        job = _submit_processing_job(sess)
+        job = _submit_processing_job(sess, auth.user_llm_override(user))
         sess.data["intake"]["processing_job"] = job.id
         sess.save()
     return {"ok": True, "job_id": job.id}
@@ -634,7 +712,7 @@ def process_project(name: str, _user: dict = Depends(auth.require_user)):
 @app.post("/api/projects/upload-clips")
 async def upload_clips(name: str = Form(...),
                        files: list[UploadFile] = File(...),
-                       _user: dict = Depends(auth.require_user)):
+                       user: dict = Depends(auth.require_user)):
     """Own-clips project: the user uploads already-finished clips, skipping
     auto-clipping. 409 if busy. Streams each upload into the new session dir,
     builds the project via Session.create_from_clips, swaps it active, then
@@ -644,6 +722,9 @@ async def upload_clips(name: str = Form(...),
     if MANAGER.current is not None or not MANAGER.q.empty():
         return JSONResponse(
             {"error": "Another project is rendering."}, status_code=409)
+    qb = _quota_block(user["id"])
+    if qb is not None:
+        return qb
     name = (name or "").strip() or "clips"
     safe = "".join(ch for ch in name if ch.isalnum() or ch in (" ", "_", "-")
                    ).strip().replace(" ", "_") or "clips"
@@ -678,6 +759,8 @@ async def upload_clips(name: str = Form(...),
             return JSONResponse(
                 {"error": "Another project is rendering."}, status_code=409)
         SESSION = Session.create_from_clips(safe, saved)
+        SESSION.data["owner_uid"] = user["id"]   # per-user quota + list
+        SESSION.save()
         HISTORY = []
         sess = SESSION
     job = _submit_prepare_job(sess)
@@ -745,16 +828,23 @@ def rename_project(name: str, body: ProjectRenameIn,
 
 
 @app.post("/api/projects/{name}/delete")
-def delete_project(name: str, _user: dict = Depends(auth.require_user)):
+def delete_project(name: str, user: dict = Depends(auth.require_user)):
     """Remove a project's session dir. 409 only if it's the active project AND
     the worker is busy (can't yank a dir out from under a running render). If
-    active, clears SESSION/HISTORY under the lock."""
+    active, clears SESSION/HISTORY under the lock. Users may only delete their
+    own projects (admins may delete any)."""
     global SESSION, HISTORY
     import shutil
     sdir = SESSIONS_DIR / name
     if not (sdir / "project.json").exists():
         return JSONResponse({"error": f"No project '{name}'."},
                             status_code=404)
+    try:
+        pdata = json.loads((sdir / "project.json").read_text())
+    except Exception:  # noqa: BLE001
+        pdata = {}
+    if not _can_see_project(pdata, user):
+        return JSONResponse({"error": "Not your project."}, status_code=403)
     is_active = SESSION is not None and SESSION.data["name"] == name
     busy = MANAGER.current is not None or not MANAGER.q.empty()
     if is_active and busy:
@@ -905,13 +995,20 @@ def chat(body: ChatIn, request: Request, sync: bool = False,
         profile = json.loads(user["profile_json"] or "{}")
         profile_prompt = auth.build_profile_prompt(profile,
                                                    user["display_name"])
+    # BYOK: run this turn on the user's own key if they set one (else env key).
+    ov = auth.user_llm_override(user)
     if sync:
-        return _run_chat(body.message, mode=body.mode,
-                         profile_prompt=profile_prompt, tier=body.tier)
+        token = config.set_llm_override(ov)
+        try:
+            return _run_chat(body.message, mode=body.mode,
+                             profile_prompt=profile_prompt, tier=body.tier)
+        finally:
+            config.reset_llm_override(token)
     job = MANAGER.submit("chat", body.message[:60] or "chat",
                          lambda j: _run_chat(body.message, j, mode=body.mode,
                                              profile_prompt=profile_prompt,
-                                             tier=body.tier))
+                                             tier=body.tier),
+                         llm_override=ov)
     return {"job_id": job.id}
 
 
@@ -957,11 +1054,13 @@ def _run_tool(name: str, args: dict, job=None) -> dict:
 
 
 @app.post("/api/tool")
-def call_tool(body: ToolIn, sync: bool = False,
-              _user: dict = Depends(auth.require_user)):
+def call_tool(body: ToolIn, request: Request, sync: bool = False,
+              user: dict = Depends(auth.require_user)):
     """Backbone endpoint: pro-UI controls call a whitelisted REGISTRY tool
-    directly, no LLM in the loop. Same impls the chat agent dispatches. Returns
-    a job_id (async, stream progress on /api/events); ?sync=1 runs inline."""
+    directly, no chat agent in the loop. Same impls the chat agent dispatches.
+    Some tools (b-roll search, music pick) still call the LLM internally, so the
+    user's BYOK key rides along. Returns a job_id (async, stream progress on
+    /api/events); ?sync=1 runs inline."""
     _require_session()
     if body.name not in TOOL_WHITELIST:
         return JSONResponse({"error": f"tool '{body.name}' not allowed"},
@@ -969,10 +1068,16 @@ def call_tool(body: ToolIn, sync: bool = False,
     if body.name not in REGISTRY:
         return JSONResponse({"error": f"unknown tool '{body.name}'"},
                             status_code=404)
+    ov = auth.user_llm_override(user)
     if sync:
-        return _run_tool(body.name, body.args or {})
+        token = config.set_llm_override(ov)
+        try:
+            return _run_tool(body.name, body.args or {})
+        finally:
+            config.reset_llm_override(token)
     job = MANAGER.submit("tool", body.name,
-                         lambda j: _run_tool(body.name, body.args or {}, j))
+                         lambda j: _run_tool(body.name, body.args or {}, j),
+                         llm_override=ov)
     return {"job_id": job.id}
 
 

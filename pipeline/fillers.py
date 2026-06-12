@@ -8,7 +8,6 @@ ones. Used by the jumpcut stage when aggressive_fillers=True.
 
 from __future__ import annotations
 
-import json
 
 from pipeline import config
 from pipeline.jumpcut import _norm_word
@@ -52,8 +51,8 @@ def classify_filler_ranges(words: list[dict],
             model=model,
             messages=[{"role": "system", "content": _SYSTEM},
                       {"role": "user", "content": "\n".join(lines)}],
-            response_format={"type": "json_object"}, temperature=0.1)
-        cut = json.loads(resp.choices[0].message.content).get("cut", [])
+            temperature=0.1, **config.json_response_format(base_url))
+        cut = config.extract_json(resp.choices[0].message.content).get("cut", [])
     except Exception:
         return []  # uncertain -> cut nothing (never butcher speech on error)
 

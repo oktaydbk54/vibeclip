@@ -11,13 +11,29 @@ from __future__ import annotations
 
 import html
 import json
-import re
+import os
 from pathlib import Path
 
 from . import blog_content as bc
 
 STATIC = Path(__file__).parent / "static"
-GA_ID = "G-VLDS78ZF9K"
+
+
+def _ga_block() -> str:
+    """GA4 snippet, only when GA_MEASUREMENT_ID is configured (empty on self-host)."""
+    gid = os.getenv("GA_MEASUREMENT_ID", "").strip()
+    if not gid:
+        return ""
+    return (
+        '\n<!-- Google Analytics (GA4) -->'
+        f'\n<script async src="https://www.googletagmanager.com/gtag/js?id={gid}"></script>'
+        '\n<script>'
+        '\n  window.dataLayer = window.dataLayer || [];'
+        '\n  function gtag(){dataLayer.push(arguments);}'
+        "\n  gtag('js', new Date());"
+        f"\n  gtag('config', '{gid}');"
+        '\n</script>'
+    )
 
 
 def _ver(rel: str) -> str:
@@ -62,15 +78,7 @@ def _head(*, title: str, description: str, canonical: str, keywords: str = "",
 <meta name="twitter:card" content="summary_large_image">
 <meta name="twitter:title" content="{ttl}">
 <meta name="twitter:description" content="{desc}">
-<meta name="twitter:image" content="{bc.OG_IMAGE}">{art}
-<!-- Google Analytics (GA4) -->
-<script async src="https://www.googletagmanager.com/gtag/js?id={GA_ID}"></script>
-<script>
-  window.dataLayer = window.dataLayer || [];
-  function gtag(){{dataLayer.push(arguments);}}
-  gtag('js', new Date());
-  gtag('config', '{GA_ID}');
-</script>{ld}
+<meta name="twitter:image" content="{bc.OG_IMAGE}">{art}{_ga_block()}{ld}
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Archivo:wght@400;500;600;700;800&family=Bricolage+Grotesque:opsz,wght@12..96,600;12..96,700;12..96,800&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet">

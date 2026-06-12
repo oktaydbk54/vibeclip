@@ -13,6 +13,7 @@ WORKDIR /app
 # Install Python deps (mirror of pyproject [project].dependencies) before copying
 # the code so this layer is cached across code-only changes.
 RUN pip install --no-cache-dir \
+        "cryptography>=42" \
         "fastapi>=0.136.3" \
         "faster-whisper>=1.2.1" \
         "mcp[cli]>=1.2.0" \
@@ -26,8 +27,8 @@ RUN pip install --no-cache-dir \
 
 COPY . .
 
-# Bind all interfaces inside the container; the compose port mapping restricts
-# host-side exposure to the docker bridge (reachable only by Caddy, not public).
+# Bind all interfaces inside the container; the compose port mapping
+# (VIBECLIP_BIND, default 127.0.0.1) controls how it's exposed on the host.
 ENV HOST=0.0.0.0 \
     PORT=8765 \
     VIDEO_ENCODER=libx264

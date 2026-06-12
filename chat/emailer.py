@@ -1,8 +1,10 @@
 """Transactional email via the Resend HTTP API — stdlib only (no new deps).
 
-Used for signup OTP verification. If RESEND_API_KEY is unset we fall back to
-printing the code to the server console (so local dev works with zero config);
-in production the key + a verified sending domain (vibeclip.dev) are required.
+Used for signup OTP verification. Two modes (EMAIL_MODE env):
+  console (default) — print the code to the server log; zero-config, no account.
+  resend            — send a real email via Resend (needs RESEND_API_KEY + a
+                      verified sending domain set in RESEND_FROM).
+Console mode is the self-host default so VibeClip runs with no email provider.
 """
 
 from __future__ import annotations
@@ -16,9 +18,17 @@ RESEND_ENDPOINT = "https://api.resend.com/emails"
 ACCENT = "#9b5cff"
 
 
+def _mode() -> str:
+    """resend only when explicitly asked AND a key exists; else console."""
+    mode = os.getenv("EMAIL_MODE", "console").strip().lower()
+    if mode == "resend" and os.getenv("RESEND_API_KEY", "").strip():
+        return "resend"
+    return "console"
+
+
 def _from_addr() -> str:
     # Must be an address on a domain verified in the Resend dashboard.
-    return os.getenv("RESEND_FROM", "VibeClip <noreply@vibeclip.dev>")
+    return os.getenv("RESEND_FROM", "VibeClip <noreply@example.com>")
 
 
 def _otp_html(code: str, name: str = "") -> str:
@@ -62,15 +72,16 @@ def send_otp(to_email: str, code: str, name: str = "") -> bool:
     Dev fallback (no RESEND_API_KEY): prints the code to the console and
     returns True so the signup flow is fully testable without a key.
     """
-    api_key = os.getenv("RESEND_API_KEY", "").strip()
     subject = f"{code} is your VibeClip verification code"
     text = (f"Your VibeClip verification code is {code}. "
             "It expires in 10 minutes.")
 
-    if not api_key:
-        print(f"[emailer] RESEND_API_KEY unset — DEV fallback. "
-              f"OTP for {to_email}: {code}", flush=True)
+    if _mode() == "console":
+        print(f"[emailer] EMAIL_MODE=console — OTP for {to_email}: {code}",
+              flush=True)
         return True
+
+    api_key = os.getenv("RESEND_API_KEY", "").strip()
 
     payload = json.dumps({
         "from": _from_addr(),

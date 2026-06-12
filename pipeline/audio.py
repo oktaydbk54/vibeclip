@@ -12,7 +12,6 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from pipeline import config
 from pipeline.media import ffprobe_info, run_ffmpeg
 
 

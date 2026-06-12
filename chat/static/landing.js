@@ -4,6 +4,9 @@
 
   /* ---- auth-aware nav: swap CTAs if already logged in ---- */
   (async function () {
+    // Marketing site (HOSTED_STUDIO=false): never push the studio — the whole
+    // point of v1 is "go to GitHub & self-host", so leave the self-host CTAs.
+    if (document.documentElement.dataset.hostedStudio === "0") return;
     try {
       const r = await fetch("/api/me");
       if (!r.ok) return;
@@ -82,6 +85,7 @@
       scp: "/static/demo/demo_scp.mp4" + V,
       mb: "/static/demo/demo_mb.mp4" + V,
       mbp: "/static/demo/demo_mbp.mp4" + V,
+      g: "/static/demo/demo_g.mp4" + V,
     };
 
     // Truthful tool lines — name the REAL pipeline calls that produced each file.
@@ -98,12 +102,17 @@
       punchier: { text: "make it punchier",
         tool: "auto_zoom(density=0.35) + auto_pace(max_static=3.0)",
         label: "B — PUNCHED UP" },
+      gameplay: { text: "split it + add minecraft underneath",
+        tool: "apply_style(mrbeast) + add_gameplay_background(pack=minecraft, layout=0.6)",
+        label: "B — SPLIT-SCREEN + MINECRAFT" },
     };
 
-    // state is a SET; canonical key so click-order doesn't matter.
-    var state = { style: null, s: false, c: false, p: false };
+    // state is a SET; canonical key so click-order doesn't matter. `g` = the
+    // split-screen brainrot showcase (mrbeast + gameplay underneath).
+    var state = { style: null, s: false, c: false, p: false, g: false };
 
     function keyOf(st) {
+      if (st.g) return "g";  // split-screen showcase (only demo_g is rendered)
       if (st.style === "mrbeast") return st.p ? "mbp" : "mb";  // mb subsumes s+c
       var k = (st.s ? "s" : "") + (st.c ? "c" : "") + (st.p ? "p" : "");
       return k || "base";
@@ -129,13 +138,18 @@
         if (n.p) return null;
         n.p = true; return n;
       }
+      if (cmd === "gameplay") {
+        if (n.g) return null;
+        // the brainrot showcase: force a clean, defined mrbeast+gameplay state
+        return { style: "mrbeast", s: true, c: true, p: false, g: true };
+      }
       return null;
     }
 
     // Real output durations (seconds, rounded) — kept truthful per the footnote.
     var DUR = { base: "0:14", s: "0:13", c: "0:14", p: "0:14",
       sc: "0:13", sp: "0:13", cp: "0:14", scp: "0:13",
-      mb: "0:13", mbp: "0:13" };
+      mb: "0:13", mbp: "0:13", g: "0:13" };
 
     function labelA() {
       var k = keyOf(state);
@@ -178,12 +192,14 @@
         var cmd = c.dataset.cmd;
         if (cmd === "reset") { c.disabled = running; c.classList.remove("done"); return; }
         c.classList.remove("busy");
-        var subsumed = state.style === "mrbeast"
-          && (cmd === "silence" || cmd === "captions");
+        var subsumed = (state.style === "mrbeast"
+            && (cmd === "silence" || cmd === "captions"))
+          || (state.g && cmd !== "gameplay");  // showcase folds in every axis
         var already = (cmd === "mrbeast" && state.style === "mrbeast")
           || (cmd === "silence" && state.s)
           || (cmd === "captions" && state.c)
-          || (cmd === "punchier" && state.p);
+          || (cmd === "punchier" && state.p)
+          || (cmd === "gameplay" && state.g);
         var done = subsumed || already;
         c.classList.toggle("done", done);
         if (done) {
@@ -306,7 +322,7 @@
 
     // ============================ RESET ============================
     function reset() {
-      state = { style: null, s: false, c: false, p: false };
+      state = { style: null, s: false, c: false, p: false, g: false };
       pendingKey = null; stagedState = null;
       exitCompare();
       videoA.src = FILES.base;

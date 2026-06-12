@@ -1,0 +1,17 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 520 120" width="520" height="120" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Helvetica, Arial, sans-serif">
+  <defs>
+    <linearGradient id="tile" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#b388ff"/>
+      <stop offset="1" stop-color="#6f2fe0"/>
+    </linearGradient>
+    <linearGradient id="wm" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#9b5cff"/>
+      <stop offset="1" stop-color="#6f2fe0"/>
+    </linearGradient>
+  </defs>
+  <g transform="translate(8,16)">
+    <rect width="88" height="88" rx="23" fill="url(#tile)"/>
+    <path d="M35 26 L64 44 L35 62 Z" fill="#ffffff" stroke="#ffffff" stroke-width="6.5" stroke-linejoin="round"/>
+  </g>
+  <text x="116" y="79" font-size="58" font-weight="800" letter-spacing="-1.6" fill="url(#wm)">VibeClip</text>
+</svg>

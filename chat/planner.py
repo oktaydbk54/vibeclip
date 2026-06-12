@@ -246,8 +246,8 @@ def propose_assets(session: Session, clip_id: int,
                 + (f"\n\nUSER INSTRUCTION: {instruction}" if instruction
                    else "")},
         ],
-        response_format={"type": "json_object"}, temperature=0.4)
-    data = json.loads(resp.choices[0].message.content)
+        temperature=0.4, **config.json_response_format(base_url))
+    data = config.extract_json(resp.choices[0].message.content)
 
     ids = {a["id"]: a for a in catalog}
     steps, gaps = [], []
@@ -353,10 +353,10 @@ def propose(session: Session, clip_id: int, instruction: str) -> dict:
                 f"{catalog_block}\n\n"
                 f"INSTRUCTION: {instruction}"},
         ],
-        response_format={"type": "json_object"},
         temperature=0.4,
+        **config.json_response_format(base_url),
     )
-    data = json.loads(resp.choices[0].message.content)
+    data = config.extract_json(resp.choices[0].message.content)
 
     steps, dropped = [], []
     for s in data.get("steps", []):

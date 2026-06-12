@@ -1,131 +1,160 @@
-# shorts-mcp
+<div align="center">
 
-Uzun videoları (podcast / röportaj / eğitim) otomatik olarak viral kısa kliplere
-böler: konuşmayı çözer, en iyi anları seçer, dikey 9:16'ya getirir ve kelime-senkron
-altyazı yakar. Bir MCP server'dır — Claude veya MCP-uyumlu bir agent tool'ları çağırır.
+<img src=".github/assets/banner.png" alt="VibeClip — the AI video editor you control by talking" width="820">
 
-## Pipeline
+<br/>
 
+[![License: AGPL v3](https://img.shields.io/badge/License-AGPL%20v3-9b5cff?style=flat-square)](LICENSE)
+![Python 3.12+](https://img.shields.io/badge/Python-3.12%2B-9b5cff?style=flat-square&logo=python&logoColor=white)
+![Self-hosted](https://img.shields.io/badge/self--hosted-ready-9b5cff?style=flat-square)
+![BYOK](https://img.shields.io/badge/LLM-bring%20your%20own%20key-9b5cff?style=flat-square)
+[![PRs welcome](https://img.shields.io/badge/PRs-welcome-9b5cff?style=flat-square)](CONTRIBUTING.md)
+
+**Drop in a long video — podcast, interview, talk, stream — and VibeClip cuts it into
+vertical, captioned, ready-to-post shorts.** Then you refine every clip by *chatting*:
+*“make clip 2 punchier,” “bigger captions,” “add a zoom at 0:05,” “undo.”*
+
+[Quick start](#-quick-start) · [Features](#-what-it-does) · [How it works](#-how-it-works) · [Bring your own key](#-bring-your-own-key-byok) · [Configuration](#-configuration) · [Contributing](#-contributing)
+
+<br/>
+
+<img src=".github/assets/demo_split.gif" alt="Original clip on the left vs. the same clip auto-edited into a captioned split-screen short on the right" width="380">
+
+<sub><b>Left:</b> the raw clip. <b>Right:</b> after one sentence — <i>“make it mrbeast style and add gameplay underneath”</i> — captioned, reframed to 9:16, and split-screened. Real pipeline output, not a mockup.<br>Footage: Andy Dickinson (CC-BY) · gameplay: Orbital - No Copyright Gameplay (CC-BY) · Minecraft © Mojang.</sub>
+
+</div>
+
+---
+
+## ⚡ Quick start
+
+Spin up a private instance in three commands. All you add is **one** LLM key.
+
+```bash
+git clone https://github.com/oktaydbk54/vibeclip.git
+cd vibeclip
+cp .env.example .env          # add ONE line: OPENAI_API_KEY=sk-...
+docker compose up -d --build
+# → open http://localhost:8765
 ```
-video → transcribe → analyze_structure → find_highlights → [auto_edit per clip]
-        (whisper)     (sahne+enerji+konu)  (skorlu moment)
-                                                            ↓
-   jumpcut → tracked 9:16 reframe → (internal transitions) → punch zoom
-           → karaoke captions → auto music+ambience (ducking) → SFX → fade
-```
 
-**Yapı-farkında seçim:** klipler düz metin taraması yerine gerçek konu/sahne
-segmentlerinden, hook/flow/value alt-skorlarıyla seçilir.
+With the defaults (`EMAIL_MODE=console`, `REQUIRE_EMAIL_VERIFICATION=false`) sign-up logs
+you straight in — no email provider needed. Bring an **OpenAI** or **DeepSeek** key
+(DeepSeek is the cheap one), or point `LLM_BASE_URL` at any OpenAI-compatible server
+(Ollama, LM Studio, OpenRouter…). Prefer no Docker? See [local install](#run-without-docker).
 
-## Tool'lar
+---
 
-| Tool | Ne yapar |
+## ✨ What it does
+
+|  |  |
 |---|---|
-| `media_info(video_path)` | süre/çözünürlük/fps/codec |
-| `transcribe(video_path)` | kelime-zamanlı transkript (cache'li) |
-| `find_highlights(video_path, platform, count, max_duration)` | en iyi klip anlarını seçer (DeepSeek) |
-| `cut_clip(video_path, start, end, title, precise)` | tek klip keser |
-| `reframe_vertical(clip_path)` | 9:16 dikey, yüz-merkezli |
-| `burn_subtitles(clip_path, words, clip_start)` | kelime-senkron altyazı yakar |
-| `make_short(video_path, platform, count, max_duration, vertical, subtitles)` | **uçtan uca** |
+| 🎬 **Long → shorts, automatically** | Transcribes on-device, scores the strongest moments (hook / flow / value — not a dumb keyword scan), reframes to 9:16 around the speaker, and burns word-synced captions. |
+| 💬 **Edit by chatting** | A tool-calling agent turns plain language into real edits — trims, filler-word removal (“uhh”/“ee”), zooms, styles, music, b-roll, brand overlays. One **undo** reverts a whole multi-step plan. |
+| 🎨 **Styles in one shot** | `hormozi`, `mrbeast`, `podcast_minimal`, `kinetic` — captions, pace, zoom, music and SFX applied together. Drop in your own preset as a JSON file. |
+| 🖥️ **A real studio UI** | Web app with a live 9:16 preview, clip cards, a CapCut-style timeline, and the chat copilot right beside it. |
+| 🔑 **Your key, your data** | Bring your own LLM key (OpenAI · Gemini · Claude · DeepSeek · any compatible endpoint). Nothing is proxied through us — there is no “us.” |
+| 🏠 **Self-host first** | One Docker command. Speech-to-text and every render run **locally** via faster-whisper + ffmpeg. AGPL-3.0, no SaaS lock-in. |
 
-`platform`: `youtube_shorts` \| `instagram_reels` \| `tiktok`
+---
 
-## Kurulum
+## 🛠 How it works
+
+```
+        upload
+          │
+   ┌──────▼───────┐   faster-whisper (local, no API key)
+   │  transcribe  │
+   └──────┬───────┘
+   ┌──────▼────────────┐   LLM "brain" (your key) — structure + scored moments
+   │ analyze structure │
+   │  find highlights  │
+   └──────┬────────────┘
+   ┌──────▼───────┐   per clip, replayed from cached intermediates (~2–4s/edit)
+   │  auto edit   │  jumpcut → 9:16 reframe → captions → music+ambience (ducked)
+   │              │  → SFX → fades   ·   then your chat commands layer on top
+   └──────┬───────┘
+        export  →  vertical MP4, publish-ready
+```
+
+Only **two** things ever hit the network: your chosen **LLM** (to understand intent and
+score moments) and, optionally, **Pexels** (stock b-roll). Speech-to-text and all
+rendering stay on your machine.
+
+---
+
+## 🔑 Bring your own key (BYOK)
+
+VibeClip never ships with a key and never proxies your prompts anywhere except the
+provider *you* choose. Two ways to supply one:
+
+- **Per instance** — set `OPENAI_API_KEY` (or `DEEPSEEK_API_KEY`, or any
+  OpenAI-compatible endpoint via `LLM_BASE_URL`) in `.env`.
+- **Per user** — each account pastes its own key on the in-app **Settings** page, with a
+  live *test-connection*. Keys are **encrypted at rest** and never sent back to the browser.
+
+| Provider | Routed via | Notes |
+|---|---|---|
+| **OpenAI** | native | Default, best-supported. |
+| **DeepSeek** | native | The budget pick — a typical short costs a few cents. |
+| **Google Gemini** | OpenAI-compat endpoint | `gemini-2.5-flash` / `pro`. |
+| **Anthropic Claude** | OpenAI-compat endpoint | `claude-haiku` / `sonnet`. |
+| **Anything else** | `LLM_BASE_URL` | Ollama, LM Studio, OpenRouter, your own proxy… |
+
+Speech-to-text runs locally and needs **no** key.
+
+---
+
+## ⚙️ Configuration
+
+Everything is driven by `.env` (see `.env.example` for the full, commented list). The ones
+that matter most:
+
+| Variable | Default | Purpose |
+|---|---|---|
+| `OPENAI_API_KEY` | — | Your LLM key (preferred). |
+| `DEEPSEEK_API_KEY` | — | Cheaper fallback, used if no OpenAI key. |
+| `LLM_BASE_URL` | — | Any OpenAI-compatible endpoint (local models, proxies). |
+| `EMAIL_MODE` | `console` | `console` prints OTP to the log; `resend` sends real email. |
+| `REQUIRE_EMAIL_VERIFICATION` | `false` | `true` enforces email confirmation (public instances). |
+| `HOSTED_STUDIO` | `true` | `true` = the landing offers login/signup (use your own instance). `false` = a public marketing site that points everyone to GitHub to self-host (no login). |
+| `GA_MEASUREMENT_ID` | — | Empty = **no analytics** injected (self-host default). |
+| `SITE_URL` | `http://localhost:8765` | Public base URL for blog canonical/OG/sitemap. |
+| `VIDEO_ENCODER` | `libx264` | Use `h264_videotoolbox` on Apple Silicon. |
+| `VIBECLIP_BIND` | `127.0.0.1` | docker-compose publish address (`0.0.0.0` to expose). |
+| `MAX_UPLOAD_SECONDS` | `0` | Longest uploadable video, seconds. `0` = no limit (self-host). |
+| `MAX_PROJECTS_PER_USER` | `0` | Projects per account. `0` = unlimited; cap it on a public instance. |
+
+### Run without Docker
+
+Requirements: **Python 3.12+**, **ffmpeg**, and the DejaVu fonts (for caption rendering).
 
 ```bash
-cd shorts-mcp
-cp .env.example .env        # DEEPSEEK_API_KEY doldur
-uv sync
+cp .env.example .env          # add your LLM key
+uv sync                       # or: pip install -e .
+python -m chat.app            # → http://127.0.0.1:8765
 ```
 
-İlk `transcribe` çağrısında Whisper modeli iner. STT ayarları (`WHISPER_MODEL` vb.)
-ve `DEEPSEEK_API_KEY` `.env` üzerinden gelir.
+First run downloads the Whisper model. Prefer the terminal? `python -m chat.cli <video.mp4>`.
 
-## Hızlı test
+---
 
-```bash
-uv run server.py --selftest <video.mp4>        # ping + media_info
-```
+## 📦 Bundled assets & licensing
 
-## Chat-editör (konuşarak düzenleme)
+The repo bundles a small library of royalty-free media (music, ambience, SFX, demo
+footage) for the built-in styles. Some tracks are **CC-BY** (Kevin MacLeod) and require
+crediting in your video description — see the `CREDITS` files under `assets/`. VibeClip
+**never** bundles or uses copyrighted/branded game footage.
 
-```bash
-uv run python -m chat.cli <video.mp4>
-```
+## 🤝 Contributing
 
-Türkçe/İngilizce komut yaz: *"bu videodan 3 klip çıkar"*, *"2. klibe enerjik
-müzik ekle"*, *"altyazıları büyüt"*, *"5. saniyeye zoom ekle"*, *"klibi göster"*,
-*"geri al"*. Tek aşama değişikliği cache'li ara üründen replay edilir (~2-4sn).
-Oturum `outputs/sessions/<ad>/project.json` dosyasında kalıcıdır.
+Issues and PRs welcome — start with [`CONTRIBUTING.md`](CONTRIBUTING.md). Security reports:
+see [`SECURITY.md`](SECURITY.md). Be excellent to each other ([code of conduct](CODE_OF_CONDUCT.md)).
 
-### Web UI
+## 📄 License
 
-```bash
-uv run python -m chat.app <video.mp4> [port=8765]   # http://127.0.0.1:8765
-```
+**GNU AGPL-3.0** — see [`LICENSE`](LICENSE). You can self-host and modify VibeClip freely;
+if you run a modified version as a network service, you must offer that modified source to
+its users. Copyright © 2026 the VibeClip authors.
 
-### Vibe editing (V2.1–V3.0)
-
-- **Stiller:** *"1. klibi hormozi tarzı yap"* — `hormozi`, `mrbeast`,
-  `podcast_minimal`, `kinetic` (altyazı + tempo + zoom + müzik + sfx tek seferde).
-  Kendi stilin: `assets/styles/<ad>.json`.
-- **Cerrahi:** *"3 ile 5. saniye arasını çıkar"* (kelime-çapalı trim),
-  *"eee'leri temizle"* (filler kelime silme), *"zoomları otomatik yerleştir"*,
-  *"girişi 2sn erken başlat"* (set_cut).
-- **Vibe planner:** *"daha punchy yap ama girişe dokunma"* → numaralı plan kartı
-  → UYGULA/VAZGEÇ → tek "geri al" tüm planı geri alır.
-- **B-roll:** *"konuya uygun b-roll ekle"* — Pexels stok video (ücretsiz
-  `PEXELS_API_KEY` gerekir, pexels.com/api). Hook'un ilk 3sn'sine asla binmez.
-- **Marka:** *"sağ üste logo koy"*, *"başlık kartı ekle"*.
-- **Varyant/A-B:** *"1. klibin varyantını oluştur"* → kartta `var #1` rozeti,
-  oynatıcıda A/B KARŞILAŞTIR; *"bunu seç"* → diğerleri arşivlenir.
-- **Birleştirme:** *"1 ve 3'ü fade ile birleştir"* → tek kompilasyon videosu.
-- **Geçmiş:** sağ panelde etiketli versiyon şeridi — tıkla, o ana geri dön.
-
-- **Kendi asset'lerin (V4.1):** UI'dan "＋ YÜKLE" veya *"şu klasörü ekle"* —
-  sistem otomatik anlar (vision etiketleme, renk, loudness). *"2. klip için
-  asset önerisi yap"* → AI logonu/müziğini/b-roll'unu nereye koyacağını
-  plan kartıyla önerir, eksik asset'i de söyler.
-- **Craft FX (V4.2):** *"sinematik görünüm ver"* (`set_look`, %30-70 güç),
-  *"film grain ekle"*, *"şu ana flash/vurgu koy"* (`add_emphasis`),
-  *"meme reaction ekle"* (yeşil ekran chromakey), *"sticker koy"*.
-- **Retention (V4.3):** *"daha akıcı yap"* (`auto_pace` — her 2-5sn'de
-  titreşimli aralıklı bir değişiklik garantiler), *"sesi TikTok için ayarla"*
-  (`set_loudness` — YT -14 / TikTok -11 LUFS, iki geçişli ölçümlü loudnorm).
-  Sticker/watermark/altyazılar platform safe-area içinde kalır.
-  `assets/sfx/`'e dosya at → yeni efekt türü (riser/impact/pop/boom/glitch hazır).
-- **Zevk hafızası + stil kaydı (V4.4):** *"bundan sonra hep mrbeast altyazısı
-  kullan"* → kalıcı tercih (planner her planda dikkate alır; *"tercihlerimi
-  unut"* ile sıfırla). *"Bu ayarları 'kanalım' diye stil kaydet"* →
-  `assets/styles/kanalim.json`, artık `apply_style` ile tek komut.
-  *"yani/şey'leri de agresif temizle"* → her geçiş bağlamıyla LLM'e sorulur,
-  sadece gerçek dolgular kesilir.
-
-**UI — "KESİM Studio":** sol kütüphane (Klipler / Varlıklar / Geçmiş),
-ortada telefon-çerçeveli önizleme + A/B karşılaştırma + pipeline node şeridi,
-sağda YÖNETMEN AI copilot (plan kartları, stil ve ipucu çipleri).
-
-> Müzik atıf gerektirir (CC BY): `assets/music/CREDITS.md`'deki satırı video
-> açıklamasına ekle. SFX/ambiyans Mixkit — atıf gerekmez.
-
-## MCP client'a ekleme (Claude Desktop / Claude Code)
-
-```json
-{
-  "mcpServers": {
-    "shorts": {
-      "command": "uv",
-      "args": ["--directory", "/Users/boran/Desktop/shorts-mcp", "run", "server.py"]
-    }
-  }
-}
-```
-
-Sonra: *"Bu videoyu YouTube Shorts için dikey + altyazılı 5 klibe böl"* →
-agent `make_short(..., vertical=True, subtitles=True)` çağırır, klipler `outputs/`'a düşer.
-
-## Sınırlar
-- DeepSeek **videoyu görmez, transkripti okur** → konuşma ağırlıklı içerikte mükemmel,
-  saf görsel/aksiyon highlight'ta sınırlı.
-- Bu makinedeki ffmpeg libass'sız; altyazı Pillow+overlay ile basılıyor (bkz. PLAN.md).
+<div align="center"><sub>Built for people who'd rather <b>talk</b> to their editor than fight it.</sub></div>

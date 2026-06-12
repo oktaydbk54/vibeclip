@@ -1,0 +1,64 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1280 360" width="1280" height="360" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Helvetica, Arial, sans-serif">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#17122a"/>
+      <stop offset="0.55" stop-color="#0e0b18"/>
+      <stop offset="1" stop-color="#080610"/>
+    </linearGradient>
+    <radialGradient id="glow" cx="0.5" cy="0.5" r="0.5">
+      <stop offset="0" stop-color="#7c3aed" stop-opacity="0.55"/>
+      <stop offset="1" stop-color="#7c3aed" stop-opacity="0"/>
+    </radialGradient>
+    <linearGradient id="tile" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#b388ff"/>
+      <stop offset="1" stop-color="#6f2fe0"/>
+    </linearGradient>
+    <linearGradient id="wm" x1="0" y1="0" x2="1" y2="0">
+      <stop offset="0" stop-color="#ffffff"/>
+      <stop offset="1" stop-color="#e7dbff"/>
+    </linearGradient>
+  </defs>
+
+  <rect width="1280" height="360" rx="28" fill="url(#bg)"/>
+  <ellipse cx="1060" cy="30" rx="430" ry="300" fill="url(#glow)"/>
+  <ellipse cx="200" cy="350" rx="340" ry="220" fill="url(#glow)" opacity="0.45"/>
+
+  <!-- faint waveform texture, both lower corners -->
+  <g fill="#9b6cf2" opacity="0.16">
+    <rect x="120" y="318" width="5" height="14" rx="2.5"/>
+    <rect x="135" y="310" width="5" height="30" rx="2.5"/>
+    <rect x="150" y="302" width="5" height="46" rx="2.5"/>
+    <rect x="165" y="314" width="5" height="22" rx="2.5"/>
+    <rect x="180" y="306" width="5" height="38" rx="2.5"/>
+    <rect x="195" y="318" width="5" height="14" rx="2.5"/>
+    <rect x="1060" y="318" width="5" height="14" rx="2.5"/>
+    <rect x="1075" y="308" width="5" height="34" rx="2.5"/>
+    <rect x="1090" y="300" width="5" height="50" rx="2.5"/>
+    <rect x="1105" y="312" width="5" height="26" rx="2.5"/>
+    <rect x="1120" y="316" width="5" height="18" rx="2.5"/>
+  </g>
+
+  <!-- mark: brand-consistent with favicon (gradient tile + play triangle) -->
+  <g transform="translate(594,40)">
+    <rect width="92" height="92" rx="24" fill="url(#tile)"/>
+    <path d="M37 27 L67 46 L37 65 Z" fill="#ffffff" stroke="#ffffff" stroke-width="7" stroke-linejoin="round"/>
+  </g>
+
+  <text x="640" y="214" font-size="72" font-weight="800" letter-spacing="-2" fill="url(#wm)" text-anchor="middle">VibeClip</text>
+  <text x="640" y="258" font-size="24" font-weight="500" letter-spacing="0.2" fill="#bcabe0" text-anchor="middle">The AI video editor you control by talking.</text>
+
+  <g font-size="17" font-weight="600" text-anchor="middle">
+    <g transform="translate(454,288)">
+      <rect x="-80" width="160" height="38" rx="19" fill="#ffffff" fill-opacity="0.06" stroke="#9b6cf2" stroke-opacity="0.4"/>
+      <text y="25" fill="#d9ccf7">AGPL-3.0 · open</text>
+    </g>
+    <g transform="translate(640,288)">
+      <rect x="-72" width="144" height="38" rx="19" fill="#ffffff" fill-opacity="0.06" stroke="#9b6cf2" stroke-opacity="0.4"/>
+      <text y="25" fill="#d9ccf7">self-hostable</text>
+    </g>
+    <g transform="translate(826,288)">
+      <rect x="-86" width="172" height="38" rx="19" fill="#ffffff" fill-opacity="0.06" stroke="#9b6cf2" stroke-opacity="0.4"/>
+      <text y="25" fill="#d9ccf7">bring your own key</text>
+    </g>
+  </g>
+</svg>

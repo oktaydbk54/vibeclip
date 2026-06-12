@@ -12,3 +12,14 @@ Use    : pre-cropped to a centered 9:16 master and edited through the VibeClip
 
 Per the CC-BY terms, attribution is provided here and in the landing page
 footer. No endorsement by the original author is implied.
+
+Split-screen gameplay background (chat/static/demo/demo_g.mp4, bottom region)
+----------------------------------------------------------------------------
+Source : "Minecraft Parkour Gameplay No Copyright 4K" by Orbital - No Copyright
+         Gameplay
+URL    : https://www.youtube.com/watch?v=BXUA2FncVPI
+License: Creative Commons Attribution (CC-BY) — reuse allowed
+Use    : muted bottom region of the split-screen ("brainrot") demo clip.
+Note   : Minecraft visuals © Mojang, used per Mojang's commercial usage
+         guidelines for gameplay footage. Attribution required on published
+         output (provided here and in the landing footer).

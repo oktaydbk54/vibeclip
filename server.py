@@ -12,7 +12,6 @@ import sys
 
 from mcp.server.fastmcp import FastMCP
 
-from pipeline import config
 from pipeline.media import ffprobe_info
 from pipeline.transcribe import transcribe as _transcribe
 from pipeline.highlights import find_highlights as _find_highlights

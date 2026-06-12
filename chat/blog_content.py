@@ -9,8 +9,12 @@ injected verbatim into the page. Keep it valid and self-contained.
 All copy is English (product/marketing output is English-only).
 """
 
-SITE_URL = "https://vibeclip.dev"
-SITE_NAME = "VibeClip"
+import os
+
+# Public base URL — drives canonical/sitemap/OG tags. Override with SITE_URL on
+# a self-hosted instance (defaults to the hosted site).
+SITE_URL = os.getenv("SITE_URL", "https://vibeclip.dev").rstrip("/")
+SITE_NAME = os.getenv("SITE_NAME", "VibeClip")
 OG_IMAGE = f"{SITE_URL}/static/icon-512.png"
 
 # Newest first. `date` is ISO (used for <time>, JSON-LD, sitemap lastmod).

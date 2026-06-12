@@ -11,6 +11,8 @@ let BUSY = false;
 let UPLOADING = null;   // optimistic client-side card while a long-video upload streams
 let LAST_PROGRESS = null; // {pct, message} cache so a processing card seeds its bar without a reset-jump
 let FILTER = "all";       // client-only status filter (ALL/PROCESSING/READY/DONE)
+let LIMITS = { max_seconds: 600, max_projects: 1 };  // per-account quota (from API)
+let AT_QUOTA = false;     // user is at their project cap → block new uploads
 
 /* Does a project match the active filter pill? */
 function matchesFilter(p) {
@@ -129,6 +131,7 @@ function render() {
   $("welcome").style.display = has ? "" : "none";
   $("ingest").classList.toggle("on", has);
   if (has) updateWelcome();
+  updateIngest();
   // when a filter yields nothing but projects exist, show a small note
   if (total > 0 && cards.length === 0) {
     const note = document.createElement("div");
@@ -136,6 +139,29 @@ function render() {
     note.style.cssText = "grid-column:1/-1; padding:30px 4px; color:var(--bone-faint)";
     note.textContent = "No projects match this filter.";
     grid.appendChild(note);
+  }
+}
+
+/* Reflect the per-account quota in the persistent upload band. */
+function updateIngest() {
+  const main = document.querySelector(".ingest-main");
+  const sub = document.querySelector(".ingest-sub");
+  const drop = $("ingestDrop");
+  if (!main || !sub || !drop) return;
+  const mins = Math.round((LIMITS.max_seconds || 0) / 60);
+  const cap = LIMITS.max_projects || 0;
+  if (AT_QUOTA) {
+    drop.classList.add("quota");
+    main.textContent = `You've used your ${cap} project${cap === 1 ? "" : "s"}`;
+    sub.textContent = "Delete it below to upload a new video";
+  } else {
+    drop.classList.remove("quota");
+    main.textContent = "Drop a long video here — we'll find the clips";
+    const bits = [];
+    if (mins) bits.push(`max ${mins} min`);
+    bits.push("MP4, MOV, WEBM, MKV");
+    if (cap) bits.push(`${cap} video${cap === 1 ? "" : "s"} / account`);
+    sub.textContent = "or click to choose · " + bits.join(" · ");
   }
 }
 
@@ -402,6 +428,8 @@ async function load() {
       ...p, processing_job: null,
     }));
     BUSY = !!d.busy;
+    LIMITS = d.limits || LIMITS;
+    AT_QUOTA = !!d.at_quota;
     // Render guard: don't wipe an interaction the user is mid-way through.
     // A 10s poll or SSE job_done must not nuke an open menu, an in-progress
     // rename, or a delete confirmation. Update state + busy chrome, skip render.
@@ -489,6 +517,7 @@ function goCreate() {
    Reuses the same optimistic-card + progress + SSE flow as the modal path. */
 function startLongUpload(file) {
   if (!file) return;
+  if (AT_QUOTA) { toast("You've reached your project limit — delete one to upload a new video.", "err"); return; }
   if (UPLOADING && UPLOADING.xhr) { toast("An upload is already in progress."); return; }
   longFile = file; MODE = "long_video";
   if ($("longName")) $("longName").value = "";

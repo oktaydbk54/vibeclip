@@ -89,6 +89,12 @@ body::before{
   background:linear-gradient(90deg, var(--accent-dim), var(--accent));
   transition:width .25s ease}
 .jc-pct{font-size:.6rem; color:var(--bone-dim); min-width:30px; text-align:right}
+.gearlink{display:inline-flex; align-items:center; justify-content:center;
+  width:34px; height:34px; border:1px solid var(--line); border-radius:8px;
+  color:var(--bone-faint); transition:.15s}
+.gearlink svg{width:17px; height:17px}
+.gearlink:hover{color:var(--accent-hi); border-color:var(--line-hi);
+  transform:rotate(35deg)}
 .userchip{display:flex; align-items:center; gap:10px; font-size:.66rem;
   color:var(--bone-dim)}
 .userchip button{background:none; border:1px solid var(--line-hi);
@@ -125,6 +131,11 @@ body::before{
     linear-gradient(180deg, var(--panel2), var(--panel-quiet));
   transition:border-color .18s, box-shadow .18s, transform .18s}
 .ingest-drop:hover{border-color:var(--accent); box-shadow:0 14px 40px -22px var(--accent)}
+.ingest-drop.quota{border-style:solid; border-color:var(--line); opacity:.62;
+  cursor:not-allowed; background:var(--panel-quiet)}
+.ingest-drop.quota:hover{border-color:var(--line); box-shadow:none}
+.ingest-drop.quota .ingest-cta{background:var(--line); color:var(--bone-faint)}
+.ingest-drop.quota .ingest-ic{color:var(--bone-faint)}
 .ingest.drag .ingest-drop{border-color:var(--accent); background:var(--accent-glow);
   box-shadow:0 0 0 1px var(--accent), 0 18px 50px -24px var(--accent)}
 .ingest-ic{flex:none; width:46px; height:46px; border-radius:11px;
@@ -380,6 +391,9 @@ body::before{
   <span class="pglabel mono">PROJECTS</span>
   <div class="spacer"></div>
   <div class="jobchip" id="busychip" style="display:none"></div>
+  <a class="gearlink" href="/settings" title="Settings — your AI key" aria-label="Settings">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
+  </a>
   <div class="userchip mono" id="userchip"></div>
 </header>
 

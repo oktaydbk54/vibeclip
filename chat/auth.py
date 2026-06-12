@@ -30,8 +30,26 @@ DB_PATH = config.CACHE_DIR / "users.db"
 SECRET_PATH = config.CACHE_DIR / ".auth_secret"
 STATIC = Path(__file__).parent / "static"
 
-COOKIE_NAME = "kesim_session"
+COOKIE_NAME = "vibeclip_session"
+# Old name from the project's pre-open-source days. Still READ so existing
+# sessions survive the rename; we only ever WRITE the new name.
+LEGACY_COOKIE_NAME = "kesim_session"
 COOKIE_MAX_AGE = 30 * 86400   # 30 days
+
+
+def _read_session_cookie(request: Request) -> str | None:
+    return (request.cookies.get(COOKIE_NAME)
+            or request.cookies.get(LEGACY_COOKIE_NAME))
+
+
+def _require_verification() -> bool:
+    """Self-host convenience knob. When false (the default), signup creates an
+    already-verified account and logs the user straight in — a solo operator
+    never has to fish an OTP out of the server log. Set REQUIRE_EMAIL_VERIFICATION
+    =true on a public multi-user instance to enforce email confirmation."""
+    return os.getenv("REQUIRE_EMAIL_VERIFICATION", "false").strip().lower() in (
+        "1", "true", "yes", "on")
+
 
 EMAIL_RE = re.compile(r"^[^@\s]+@[^@\s]+\.[^@\s]+$")
 
@@ -328,7 +346,7 @@ def get_user(request: Request) -> dict | None:
     """Parse + verify the session cookie and fetch the row. None on any
     failure/expiry (never raises) — safe to call from the chat handler."""
     try:
-        uid = verify_cookie(request.cookies.get(COOKIE_NAME))
+        uid = verify_cookie(_read_session_cookie(request))
         if uid is None:
             return None
         return _row_by_id(uid)
@@ -500,6 +518,20 @@ def signup(body: SignupIn):
     else:
         create_user(email, name, pw)  # verified defaults to 0
 
+    # Self-host fast path: skip email confirmation entirely, mark verified and
+    # log the user straight in. (Default; flip REQUIRE_EMAIL_VERIFICATION for a
+    # public instance.)
+    if not _require_verification():
+        row = _row_by_email(email)
+        uid = int(row["id"])
+        _mark_verified(uid)
+        _sync_admin(uid, email)
+        resp = JSONResponse({"ok": True,
+                             "next": "/onboarding" if not row["onboarded"]
+                             else "/projects"})
+        _set_cookie(resp, uid)
+        return resp
+
     ok, err = _send_code(email, name)
     if not ok:
         return JSONResponse({"error": err}, status_code=429)
@@ -550,13 +582,15 @@ def login(body: LoginIn):
     if row is None or not verify_password(row, body.password or ""):
         return JSONResponse({"error": "Email or password is incorrect"},
                             status_code=401)
-    if not row["verified"]:
+    if not row["verified"] and _require_verification():
         # Block unverified login; send a fresh code and route to verification.
         _send_code(row["email"], row["display_name"])
         return JSONResponse(
             {"error": "Please verify your email first. We sent you a new code.",
              "next": "/verify", "email": row["email"], "unverified": True},
             status_code=403)
+    if not row["verified"]:
+        _mark_verified(int(row["id"]))  # verification disabled — grandfather in
     _sync_admin(int(row["id"]), row["email"])  # keep allowlist authoritative
     nxt = "/projects" if row["onboarded"] else "/onboarding"
     resp = JSONResponse({"ok": True, "next": nxt})
@@ -568,6 +602,7 @@ def login(body: LoginIn):
 def logout():
     resp = JSONResponse({"ok": True})
     resp.delete_cookie(COOKIE_NAME, path="/")
+    resp.delete_cookie(LEGACY_COOKIE_NAME, path="/")  # clear any old-name cookie
     return resp
 
 
@@ -600,13 +635,16 @@ def onboarding(body: OnboardingIn, request: Request):
     for val, allowed in checks:
         if val not in allowed:
             return JSONResponse({"error": "Invalid choice"}, status_code=400)
-    profile = {
+    # Merge onto any existing profile so unrelated keys (e.g. the BYOK "llm"
+    # block) survive a re-onboard.
+    profile = json.loads(user["profile_json"] or "{}")
+    profile.update({
         "content_type": body.content_type,
         "platform": body.platform,
         "experience": body.experience,
         "style_vibe": body.style_vibe,
         "goal": body.goal,
-    }
+    })
     with _connect() as con:
         con.execute(
             "UPDATE users SET profile_json = ?, onboarded = 1 WHERE id = ?",
@@ -615,9 +653,204 @@ def onboarding(body: OnboardingIn, request: Request):
     return {"ok": True, "next": "/projects"}
 
 
+# --------------------------------------------------------------- BYOK settings
+# Per-user LLM key (encrypted at rest). When set, the user's chat turns + clip
+# generation run on THEIR provider instead of the server's env key.
+# Every provider here speaks the OpenAI chat-completions protocol (OpenAI and
+# DeepSeek natively; Gemini and Anthropic via their OpenAI-compatible endpoints),
+# so the whole pipeline routes through the one OpenAI client with a base_url swap.
+_PROVIDER_DEFAULTS = {
+    "openai":   {"base_url": None,
+                 "model": "gpt-4o-mini", "model_pro": "gpt-4o"},
+    "gemini":   {"base_url": "https://generativelanguage.googleapis.com/v1beta/openai/",
+                 "model": "gemini-2.5-flash", "model_pro": "gemini-2.5-pro"},
+    "claude":   {"base_url": "https://api.anthropic.com/v1/",
+                 "model": "claude-haiku-4-5-20251001",
+                 "model_pro": "claude-sonnet-4-6"},
+    "deepseek": {"base_url": "https://api.deepseek.com",
+                 "model": "deepseek-chat", "model_pro": "deepseek-chat"},
+    "custom":   {"base_url": None, "model": "", "model_pro": ""},
+}
+
+
+class LlmSettingsIn(BaseModel):
+    provider: str = "openai"     # openai | deepseek | custom
+    api_key: str = ""            # blank on update = keep the stored key
+    base_url: str = ""           # required for custom
+    model: str = ""
+    model_pro: str = ""
+
+
+def user_llm_override(user_row: dict | None) -> dict | None:
+    """Build the BYOK override for the pipeline from a user's stored settings,
+    or None to fall back to the server env key. Never raises."""
+    if not user_row:
+        return None
+    try:
+        cfg = json.loads(user_row["profile_json"] or "{}").get("llm") or {}
+    except (ValueError, TypeError, KeyError):
+        return None
+    enc = cfg.get("key_enc")
+    if not enc:
+        return None
+    from chat import secretbox
+    key = secretbox.decrypt(enc)
+    if not key:
+        return None
+    return {"api_key": key,
+            "base_url": cfg.get("base_url") or None,
+            "model": cfg.get("model") or None,
+            "model_pro": cfg.get("model_pro") or None}
+
+
+def _private_host(host: str) -> bool:
+    import ipaddress
+    import socket
+    host = (host or "").strip().lower()
+    if host in ("localhost", "0.0.0.0", "::1", ""):
+        return True
+    try:
+        infos = socket.getaddrinfo(host, None)
+    except OSError:
+        return False  # can't resolve — let the connection attempt fail naturally
+    for info in infos:
+        try:
+            ip = ipaddress.ip_address(info[4][0])
+        except ValueError:
+            continue
+        if (ip.is_private or ip.is_loopback or ip.is_link_local
+                or ip.is_reserved):
+            return True
+    return False
+
+
+def _validate_base_url(url: str) -> tuple[bool, str]:
+    """Scheme check, plus an optional SSRF guard for public/hosted instances.
+    Self-host keeps private endpoints allowed (local models like Ollama)."""
+    from urllib.parse import urlparse
+    p = urlparse(url)
+    if p.scheme not in ("http", "https") or not p.hostname:
+        return False, "Base URL must be a full http(s):// address."
+    block = os.getenv("BLOCK_PRIVATE_LLM_ENDPOINTS", "false").strip().lower() in (
+        "1", "true", "yes", "on")
+    if block and _private_host(p.hostname):
+        return False, "This server does not allow private/internal endpoints."
+    return True, ""
+
+
+def _test_llm(api_key: str, base_url: str | None, model: str) -> tuple[bool, str]:
+    """Cheap liveness check: a 1-token completion against the chosen model."""
+    try:
+        from openai import OpenAI
+        client = (OpenAI(api_key=api_key, base_url=base_url) if base_url
+                  else OpenAI(api_key=api_key))
+        client.chat.completions.create(
+            model=model, max_tokens=1,
+            messages=[{"role": "user", "content": "ping"}])
+        return True, ""
+    except Exception as e:  # noqa: BLE001 — surface a readable reason
+        msg = str(e)
+        return False, msg[:200] or f"{type(e).__name__}"
+
+
+@router.get("/api/settings/llm")
+def get_llm_settings(request: Request):
+    user = require_user(request)
+    cfg = json.loads(user["profile_json"] or "{}").get("llm") or {}
+    has_env = bool(config.OPENAI_API_KEY or config.DEEPSEEK_API_KEY)
+    masked = ""
+    if cfg.get("key_enc"):
+        from chat import secretbox
+        plain = secretbox.decrypt(cfg["key_enc"]) or ""
+        if plain:
+            masked = f"{plain[:3]}…{plain[-4:]}" if len(plain) > 8 else "••••"
+    return {
+        "configured": bool(cfg.get("key_enc")),
+        "provider": cfg.get("provider", "openai"),
+        "base_url": cfg.get("base_url") or "",
+        "model": cfg.get("model") or "",
+        "model_pro": cfg.get("model_pro") or "",
+        "key_masked": masked,
+        "server_key_available": has_env,
+    }
+
+
+@router.post("/api/settings/llm")
+def set_llm_settings(body: LlmSettingsIn, request: Request):
+    user = require_user(request)
+    provider = (body.provider or "openai").strip().lower()
+    if provider not in _PROVIDER_DEFAULTS:
+        return JSONResponse({"error": "Unknown provider."}, status_code=400)
+    defaults = _PROVIDER_DEFAULTS[provider]
+
+    existing = json.loads(user["profile_json"] or "{}").get("llm") or {}
+    # Blank api_key on save = keep the previously stored key (lets the user edit
+    # model/base_url without re-typing the secret).
+    from chat import secretbox
+    api_key = (body.api_key or "").strip()
+    if not api_key and existing.get("key_enc"):
+        api_key = secretbox.decrypt(existing["key_enc"]) or ""
+    if not api_key:
+        return JSONResponse({"error": "An API key is required."}, status_code=400)
+
+    base_url = (body.base_url or "").strip() or (defaults["base_url"] or "")
+    if provider == "custom" and not base_url:
+        return JSONResponse({"error": "Custom provider needs a base URL."},
+                            status_code=400)
+    if base_url:
+        ok, err = _validate_base_url(base_url)
+        if not ok:
+            return JSONResponse({"error": err}, status_code=400)
+
+    model = (body.model or "").strip() or defaults["model"]
+    model_pro = (body.model_pro or "").strip() or model or defaults["model_pro"]
+    if not model:
+        return JSONResponse({"error": "A model name is required."},
+                            status_code=400)
+
+    ok, err = _test_llm(api_key, base_url or None, model)
+    if not ok:
+        return JSONResponse(
+            {"error": f"Couldn't reach the model: {err}"}, status_code=400)
+
+    profile = json.loads(user["profile_json"] or "{}")
+    profile["llm"] = {
+        "provider": provider,
+        "base_url": base_url,
+        "model": model,
+        "model_pro": model_pro,
+        "key_enc": secretbox.encrypt(api_key),
+    }
+    with _connect() as con:
+        con.execute("UPDATE users SET profile_json = ? WHERE id = ?",
+                    (json.dumps(profile), user["id"]))
+    return {"ok": True, "provider": provider, "model": model}
+
+
+@router.delete("/api/settings/llm")
+def clear_llm_settings(request: Request):
+    user = require_user(request)
+    profile = json.loads(user["profile_json"] or "{}")
+    if "llm" in profile:
+        profile.pop("llm")
+        with _connect() as con:
+            con.execute("UPDATE users SET profile_json = ? WHERE id = ?",
+                        (json.dumps(profile), user["id"]))
+    return {"ok": True}
+
+
 # ----------------------------------------------------------------- page routes
 def _serve(name: str) -> HTMLResponse:
-    return HTMLResponse((STATIC / name).read_text())
+    from chat import webutil
+    return HTMLResponse(webutil.inject_head((STATIC / name).read_text()))
+
+
+@router.get("/settings", response_class=HTMLResponse)
+def settings_page(request: Request):
+    user = get_user(request)
+    if user is None:
+        return RedirectResponse("/login?next=/settings", 302)
+    return _serve("settings.html")
 
 
 @router.get("/login", response_class=HTMLResponse)

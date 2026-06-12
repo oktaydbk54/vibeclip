@@ -169,7 +169,6 @@ def detect_face_track(clip_path: str, fps_sample: float = 5.0) -> list[dict]:
     (linear interpolation between known points; ends held flat).
     """
     import cv2
-    import numpy as np
 
     info = ffprobe_info(clip_path)
     duration = info["duration"]

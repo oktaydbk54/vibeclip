@@ -24,7 +24,7 @@ import subprocess
 from pathlib import Path
 
 from pipeline import config
-from pipeline.media import ffprobe_info, run_ffmpeg
+from pipeline.media import ffprobe_info
 
 ASSETS_DIR = config.ROOT / "assets" / "user"
 CATALOG_PATH = ASSETS_DIR / "catalog.json"
@@ -190,8 +190,8 @@ def _llm_describe(images_b64: list[str], hint: str) -> dict:
         model=model,
         messages=[{"role": "system", "content": system},
                   {"role": "user", "content": content}],
-        response_format={"type": "json_object"}, temperature=0.2)
-    return json.loads(resp.choices[0].message.content)
+        temperature=0.2, **config.json_response_format(base_url))
+    return config.extract_json(resp.choices[0].message.content)
 
 
 def _llm_describe_text(hint: str) -> dict:
@@ -210,8 +210,8 @@ def _llm_describe_text(hint: str) -> dict:
         model=model,
         messages=[{"role": "system", "content": system},
                   {"role": "user", "content": hint}],
-        response_format={"type": "json_object"}, temperature=0.2)
-    return json.loads(resp.choices[0].message.content)
+        temperature=0.2, **config.json_response_format(base_url))
+    return config.extract_json(resp.choices[0].message.content)
 
 
 # ------------------------------------------------------------------ ingest

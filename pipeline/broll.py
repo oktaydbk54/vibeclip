@@ -21,7 +21,7 @@ import urllib.request
 from pathlib import Path
 
 from pipeline import config
-from pipeline.media import ffprobe_info, run_ffmpeg
+from pipeline.media import run_ffmpeg
 
 BROLL_DIR = config.CACHE_DIR / "broll"
 HOOK_GUARD_S = 3.0
@@ -59,10 +59,10 @@ def plan_broll(words: list[dict], max_events: int = 3) -> list[dict]:
         model=model,
         messages=[{"role": "system", "content": system},
                   {"role": "user", "content": f"Clip transcript:\n{transcript}"}],
-        response_format={"type": "json_object"},
         temperature=0.3,
+        **config.json_response_format(base_url),
     )
-    data = json.loads(resp.choices[0].message.content)
+    data = config.extract_json(resp.choices[0].message.content)
 
     events, covered, last_end = [], 0.0, HOOK_GUARD_S
     for e in data.get("events", []):

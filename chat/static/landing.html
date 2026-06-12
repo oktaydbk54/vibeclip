@@ -34,12 +34,20 @@
   </a>
   <div class="nav-links mono">
     <a href="#how">How it works</a>
+    <a href="#opensource">Self-host</a>
     <a href="/blog">Blog</a>
     <a href="#pricing">Pricing</a>
   </div>
   <div class="nav-cta" id="navCta">
-    <a href="/login" class="btn btn-ghost">Sign in</a>
-    <a href="/signup" class="btn btn-solid">START FREE</a>
+    <a href="https://github.com/oktaydbk54/vibeclip" target="_blank" rel="noopener"
+       class="btn btn-ghost btn-gh" aria-label="VibeClip on GitHub">
+      <svg viewBox="0 0 16 16" aria-hidden="true" width="14" height="14"><path fill="currentColor" d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82a7.6 7.6 0 0 1 2-.27c.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.01 8.01 0 0 0 16 8c0-4.42-3.58-8-8-8Z"/></svg>
+      GitHub
+    </a>
+    <a href="https://github.com/oktaydbk54/vibeclip#-quick-start" target="_blank" rel="noopener"
+       class="btn btn-solid cta-selfhost">Self-host →</a>
+    <a href="/login" class="btn btn-ghost cta-hosted">Sign in</a>
+    <a href="/signup" class="btn btn-solid cta-hosted">START FREE</a>
   </div>
 </nav>
 
@@ -54,8 +62,8 @@
 
   <div class="hero-inner">
     <div class="hero-copy">
-      <a class="hero-badge mono hrise" style="--d:.04s" href="#how">
-        <span class="badge-dot"></span> AI EDITING STUDIO — RUNS IN YOUR BROWSER
+      <a class="hero-badge mono hrise" style="--d:.04s" href="#opensource">
+        <span class="badge-dot"></span> OPEN SOURCE · SELF-HOSTABLE · BRING YOUR OWN KEY
       </a>
       <h1 class="hero-h1 hrise" style="--d:.1s">
         Edit video by<br><span class="accent-word">talking</span> to it.
@@ -63,13 +71,20 @@
       <p class="lead hrise" style="--d:.18s">
         VibeClip turns long videos into publish-ready vertical clips. Describe the
         edit in plain words — cut, caption, reframe — then review the
-        before&nbsp;/&nbsp;after and approve in one click.
+        before&nbsp;/&nbsp;after and approve in one click. Open source, AGPL-3.0,
+        runs on <em>your</em> machine and <em>your</em> LLM key.
       </p>
       <div class="hero-cta hrise" style="--d:.26s">
-        <a href="/signup" class="btn btn-solid btn-glow btn-lg">Start free →</a>
-        <a href="#how" class="btn btn-ghost btn-lg">See how it works</a>
+        <a href="https://github.com/oktaydbk54/vibeclip#-quick-start" target="_blank" rel="noopener"
+           class="btn btn-solid btn-glow btn-lg cta-selfhost">Self-host in 1 minute →</a>
+        <a href="/signup" class="btn btn-solid btn-glow btn-lg cta-hosted">Start free →</a>
+        <a href="https://github.com/oktaydbk54/vibeclip" target="_blank" rel="noopener"
+           class="btn btn-ghost btn-lg btn-gh">
+          <svg viewBox="0 0 16 16" aria-hidden="true" width="15" height="15"><path fill="currentColor" d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82a7.6 7.6 0 0 1 2-.27c.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.01 8.01 0 0 0 16 8c0-4.42-3.58-8-8-8Z"/></svg>
+          Star on GitHub
+        </a>
       </div>
-      <div class="trust mono hrise" style="--d:.34s">NO INSTALL · RUNS IN THE BROWSER · EVERY EDIT REVERSIBLE</div>
+      <div class="trust mono hrise" style="--d:.34s">AGPL-3.0 · SELF-HOST IN ONE COMMAND · YOUR DATA NEVER LEAVES YOUR SERVER</div>
     </div>
 
     <!-- live product showcase: a real pipeline output looping in a phone, with a
@@ -149,6 +164,7 @@
         <button class="chip" data-cmd="silence">cut the silences</button>
         <button class="chip" data-cmd="captions">add captions</button>
         <button class="chip" data-cmd="punchier">make it punchier</button>
+        <button class="chip chip-wow" data-cmd="gameplay">split it + add minecraft underneath</button>
         <button class="chip chip-reset" data-cmd="reset">↺ reset demo</button>
       </div>
       <!-- applied confirmation -->
@@ -285,6 +301,71 @@
   </div>
 </section>
 
+<!-- ============ 3.5 — OPEN SOURCE / SELF-HOST ============ -->
+<section id="opensource" class="sect-oss reveal">
+  <div class="sect-head">
+    <div class="eyebrow mono">OPEN SOURCE · AGPL-3.0</div>
+    <h2>Don't want our server? Run your own.</h2>
+    <p class="sect-sub">VibeClip is fully open source. Self-host the entire studio with one
+      command, plug in your own LLM key, and keep every byte of footage on your own disk.
+      No SaaS lock-in — there's nothing to lock you in to.</p>
+  </div>
+
+  <div class="oss-card">
+    <!-- left: the pitch + provider chips + CTA -->
+    <div class="oss-copy">
+      <ul class="oss-points">
+        <li>
+          <span class="oss-ic" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M16 18l6-6-6-6M8 6l-6 6 6 6"/></svg></span>
+          <span><b>AGPL-3.0, all of it.</b> The pipeline, the studio UI, the chat agent — read it, fork it, ship it.</span>
+        </li>
+        <li>
+          <span class="oss-ic" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M21 2l-2 2m-7.6 7.6a5 5 0 1 0-1 1L21 22l-7.6-9.4z"/><circle cx="7.5" cy="15.5" r="1.5"/></svg></span>
+          <span><b>Bring your own key.</b> OpenAI, Gemini, Claude, DeepSeek, or any OpenAI-compatible endpoint — even a local model.</span>
+        </li>
+        <li>
+          <span class="oss-ic" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M3 9.5 12 4l9 5.5M5 11v8h14v-8M9 19v-5h6v5"/></svg></span>
+          <span><b>Your machine, your data.</b> Speech-to-text and every render run locally. Only your chosen LLM ever sees the network.</span>
+        </li>
+      </ul>
+
+      <div class="oss-byok mono">
+        <span class="oss-byok-lbl">WORKS WITH</span>
+        <span class="oss-prov">OpenAI</span>
+        <span class="oss-prov">Gemini</span>
+        <span class="oss-prov">Claude</span>
+        <span class="oss-prov">DeepSeek</span>
+        <span class="oss-prov">Ollama</span>
+        <span class="oss-prov">+ any compatible</span>
+      </div>
+
+      <div class="oss-cta">
+        <a href="https://github.com/oktaydbk54/vibeclip" target="_blank" rel="noopener"
+           class="btn btn-solid btn-glow btn-lg btn-gh">
+          <svg viewBox="0 0 16 16" aria-hidden="true" width="15" height="15"><path fill="currentColor" d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82a7.6 7.6 0 0 1 2-.27c.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.01 8.01 0 0 0 16 8c0-4.42-3.58-8-8-8Z"/></svg>
+          View source &amp; star
+        </a>
+        <a href="https://github.com/oktaydbk54/vibeclip#-quick-start" target="_blank" rel="noopener"
+           class="btn btn-ghost btn-lg">Self-host guide →</a>
+      </div>
+    </div>
+
+    <!-- right: a terminal window with the real quickstart -->
+    <div class="oss-term" aria-label="Quick start in a terminal">
+      <div class="oss-term-bar mono">
+        <span class="ot-dot"></span><span class="ot-dot"></span><span class="ot-dot"></span>
+        <span class="ot-title">bash — self-host</span>
+      </div>
+      <pre class="oss-term-body mono"><span class="ot-cmt"># clone, add one LLM key, go</span>
+<span class="ot-p">$</span> git clone https://github.com/oktaydbk54/vibeclip.git
+<span class="ot-p">$</span> cd vibeclip
+<span class="ot-p">$</span> cp .env.example .env       <span class="ot-cmt"># add OPENAI_API_KEY=sk-...</span>
+<span class="ot-p">$</span> docker compose up -d --build
+<span class="ot-ok">✓ studio live → http://localhost:8765</span></pre>
+    </div>
+  </div>
+</section>
+
 <!-- ============ 4 — STATS / SOCIAL-PROOF STRIP ============ -->
 <section class="sect-stats reveal" aria-label="By the numbers">
   <div class="stats-strip">
@@ -356,9 +437,10 @@
 <section id="pricing" class="sect-price reveal">
   <div class="sect-head">
     <div class="eyebrow mono">PRICING</div>
-    <h2>Plans are on the way.</h2>
-    <p class="sect-sub">We're still shaping how VibeClip should be priced. While we figure it out,
-      the whole studio is free.</p>
+    <h2>Self-host it free. Forever.</h2>
+    <p class="sect-sub">VibeClip is open source under AGPL-3.0 — run the whole studio on your own
+      box at no cost, for as long as you like. A managed hosted plan, for people who'd rather
+      not run a server, is on the way.</p>
   </div>
 
   <!-- "coming soon" treatment: a single centered card sitting over a softly
@@ -371,13 +453,18 @@
     </div>
 
     <div class="price-card">
-      <span class="price-badge mono">SOON</span>
-      <div class="tier-name mono">EARLY ACCESS</div>
-      <h3 class="price-card-h">Free while we're in early access</h3>
-      <p class="price-card-p">No tiers to choose yet, no card required. Use the full studio —
-        every mode, every preset — and we'll give you plenty of notice before anything changes.</p>
-      <a href="/signup" class="btn btn-solid btn-glow btn-lg">Start free →</a>
-      <p class="price-card-foot mono">NO CARD REQUIRED · CANCEL ANYTIME</p>
+      <span class="price-badge mono">FREE FOREVER</span>
+      <div class="tier-name mono">SELF-HOSTED</div>
+      <h3 class="price-card-h">$0 — your server, your LLM key</h3>
+      <p class="price-card-p">Clone it, run one Docker command, plug in your key. Every mode,
+        every preset, no tiers, no card. Prefer not to host? The managed version is in early
+        access and free while we shape paid plans.</p>
+      <div class="price-actions">
+        <a href="https://github.com/oktaydbk54/vibeclip#-quick-start" target="_blank" rel="noopener"
+           class="btn btn-solid btn-glow btn-lg">Self-host it →</a>
+        <a href="/signup" class="btn btn-ghost btn-lg cta-hosted">Try the hosted demo</a>
+      </div>
+      <p class="price-card-foot mono">AGPL-3.0 · NO CARD · YOUR KEYS, YOUR DATA</p>
     </div>
   </div>
 </section>
@@ -417,9 +504,26 @@
     </details>
 
     <details class="faq-item">
+      <summary>Is VibeClip open source? Can I self-host it?<span class="faq-mark" aria-hidden="true"></span></summary>
+      <div class="faq-a">Yes — the entire studio is open source under AGPL-3.0. Clone the
+        <a href="https://github.com/oktaydbk54/vibeclip" target="_blank" rel="noopener">repo</a>,
+        run one <code>docker compose up</code>, add your own LLM key, and you have the full thing
+        on your own server. No feature is held back for the hosted version.</div>
+    </details>
+
+    <details class="faq-item">
+      <summary>Where do my videos and API key go?<span class="faq-mark" aria-hidden="true"></span></summary>
+      <div class="faq-a">When you self-host, footage never leaves your machine — speech-to-text and
+        every render run locally. The only thing that touches the network is the LLM provider you
+        choose (your key), and optionally Pexels for stock b-roll. Per-user keys are encrypted at rest
+        and never sent back to the browser.</div>
+    </details>
+
+    <details class="faq-item">
       <summary>How much does it cost?<span class="faq-mark" aria-hidden="true"></span></summary>
-      <div class="faq-a">Free during early access — no card required. We're still shaping our
-        paid plans and will give you ample notice before anything changes.</div>
+      <div class="faq-a">Self-hosting is <b>free forever</b> — it's open source; you only pay your own
+        LLM provider for tokens (a typical short is a few cents). The managed hosted version is free
+        during early access while we shape paid plans.</div>
     </details>
 
     <details class="faq-item">
@@ -433,8 +537,11 @@
 <!-- ============ 8 — FINAL CTA ============ -->
 <section class="sect-final reveal">
   <h2>Your next clip is one sentence away.</h2>
-  <a href="/signup" class="btn btn-solid btn-glow btn-lg">START FREE →</a>
-  <div class="trust mono">FREE DURING EARLY ACCESS · NO CARD REQUIRED</div>
+  <a href="https://github.com/oktaydbk54/vibeclip#-quick-start" target="_blank" rel="noopener"
+     class="btn btn-solid btn-glow btn-lg cta-selfhost">Self-host it free →</a>
+  <a href="/signup" class="btn btn-solid btn-glow btn-lg cta-hosted">START FREE →</a>
+  <div class="trust mono cta-selfhost">OPEN SOURCE · AGPL-3.0 · RUNS ON YOUR SERVER &amp; YOUR KEY</div>
+  <div class="trust mono cta-hosted">FREE DURING EARLY ACCESS · NO CARD REQUIRED</div>
 </section>
 
 <footer class="foot">
@@ -442,14 +549,17 @@
     <span class="brand-block"></span>
     <span class="word">VibeClip</span><span class="sub mono">studio</span>
   </a>
-  <span class="copy mono">© 2026 VibeClip</span>
+  <span class="copy mono">© 2026 VibeClip · <a href="https://github.com/oktaydbk54/vibeclip/blob/main/LICENSE" target="_blank" rel="noopener">AGPL-3.0</a></span>
   <div class="foot-links mono">
-    <a href="#how">How it works</a><a href="/blog">Blog</a><a href="#pricing">Pricing</a><a href="/signup">Start free</a>
+    <a href="https://github.com/oktaydbk54/vibeclip" target="_blank" rel="noopener">GitHub</a><a href="#opensource">Self-host</a><a href="#how">How it works</a><a href="/blog">Blog</a><a href="#pricing">Pricing</a>
   </div>
   <!-- CC-BY attribution for the demo footage (required by the license). -->
   <span class="credit mono">Demo footage: “Three tips to talk to camera like a pro” by
     <a href="https://www.youtube.com/watch?v=hu0JYxDHpQI" target="_blank" rel="noopener">Andy Dickinson</a>,
-    <a href="https://creativecommons.org/licenses/by/4.0/" target="_blank" rel="noopener">CC&nbsp;BY</a>.</span>
+    <a href="https://creativecommons.org/licenses/by/4.0/" target="_blank" rel="noopener">CC&nbsp;BY</a>.
+    Split-screen gameplay: “Minecraft Parkour Gameplay” by
+    <a href="https://www.youtube.com/watch?v=BXUA2FncVPI" target="_blank" rel="noopener">Orbital - No Copyright Gameplay</a>,
+    <a href="https://creativecommons.org/licenses/by/4.0/" target="_blank" rel="noopener">CC&nbsp;BY</a>. Minecraft © Mojang.</span>
 </footer>
 
 <script src="/static/landing.js"></script>

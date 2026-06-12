@@ -7,7 +7,6 @@ word boundaries so cuts land on word edges, not mid-syllable.
 
 from __future__ import annotations
 
-import json
 
 from pipeline import config
 
@@ -53,7 +52,7 @@ def _client_and_model():
 
     api_key, base_url, model = config.llm_settings()
     client = OpenAI(api_key=api_key, base_url=base_url) if base_url else OpenAI(api_key=api_key)
-    return client, model
+    return client, model, base_url
 
 
 def _snap_to_words(start: float, end: float, words: list[dict]) -> tuple[float, float]:
@@ -129,17 +128,17 @@ def find_highlights(
         f"Transcript:\n{transcript_as_text(transcript)}"
     )
 
-    client, model = _client_and_model()
+    client, model, base_url = _client_and_model()
     resp = client.chat.completions.create(
         model=model,
         messages=[
             {"role": "system", "content": _SYSTEM_PROMPT},
             {"role": "user", "content": user_prompt},
         ],
-        response_format={"type": "json_object"},
         temperature=0.4,
+        **config.json_response_format(base_url),
     )
-    data = json.loads(resp.choices[0].message.content)
+    data = config.extract_json(resp.choices[0].message.content)
     clips = data.get("clips", [])
 
     words = transcript.get("words", [])

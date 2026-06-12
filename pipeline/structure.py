@@ -25,7 +25,6 @@ Design notes for this machine:
 
 from __future__ import annotations
 
-import json
 import re
 import subprocess
 from pathlib import Path
@@ -334,10 +333,10 @@ def _llm_topic_boundaries(transcript: dict) -> list[dict]:
                 {"role": "system", "content": system},
                 {"role": "user", "content": f"Words:\n{numbered}"},
             ],
-            response_format={"type": "json_object"},
             temperature=0.2,
+            **config.json_response_format(base_url),
         )
-        data = json.loads(resp.choices[0].message.content)
+        data = config.extract_json(resp.choices[0].message.content)
     except Exception:
         data = {}
 
@@ -759,10 +758,10 @@ def score_moments(moments: list[dict], transcript: dict,
                 {"role": "system", "content": _SCORE_SYSTEM},
                 {"role": "user", "content": user},
             ],
-            response_format={"type": "json_object"},
             temperature=0.3,
+            **config.json_response_format(base_url),
         )
-        data = json.loads(resp.choices[0].message.content)
+        data = config.extract_json(resp.choices[0].message.content)
     except Exception:
         return _heuristic_scores(moments, transcript)
 

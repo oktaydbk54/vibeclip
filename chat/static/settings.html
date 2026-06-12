@@ -1,0 +1,267 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>VibeClip — Settings</title>
+<link rel="icon" type="image/svg+xml" href="/static/favicon.svg">
+<link rel="icon" type="image/x-icon" href="/static/favicon.ico" sizes="any">
+<link rel="apple-touch-icon" href="/static/apple-touch-icon.png">
+<meta name="theme-color" content="#9b5cff">
+<!-- Google Analytics (GA4) -->
+<script async src="https://www.googletagmanager.com/gtag/js?id=G-VLDS78ZF9K"></script>
+<script>
+  window.dataLayer = window.dataLayer || [];
+  function gtag(){dataLayer.push(arguments);}
+  gtag('js', new Date());
+  gtag('config', 'G-VLDS78ZF9K');
+</script>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Archivo:wght@400;500;600;700;800&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+:root{
+  --ink:#0a0712; --panel:#130d1f; --panel2:#181020; --panel-quiet:#0e0a16;
+  --raise:#1d1430; --line:#2a2040; --line-hi:#3a2c54;
+  --bone:#e7e2f2; --bone-dim:#918aa6; --bone-faint:#615a73;
+  --accent:#9b5cff; --accent-dim:#4a2d80; --accent-glow:rgba(155,92,255,.14);
+  --accent-hi:#c08bff; --green:#3ddc97; --red:#f4524d; --orange:#ffb454;
+  --r:10px; --mono:'IBM Plex Mono',ui-monospace,monospace;
+}
+@media (prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}}
+*{box-sizing:border-box}
+body{margin:0;background:var(--ink);color:var(--bone);
+  font-family:'Archivo',system-ui,sans-serif;line-height:1.5;
+  background-image:radial-gradient(120% 80% at 80% -10%,var(--accent-glow),transparent 60%);}
+a{color:var(--accent-hi);text-decoration:none}
+.appbar{display:flex;align-items:center;gap:14px;padding:16px 22px;
+  border-bottom:1px solid var(--line);position:sticky;top:0;background:rgba(10,7,18,.86);
+  backdrop-filter:blur(8px);z-index:5}
+.brand{font-weight:800;letter-spacing:.12em;font-size:15px}
+.brand b{color:var(--accent-hi)}
+.appbar .sp{flex:1}
+.appbar a.back{font-size:13px;color:var(--bone-dim);border:1px solid var(--line);
+  padding:7px 13px;border-radius:8px;transition:.15s}
+.appbar a.back:hover{border-color:var(--line-hi);color:var(--bone)}
+.wrap{max-width:680px;margin:0 auto;padding:34px 22px 80px}
+.h{font-size:26px;font-weight:800;letter-spacing:-.02em;margin:0 0 4px}
+.sub{color:var(--bone-dim);font-size:14px;margin:0 0 26px}
+.card{background:linear-gradient(180deg,var(--panel),var(--panel-quiet));
+  border:1px solid var(--line);border-radius:var(--r);padding:24px 24px 26px;margin-bottom:20px;
+  box-shadow:0 18px 44px -26px rgba(0,0,0,.9)}
+.card h2{font-size:13px;letter-spacing:.16em;text-transform:uppercase;color:var(--bone-faint);
+  margin:0 0 4px;font-weight:700}
+.card .lead{font-size:14px;color:var(--bone-dim);margin:0 0 20px}
+.status{display:flex;align-items:center;gap:10px;font-size:13.5px;
+  background:var(--panel-quiet);border:1px solid var(--line);border-radius:8px;
+  padding:11px 14px;margin-bottom:20px}
+.dot{width:8px;height:8px;border-radius:50%;background:var(--bone-faint);flex:none}
+.dot.on{background:var(--green);box-shadow:0 0 10px var(--green)}
+.dot.env{background:var(--orange)}
+.field{margin-bottom:16px}
+.field label{display:block;font-size:12px;font-weight:600;letter-spacing:.04em;
+  color:var(--bone-dim);margin-bottom:6px}
+.field .hint{font-size:11.5px;color:var(--bone-faint);margin-top:5px}
+input,select{width:100%;background:var(--ink);border:1px solid var(--line-hi);
+  color:var(--bone);font-family:var(--mono);font-size:13.5px;padding:11px 13px;
+  border-radius:8px;transition:.15s}
+input:focus,select:focus{outline:none;border-color:var(--accent);
+  box-shadow:0 0 0 3px var(--accent-glow)}
+input::placeholder{color:var(--bone-faint)}
+.row{display:flex;gap:12px}
+.row>.field{flex:1}
+.btns{display:flex;gap:12px;align-items:center;margin-top:22px}
+button{font-family:inherit;font-weight:700;font-size:13.5px;border-radius:8px;
+  padding:11px 20px;cursor:pointer;border:1px solid transparent;transition:.15s}
+.primary{background:var(--accent);color:#160a2b;border-color:var(--accent)}
+.primary:hover{background:var(--accent-hi)}
+.primary:disabled{opacity:.55;cursor:default}
+.ghost{background:transparent;color:var(--bone-dim);border-color:var(--line)}
+.ghost:hover{border-color:var(--red);color:var(--red)}
+.msg{font-size:13px;margin-top:14px;min-height:18px}
+.msg.ok{color:var(--green)} .msg.err{color:var(--red)}
+.note{font-size:12.5px;color:var(--bone-faint);line-height:1.6;
+  border-left:2px solid var(--line-hi);padding:2px 0 2px 14px;margin-top:6px}
+.note b{color:var(--bone-dim)}
+.hide{display:none!important}
+.spin{display:inline-block;width:13px;height:13px;border:2px solid #160a2b;
+  border-top-color:transparent;border-radius:50%;animation:sp .7s linear infinite;
+  vertical-align:-2px;margin-right:7px}
+@keyframes sp{to{transform:rotate(360deg)}}
+</style>
+</head>
+<body>
+<div class="appbar">
+  <div class="brand">VIBE<b>CLIP</b></div>
+  <div class="sp"></div>
+  <a class="back" href="/projects">← Back to projects</a>
+</div>
+
+<div class="wrap">
+  <h1 class="h">Settings</h1>
+  <p class="sub">Run VibeClip on your own AI provider — bring your own key.</p>
+
+  <div class="card">
+    <h2>LLM provider key</h2>
+    <p class="lead">VibeClip uses an LLM to understand your edits and score the
+      best moments. Add your own key to run on your account and your bill.</p>
+
+    <div class="status" id="status">
+      <span class="dot" id="statusDot"></span>
+      <span id="statusText">Loading…</span>
+    </div>
+
+    <form id="form" autocomplete="off">
+      <div class="field">
+        <label for="provider">Provider</label>
+        <select id="provider" name="provider">
+          <option value="openai">OpenAI</option>
+          <option value="gemini">Google Gemini</option>
+          <option value="claude">Anthropic Claude</option>
+          <option value="deepseek">DeepSeek (cheaper)</option>
+          <option value="custom">Custom — any OpenAI-compatible endpoint</option>
+        </select>
+      </div>
+
+      <div class="field">
+        <label for="api_key">API key</label>
+        <input id="api_key" name="api_key" type="password" autocomplete="off"
+               placeholder="sk-…">
+        <div class="hint" id="keyHint">Stored encrypted. Leave blank to keep your saved key.</div>
+      </div>
+
+      <div class="field hide" id="baseField">
+        <label for="base_url">Base URL</label>
+        <input id="base_url" name="base_url" type="text" spellcheck="false"
+               placeholder="https://your-endpoint/v1">
+        <div class="hint">For local models or gateways (Ollama, LM Studio, OpenRouter…).</div>
+      </div>
+
+      <div class="row">
+        <div class="field">
+          <label for="model">Model</label>
+          <input id="model" name="model" type="text" spellcheck="false" placeholder="gpt-4o-mini">
+        </div>
+        <div class="field">
+          <label for="model_pro">Model (Pro tier)</label>
+          <input id="model_pro" name="model_pro" type="text" spellcheck="false" placeholder="gpt-4o">
+        </div>
+      </div>
+
+      <div class="btns">
+        <button type="submit" class="primary" id="saveBtn">Save &amp; test</button>
+        <button type="button" class="ghost hide" id="removeBtn">Remove key</button>
+      </div>
+      <div class="msg" id="msg"></div>
+    </form>
+  </div>
+
+  <div class="card">
+    <h2>How your key is handled</h2>
+    <p class="note">
+      <b>Encrypted at rest.</b> Your key is encrypted before it touches the
+      database and is never sent back to your browser.<br>
+      <b>Only your provider.</b> It's used solely to call the provider you pick —
+      VibeClip never proxies your prompts anywhere else.<br>
+      <b>Your bill.</b> Usage is billed by your provider. DeepSeek is the
+      cost-friendly option; a typical short costs a few cents of tokens.
+    </p>
+  </div>
+</div>
+
+<script>
+const $ = id => document.getElementById(id);
+const DEFAULTS = {
+  openai:   {model:'gpt-4o-mini',   model_pro:'gpt-4o',                  base:false, key:'sk-…'},
+  gemini:   {model:'gemini-2.5-flash', model_pro:'gemini-2.5-pro',      base:false, key:'AIza…'},
+  claude:   {model:'claude-haiku-4-5-20251001', model_pro:'claude-sonnet-4-6', base:false, key:'sk-ant-…'},
+  deepseek: {model:'deepseek-chat', model_pro:'deepseek-chat',          base:false, key:'sk-…'},
+  custom:   {model:'',              model_pro:'',                        base:true,  key:'your-api-key'},
+};
+let STATE = null;
+
+function applyProvider(p){
+  const d = DEFAULTS[p] || DEFAULTS.openai;
+  // The named providers carry an implicit base URL; only "custom" needs one.
+  $('baseField').classList.toggle('hide', !d.base);
+  $('model').placeholder = d.model || 'model-name';
+  $('model_pro').placeholder = d.model_pro || 'model-name';
+  $('api_key').placeholder = d.key || 'your-api-key';
+}
+
+function renderStatus(s){
+  const dot = $('statusDot'), txt = $('statusText');
+  dot.className = 'dot';
+  if (s.configured){
+    dot.classList.add('on');
+    txt.innerHTML = `Using <b>your ${s.provider}</b> key — `+
+      `<span style="font-family:var(--mono)">${s.model||'default model'}</span>`+
+      (s.key_masked?` · <span style="font-family:var(--mono);color:var(--bone-faint)">${s.key_masked}</span>`:'');
+    $('removeBtn').classList.remove('hide');
+    $('keyHint').textContent = 'Stored encrypted. Leave blank to keep your saved key.';
+  } else if (s.server_key_available){
+    dot.classList.add('env');
+    txt.textContent = 'Using the server’s key. Add your own below to run on your account.';
+    $('removeBtn').classList.add('hide');
+    $('keyHint').textContent = 'Stored encrypted.';
+  } else {
+    txt.textContent = 'No key configured yet — add one to start editing.';
+    $('removeBtn').classList.add('hide');
+    $('keyHint').textContent = 'Stored encrypted.';
+  }
+}
+
+async function load(){
+  try{
+    const r = await fetch('/api/settings/llm');
+    if (r.status===401){ location.href='/login?next=/settings'; return; }
+    STATE = await r.json();
+    $('provider').value = STATE.provider || 'openai';
+    if (STATE.base_url) $('base_url').value = STATE.base_url;
+    if (STATE.model) $('model').value = STATE.model;
+    if (STATE.model_pro) $('model_pro').value = STATE.model_pro;
+    applyProvider($('provider').value);
+    renderStatus(STATE);
+  }catch(e){ $('msg').className='msg err'; $('msg').textContent='Could not load settings.'; }
+}
+
+$('provider').addEventListener('change', e => applyProvider(e.target.value));
+
+$('form').addEventListener('submit', async e => {
+  e.preventDefault();
+  const btn = $('saveBtn'), msg = $('msg');
+  msg.className='msg'; msg.textContent='';
+  btn.disabled = true; btn.innerHTML = '<span class="spin"></span>Testing…';
+  const body = {
+    provider: $('provider').value,
+    api_key: $('api_key').value,
+    base_url: $('base_url').value,
+    model: $('model').value,
+    model_pro: $('model_pro').value,
+  };
+  try{
+    const r = await fetch('/api/settings/llm', {
+      method:'POST', headers:{'Content-Type':'application/json'},
+      body: JSON.stringify(body)});
+    const d = await r.json();
+    if (!r.ok){ msg.className='msg err'; msg.textContent = d.error || 'Save failed.'; }
+    else { msg.className='msg ok'; msg.textContent = `Saved — running on ${d.provider} (${d.model}).`;
+           $('api_key').value=''; await load(); }
+  }catch(e){ msg.className='msg err'; msg.textContent='Network error.'; }
+  finally{ btn.disabled=false; btn.textContent='Save & test'; }
+});
+
+$('removeBtn').addEventListener('click', async () => {
+  if (!confirm('Remove your key? VibeClip will fall back to the server key (if any).')) return;
+  const msg = $('msg'); msg.className='msg'; msg.textContent='';
+  try{
+    const r = await fetch('/api/settings/llm', {method:'DELETE'});
+    if (r.ok){ $('api_key').value=''; $('model').value=''; $('model_pro').value='';
+               $('base_url').value=''; msg.className='msg ok'; msg.textContent='Key removed.'; await load(); }
+  }catch(e){ msg.className='msg err'; msg.textContent='Could not remove key.'; }
+});
+
+load();
+</script>
+</body>
+</html>

@@ -20,8 +20,6 @@ shared state. Heavy libs are lazy-imported inside the functions.
 
 from __future__ import annotations
 
-import json
-import math
 import re
 import subprocess
 from pathlib import Path
@@ -253,11 +251,11 @@ def _llm_ambience(topic_label: str) -> str | None:
                  "Use 'none' if nothing clearly fits."},
                 {"role": "user", "content": f"Topic of the clip: {topic_label}"},
             ],
-            response_format={"type": "json_object"},
             temperature=0.0,
             max_tokens=20,
+            **config.json_response_format(base_url),
         )
-        data = json.loads(resp.choices[0].message.content or "{}")
+        data = config.extract_json(resp.choices[0].message.content or "{}")
         kind = str(data.get("ambience", "")).strip().lower()
         return kind if kind in AMBIENCE_KINDS else None
     except Exception:

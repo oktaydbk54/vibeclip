@@ -779,10 +779,9 @@ def _llm_transcript_fixes(words: list[dict], hint: str = "") -> list[dict]:
         model=model,
         messages=[{"role": "system", "content": _FIX_SYSTEM},
                   {"role": "user", "content": user}],
-        response_format={"type": "json_object"}, temperature=0.1)
-    import json as _json
+        temperature=0.1, **config.json_response_format(base_url))
     try:
-        data = _json.loads(resp.choices[0].message.content)
+        data = config.extract_json(resp.choices[0].message.content)
     except (ValueError, TypeError):
         return []
     cores = {_token_parts(w.get("word", ""))[1].casefold() for w in words}

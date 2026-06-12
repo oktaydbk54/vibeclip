@@ -9,7 +9,6 @@ If no LLM key is set, falls back to a simple heuristic so auto_edit still works.
 
 from __future__ import annotations
 
-import json
 
 from pipeline import config
 
@@ -85,10 +84,10 @@ def plan_clip_edits(words: list[dict], clip_start: float, clip_end: float,
                 {"role": "system", "content": system},
                 {"role": "user", "content": f"Clip transcript:\n{transcript}"},
             ],
-            response_format={"type": "json_object"},
             temperature=0.3,
+            **config.json_response_format(base_url),
         )
-        data = json.loads(resp.choices[0].message.content)
+        data = config.extract_json(resp.choices[0].message.content)
     except Exception:
         return _heuristic(local)
 

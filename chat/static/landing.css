@@ -341,6 +341,11 @@ section{padding:120px 32px; max-width:1280px; margin:0 auto}
 .chip.done::before{content:"✓ "; color:var(--green)}
 .chip-reset{margin-left:auto; color:var(--bone-faint)}
 .chip-reset::before{content:""}
+/* the split-screen "brainrot" showcase chip — tinted so it reads as the wow move */
+.chip-wow{color:var(--accent-hi); border-color:var(--accent-dim);
+  background:linear-gradient(180deg, rgba(155,108,242,.10), var(--raise))}
+.chip-wow::before{content:"✦ "; color:var(--hilite)}
+.chip-wow:hover{border-color:var(--accent); background:var(--accent-glow)}
 
 /* applied confirmation flash */
 .tc-applied{max-height:0; overflow:hidden; padding:0 14px; background:var(--accent-glow);
@@ -564,6 +569,90 @@ section{padding:120px 32px; max-width:1280px; margin:0 auto}
   color:var(--bone-faint); opacity:.7; letter-spacing:.04em}
 .foot .credit a{color:var(--bone-dim); text-decoration:underline; text-underline-offset:2px}
 .foot .credit a:hover{color:var(--accent-hi)}
+
+/* ===================== GITHUB BUTTON ===================== */
+.btn-gh{gap:8px}
+.btn-gh svg{flex:none; margin-top:-1px}
+
+/* ===================== DEPLOYMENT-MODE CTAs ===================== */
+/* HOSTED_STUDIO flag is stamped on <html> at serve time. Default / absent =
+   hosted (login + signup, for a self-hoster using their own instance). When the
+   public v1 marketing site sets HOSTED_STUDIO=false (data-hosted-studio="0"),
+   login/signup CTAs hide and the self-host (→ GitHub) CTAs take their place. */
+.cta-selfhost{display:none}
+html[data-hosted-studio="0"] .cta-hosted{display:none}
+html[data-hosted-studio="0"] a.cta-selfhost{display:inline-flex}
+html[data-hosted-studio="0"] div.cta-selfhost{display:block}
+
+/* ===================== OPEN SOURCE / SELF-HOST ===================== */
+.sect-oss{padding-top:0}
+.oss-card{max-width:var(--maxw); margin:0 auto; display:grid;
+  grid-template-columns:1.02fr .98fr; gap:0;
+  border:1px solid var(--line-hi); border-radius:18px; overflow:hidden;
+  background:
+    radial-gradient(120% 150% at 100% 0%, rgba(155,108,242,.10), transparent 56%),
+    linear-gradient(180deg, rgba(29,20,48,.42), rgba(19,13,31,.72));
+  box-shadow:0 50px 130px -60px rgba(155,108,242,.16), 0 30px 70px -40px rgba(0,0,0,.85)}
+
+/* left column — pitch, providers, CTA */
+.oss-copy{padding:clamp(26px,3.4vw,40px); display:flex; flex-direction:column; gap:22px;
+  border-right:1px solid var(--line)}
+.oss-points{list-style:none; display:flex; flex-direction:column; gap:16px}
+.oss-points li{display:flex; gap:13px; align-items:flex-start;
+  font-size:.92rem; color:var(--bone-dim); line-height:1.5}
+.oss-points li b{color:var(--bone); font-weight:700}
+.oss-ic{flex:none; width:34px; height:34px; border-radius:9px; margin-top:1px;
+  display:flex; align-items:center; justify-content:center; color:var(--accent-hi);
+  background:var(--accent-glow); border:1px solid var(--accent-dim)}
+.oss-ic svg{width:18px; height:18px}
+
+.oss-byok{display:flex; flex-wrap:wrap; align-items:center; gap:8px;
+  padding-top:20px; border-top:1px solid var(--line)}
+.oss-byok-lbl{font-size:.54rem; letter-spacing:.2em; color:var(--bone-faint);
+  margin-right:4px}
+.oss-prov{font-size:.62rem; letter-spacing:.04em; color:var(--bone);
+  border:1px solid var(--line-hi); border-radius:999px; padding:6px 12px;
+  background:rgba(14,10,22,.6); transition:border-color .15s, color .15s}
+.oss-prov:hover{border-color:var(--accent-dim); color:var(--accent-hi)}
+
+.oss-cta{display:flex; flex-wrap:wrap; gap:12px; margin-top:2px}
+
+/* right column — terminal window */
+.oss-term{display:flex; flex-direction:column; background:var(--ink);
+  min-width:0}
+.oss-term-bar{display:flex; align-items:center; gap:7px; padding:11px 15px;
+  background:var(--panel2); border-bottom:1px solid var(--line)}
+.ot-dot{width:9px; height:9px; border-radius:50%; background:var(--line-hi); flex:none}
+.ot-dot:nth-child(1){background:#f4524d66}
+.ot-dot:nth-child(2){background:#ffb45466}
+.ot-dot:nth-child(3){background:#3ddc9766}
+.ot-title{margin-left:8px; font-size:.56rem; letter-spacing:.14em;
+  color:var(--bone-faint); text-transform:uppercase}
+.oss-term-body{padding:20px 20px 22px; margin:0; font-size:.74rem; line-height:1.95;
+  color:var(--bone); white-space:pre-wrap; word-break:break-word; flex:1;
+  overflow-x:auto}
+.ot-p{color:var(--accent-hi); user-select:none}
+.ot-cmt{color:var(--bone-faint)}
+.ot-ok{color:var(--green)}
+
+/* pricing — dual action row inside the early-access card */
+.price-actions{display:flex; flex-wrap:wrap; gap:12px; justify-content:center}
+.price-actions .btn{flex:0 1 auto}
+
+/* footer license link + faq inline code */
+.foot .copy a{color:var(--bone-dim); text-decoration:underline; text-underline-offset:2px}
+.foot .copy a:hover{color:var(--accent-hi)}
+.faq-a code{font-family:'IBM Plex Mono',monospace; font-size:.84em;
+  background:var(--raise); border:1px solid var(--line-hi); border-radius:5px;
+  padding:1px 6px; color:var(--accent-hi)}
+.faq-a a{color:var(--bone); text-decoration:underline; text-underline-offset:2px}
+.faq-a a:hover{color:var(--accent-hi)}
+
+@media(max-width:860px){
+  .oss-card{grid-template-columns:1fr}
+  .oss-copy{border-right:none; border-bottom:1px solid var(--line)}
+  .oss-term-body{font-size:.68rem}
+}
 
 /* ===================== RESPONSIVE ===================== */
 @media (max-width:980px){

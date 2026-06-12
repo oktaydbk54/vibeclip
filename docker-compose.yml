@@ -4,10 +4,13 @@ services:
     container_name: vibeclip
     restart: unless-stopped
     env_file: .env
-    # Bind only to the docker bridge gateway: reachable by the Caddy reverse
-    # proxy (via 172.17.0.1:8765) but NOT exposed on the public IP.
+    # Where to publish the app. Default 127.0.0.1 = reachable on the host only
+    # (perfect for local self-host, or behind a reverse proxy on the same box).
+    #   VIBECLIP_BIND=0.0.0.0    -> expose directly on the server's IP
+    #   VIBECLIP_BIND=172.17.0.1 -> reach from a separate Caddy/nginx container
+    # Set VIBECLIP_BIND (and optionally PORT) in your .env.
     ports:
-      - "172.17.0.1:8765:8765"
+      - "${VIBECLIP_BIND:-127.0.0.1}:${PORT:-8765}:8765"
     volumes:
       - vibeclip_cache:/app/cache         # users.db (accounts) + caches
       - vibeclip_outputs:/app/outputs      # project sessions + rendered videos

@@ -128,4 +128,4 @@ agent `make_short(..., vertical=True, subtitles=True)` çağırır, klipler `out
 ## Sınırlar
 - DeepSeek **videoyu görmez, transkripti okur** → konuşma ağırlıklı içerikte mükemmel,
   saf görsel/aksiyon highlight'ta sınırlı.
-- Bu makinedeki ffmpeg libass'sız; altyazı Pillow+overlay ile basılıyor (bkz. PLAN.md).
+- Bazı ffmpeg derlemeleri libass'sız gelir; bu durumda altyazı Pillow+overlay ile basılır.

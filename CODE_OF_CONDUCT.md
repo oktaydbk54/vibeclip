@@ -28,7 +28,9 @@ Examples of unacceptable behavior:
 ## Enforcement
 
 Instances of abusive, harassing, or otherwise unacceptable behavior may be reported
-to the maintainer at **oktaydabak54@gmail.com**. All complaints will be reviewed
+to the maintainers by opening a confidential report via GitHub's
+[private vulnerability reporting](https://github.com/oktaydbk54/vibeclip/security/advisories/new)
+or by contacting a maintainer directly through their GitHub profile. All complaints will be reviewed
 and investigated promptly and fairly. Maintainers are obligated to respect the
 privacy and security of the reporter of any incident.
 

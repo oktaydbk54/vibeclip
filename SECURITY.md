@@ -4,7 +4,9 @@
 
 Please **do not** open a public issue for security vulnerabilities.
 
-Instead, email **oktaydabak54@gmail.com** with:
+Instead, report it privately through GitHub:
+**[Security → Report a vulnerability](https://github.com/oktaydbk54/vibeclip/security/advisories/new)**
+(GitHub's private vulnerability reporting). Please include:
 
 - a description of the issue and its impact,
 - steps to reproduce (a proof-of-concept if you have one),

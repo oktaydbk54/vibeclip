@@ -12,7 +12,7 @@ Copyright Gameplay (YouTube, CC-BY) — attribution is REQUIRED wherever the out
 is published (landing footer + README). Minecraft visuals © Mojang, permitted
 under Mojang's commercial usage guidelines. See assets/gameplay/CREDITS.txt.
 
-Run:  cd /Users/boran/Desktop/shorts-mcp && uv run python scripts/render_gameplay_demo.py
+Run:  uv run python scripts/render_gameplay_demo.py   (from the repo root)
 """
 
 from __future__ import annotations
@@ -26,7 +26,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 from chat import tools  # noqa: E402
 from chat.session import Session  # noqa: E402
 
-ROOT = Path("/Users/boran/Desktop/shorts-mcp")
+ROOT = Path(__file__).resolve().parent.parent
 SRC = ROOT / "outputs" / "landing_demo_src.mp4"
 OUT = ROOT / "chat" / "static" / "demo"
 

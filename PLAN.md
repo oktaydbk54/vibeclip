@@ -102,7 +102,7 @@ biniyor — sisteme dokunmadan, stil kontrolü tam.
 Claude Desktop / Claude Code MCP config'e eklenir:
 ```json
 { "mcpServers": { "shorts": { "command": "uv",
-  "args": ["--directory", "/Users/boran/Desktop/shorts-mcp", "run", "server.py"] } } }
+  "args": ["--directory", "/path/to/vibeclip", "run", "server.py"] } } }
 ```
 Sonra: "Bu videoyu YouTube Shorts için 5 klibe böl" → agent tool'ları sırayla çağırır.
 - [x] **UI Redesign v2 — "yayın kontrol odası"** (Boran: amber kötü + timeline profesyonel konumlansın): sıcak charcoal+amber → soğuk grafit (#0a0c10) + sinyal cyan (#36c5f0) + kırmızı playhead; Syne/Schibsted → Archivo; film-grain/parşömen/hizalama-grid kaldırıldı. **Timeline artık tam-genişlik ALT DOCK** (shell grid row 2, library+viewer'ın altında; copilot sağda tam boy) ve ilk klip seçiminde OTOMATİK açılır (toggle ile kapatma korunur). Track renkleri NLE geleneği: video op'ları mavi/mor, ses yeşil, altyazı kurşuni; ghost'lar kesikli cyan. Eski CSS token adları (--amber…) yeni değerlere alias — inline stiller bozulmadı, JS'te yalnız timeline.js dock referansı değişti. Chrome'da doğrulandı: karaoke cyan senkron, tablar, yeni dock'ta gerçek fare sürükleme (+1s commit+undo), ruler renkleri, QC buton hizası.

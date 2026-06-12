@@ -116,7 +116,7 @@ sağda YÖNETMEN AI copilot (plan kartları, stil ve ipucu çipleri).
   "mcpServers": {
     "shorts": {
       "command": "uv",
-      "args": ["--directory", "/Users/boran/Desktop/shorts-mcp", "run", "server.py"]
+      "args": ["--directory", "/path/to/vibeclip", "run", "server.py"]
     }
   }
 }

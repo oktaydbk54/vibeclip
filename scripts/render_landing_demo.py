@@ -29,11 +29,15 @@ build_proxy=False => cut_source() reads the full-res 720x1280 source (no proxy
 job), and the clip is built MANUALLY (not via generate_clips, whose DEFAULT_STAGES
 would bake jumpcut/subtitles into the "original" A).
 
-Run:  cd /Users/boran/Desktop/shorts-mcp && uv run python scripts/render_landing_demo.py
+Run:  uv run python scripts/render_landing_demo.py   (from the repo root)
+
+Point DEMO_SRC_MP4 at your own CC-BY 9:16 source clip (defaults to
+outputs/dickinson_vertical_src.mp4 inside the repo).
 """
 
 from __future__ import annotations
 
+import os
 import shutil
 import subprocess
 import sys
@@ -46,10 +50,10 @@ sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 from chat import tools  # noqa: E402
 from chat.session import Session  # noqa: E402
 
-ROOT = Path("/Users/boran/Desktop/shorts-mcp")
+ROOT = Path(__file__).resolve().parent.parent
 SRC = ROOT / "outputs" / "landing_demo_src.mp4"
 # CC-BY source, pre-cropped to centered 9:16 720x1280 (see module docstring).
-ORIG = "/Users/boran/Desktop/dickinson_vertical_src.mp4"
+ORIG = os.getenv("DEMO_SRC_MP4", str(ROOT / "outputs" / "dickinson_vertical_src.mp4"))
 OUT = ROOT / "chat" / "static" / "demo"
 # 38.5–52.5s: a clean sentence onset (speech resumes at 38.5) through ~52s, with
 # ~3 natural pauses inside so cut_silences shows a visible duration delta.

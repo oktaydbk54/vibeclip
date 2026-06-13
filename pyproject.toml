@@ -24,6 +24,11 @@ dev = [
     "ruff>=0.6",
 ]
 
+[tool.pytest.ini_options]
+# Make the repo-root `chat`/`pipeline` packages importable under a bare
+# `uv run pytest` (and in CI), without requiring PYTHONPATH to be set.
+pythonpath = ["."]
+
 [tool.ruff]
 line-length = 100
 target-version = "py312"

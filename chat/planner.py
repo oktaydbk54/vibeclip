@@ -16,6 +16,22 @@ from pathlib import Path
 from pipeline import config
 from chat.session import Session
 
+# propose() is a BOUNDED tool-using re-plan loop: at most this many LLM replies
+# total (1 = today's one-shot; the rest are moment lookups + validator-feedback
+# refinements). The last round is always a plain validate-and-take pass, so the
+# loop terminates and never exceeds MAX_PLAN_ROUNDS calls.
+MAX_PLAN_ROUNDS = 3
+
+# Actions whose time args are NOT clip-local player seconds (set_cut is SOURCE
+# seconds) — exempt from the dry-run time_out_of_range bound.
+_TIME_EXEMPT_ACTIONS = ("set_cut",)
+# Actions with a real start<end span we can sanity-check for an empty range.
+_RANGE_ACTIONS = ("remove_section", "set_cut", "add_broll")
+# Stage edited by an event-index action -> the clip["stages"] params key whose
+# list length bounds the index (mirrors tools._EDITABLE_EVENTS).
+_EVENT_STAGE_KEY = {"zoom": "windows", "broll": "events", "overlay": "events",
+                    "fx": "events", "sfx": "events"}
+
 # Actions the planner may emit — name -> (one-line contract shown to the LLM).
 # These are exactly chat tool names; apply_plan dispatches through REGISTRY.
 PLAN_ACTIONS: dict[str, str] = {
@@ -25,6 +41,11 @@ PLAN_ACTIONS: dict[str, str] = {
     "remove_fillers": '{} — cut hesitation sounds (um/uh/ee)',
     "remove_section": '{"start": s, "end": s} — delete a span '
                       '(current-timeline seconds)',
+    "remove_phrase": '{"description": "<what the speaker says>", '
+                     '"occurrence": "first|all"} — delete the sentence/part '
+                     'described by CONTENT (resolves the span semantically, '
+                     'no times needed); use when the user names WHAT was said '
+                     '("X dediği cümleyi sil") rather than a time range',
     "set_cut": '{"start": s, "end": s} — re-cut clip bounds in SOURCE seconds',
     "auto_zoom": '{"density": 0.1-0.4, "strength": 1.1-1.3} — auto-place '
                  'punch-in zooms on emphatic phrases',
@@ -61,6 +82,10 @@ PLAN_ACTIONS: dict[str, str] = {
                     'final loudness mastering',
     "set_denoise": '{"strength": "light|medium|strong|off"} — clean '
                    'background noise/hum from the voice track',
+    "set_aspect": '{"aspect": "9:16|1:1|16:9"} — reframe the clip to a '
+                  'different aspect ratio (9:16 dikey/default, 1:1 kare, 16:9 '
+                  'yatay); keeps speaker tracking and re-renders captions on '
+                  'the new canvas',
     "fix_transcript": '{"hint": "optional: a specific wrong->right the user '
                       'named"} — re-read the transcript and correct obvious '
                       'speech-to-text errors (mis-heard English tech terms: '
@@ -96,6 +121,16 @@ PLAN_ACTIONS: dict[str, str] = {
     "set_watermark": '{"file": "<exact asset path>", "corner": "tl|tr|bl|br", '
                      '"opacity": 0.6-0.9} — a corner logo watermark. Needs a '
                      'real asset path',
+    "edit_event": '{"stage": "zoom|broll|overlay|fx|sfx", "index": <0-based '
+                  'event number from CURRENT STATE>, "start": s, "end": s, '
+                  '"value": <zoom strength 1.1-1.3 | sfx volume 0-1 | overlay '
+                  'opacity>, "motion": "center|left|right|up|down"} — '
+                  'move/resize/retune ONE EXISTING event; include only the '
+                  'fields you change',
+    "delete_event": '{"stage": "zoom|broll|overlay|fx|sfx", "index": <0-based>} '
+                    '— remove one existing event ("ikinci zoomu sil"); in a '
+                    'multi-step plan, deletes come LAST so earlier indices stay '
+                    'valid',
 }
 
 _SYSTEM = """You are a senior short-form video editor. The user gives a vague \
@@ -103,6 +138,26 @@ _SYSTEM = """You are a senior short-form video editor. The user gives a vague \
 realizes it. You see the clip's CURRENT edit state and transcript — edit \
 RELATIVE to that state (e.g. raise the existing music volume, don't reset the \
 track; keep what already matches the vibe).
+
+CAPABILITY MAP (high-level intent -> action; the detailed arg specs are the \
+authoritative list below — use it for exact names/ranges):
+- Trim/clean speech: cut_silences, remove_fillers, remove_section (by time), \
+remove_phrase (by what was SAID), set_cut (re-cut bounds).
+- Motion/emphasis: auto_zoom, add_zoom, add_emphasis, set_speed.
+- Look/sound: set_look (color grade), set_music, add_sound_effect, set_fade, \
+set_loudness, set_denoise.
+- Captions/titles: set_subtitles (size/position/color/karaoke), \
+set_title_card, fix_transcript (correct ASR text, keep timing).
+- Framing: set_aspect (9:16 / 1:1 / 16:9 reframe).
+- Assets/FX: add_broll, add_overlay, add_reaction, add_sticker, set_watermark, \
+add_gameplay_background (split-screen gameplay).
+- Edit existing events: edit_event / delete_event (use the 0-based indices \
+from CURRENT STATE; deletes go last).
+Canonical examples: "yarı hıza al" -> set_speed factor=0.5; "kare yap" -> \
+set_aspect aspect=1:1; "X dediği cümleyi sil" -> remove_phrase; "altyazıyı \
+büyüt ve yukarı al" -> set_subtitles {{scale, y_ratio}}; "sinematik görünüm" -> \
+set_look look=cinematic. When unsure between two actions, prefer the one whose \
+arg spec below best matches the user's words.
 
 House taste rules (hard):
 - ALL time args (time/start/end) are CLIP-LOCAL seconds, from 0 to the clip's \
@@ -158,6 +213,20 @@ parkour/Minecraft/satisfying koy", "alt yarıya gameplay") -> \
 add_gameplay_background with the pack the user names (minecraft|satisfying|\
 runner|ramp; default minecraft). This is the ONLY correct action for it — never \
 use add_broll/b-roll to fake a split-screen.
+
+MOMENT LOOKUP: when a step needs a TIME you cannot read confidently from the \
+transcript [Xs] markers (e.g. "the part where he mentions the price", "right \
+after the greeting"), do NOT guess. Return JSON with a "lookup" array — \
+{{"lookup": [{{"id": "m1", "description": "<what is said/happens there>"}}]}} \
+— optionally alongside draft "steps". You will then receive LOOKUP RESULTS with \
+exact clip-local {{start,end}} spans for each id; reply with the corrected FULL \
+plan that uses those numbers.
+
+VALIDATOR FEEDBACK: you may receive a list of PROBLEMS found in your steps \
+(unknown action, missing file, a time outside the clip, an empty range, too \
+many steps, a bad event index). When you do, return the corrected COMPLETE plan \
+— ALL steps in the same JSON shape, not a diff. You have at most {rounds} \
+replies total, so converge quickly.
 
 Available actions and their args:
 {actions}
@@ -291,21 +360,137 @@ def propose_assets(session: Session, clip_id: int,
             "gaps": gaps}
 
 
-def propose(session: Session, clip_id: int, instruction: str) -> dict:
-    """One JSON-mode LLM call -> validated plan dict (not yet executed)."""
-    clip = session.clip(clip_id)
-    words = session.words_for(clip)
+def _transcript_block(words: list[dict]) -> str:
+    """Render words as the planner-facing transcript with [Xs] gap markers."""
     text, t = [], None
     for w in words:
         if t is None or w["start"] - t > 2.0:
             text.append(f"\n[{w['start']:.1f}s]")
         text.append(w["word"])
         t = w["end"]
-    transcript = " ".join(text).strip()
+    return " ".join(text).strip()
+
+
+def _validate_steps(clip_id: int, data: dict, duration: float,
+                    clip: dict | None = None) -> tuple[list[dict], list[dict]]:
+    """Dry-run the LLM's steps against the whitelist + cheap bounds.
+
+    Returns (valid_steps, issues). Valid steps get clip_id injected (the plan is
+    scoped to ONE clip). issues is a list of STRUCTURED problems to feed back to
+    the model so it can self-correct, instead of silently dropping the step. The
+    same checks back the post-loop hard drop, so a step that survives here is
+    safe for apply_plan.
+    """
+    steps: list[dict] = []
+    issues: list[dict] = []
+    raw = data.get("steps") or []
+    for i, s in enumerate(raw):
+        action = s.get("action")
+        if action not in PLAN_ACTIONS:
+            issues.append({"step": i, "action": action,
+                           "problem": "unknown_action",
+                           "hint": "choose only from the documented actions"})
+            continue
+        args = s.get("args")
+        if not isinstance(args, dict):
+            issues.append({"step": i, "action": action, "problem": "bad_args",
+                           "hint": "args must be a JSON object"})
+            continue
+        # file= must be a real on-disk path (set_music excepted — it resolves
+        # bare track names itself). A fabricated path would only surface as a
+        # "not found" failure at apply time.
+        f = args.get("file")
+        if f and action != "set_music" and not Path(f).exists():
+            issues.append({"step": i, "action": action,
+                           "problem": "missing_file", "path": f,
+                           "hint": "use an exact ASSET CATALOG path or omit "
+                                   "the step"})
+            continue
+        # Cheap time bounds: clip-local player seconds must sit in [0, dur+slack]
+        # (set_cut speaks SOURCE seconds — exempt). add_broll end may run a touch
+        # past by design padding, so the +0.5 slack absorbs it.
+        bad_time = None
+        if action not in _TIME_EXEMPT_ACTIONS:
+            for key in ("time", "start", "end"):
+                v = args.get(key)
+                if isinstance(v, (int, float)) and (
+                        v < 0 or v > duration + 0.5):
+                    bad_time = v
+                    break
+        if bad_time is not None:
+            issues.append({"step": i, "action": action,
+                           "problem": "time_out_of_range", "got": bad_time,
+                           "clip_duration": round(duration, 1),
+                           "hint": "times are CLIP-LOCAL player seconds; use "
+                                   "lookup to resolve a moment"})
+            continue
+        # Empty range on a span action.
+        if action in _RANGE_ACTIONS:
+            st, en = args.get("start"), args.get("end")
+            if isinstance(st, (int, float)) and isinstance(en, (int, float)) \
+                    and en <= st:
+                issues.append({"step": i, "action": action,
+                               "problem": "empty_range", "start": st,
+                               "end": en, "hint": "end must be after start"})
+                continue
+        # Event-index actions (edit_event/delete_event) reference an EXISTING
+        # event — bound the index against the live stage list length.
+        if action in ("edit_event", "delete_event") and clip is not None:
+            stage = args.get("stage")
+            idx = args.get("index")
+            key = _EVENT_STAGE_KEY.get(stage)
+            if key is not None and isinstance(idx, int):
+                stg = next((x for x in clip.get("stages", [])
+                            if x["name"] == stage), None)
+                have = len(stg["params"].get(key, [])) if stg else 0
+                if not 0 <= idx < have:
+                    issues.append({"step": i, "action": action,
+                                   "problem": "event_index_out_of_range",
+                                   "stage": stage, "index": idx, "have": have,
+                                   "hint": "use a 0-based index that exists in "
+                                           "CURRENT STATE, or omit the step"})
+                    continue
+        args["clip_id"] = clip_id
+        steps.append({"action": action, "args": args, "why": s.get("why", "")})
+    if len(steps) > 7:
+        issues.append({"problem": "too_many_steps", "count": len(steps),
+                       "hint": "merge or drop to <=7 steps"})
+    return steps, issues
+
+
+def propose(session: Session, clip_id: int, instruction: str,
+            extra_note: str = "") -> dict:
+    """Bounded tool-using re-plan loop -> validated plan dict (not executed).
+
+    Emits a plan, dry-runs it through _validate_steps, and feeds any structured
+    issues (and any requested moment lookups) back to the model to refine —
+    capped at MAX_PLAN_ROUNDS LLM replies. The happy path (clean first plan, no
+    lookups) is EXACTLY one call, identical in cost to the old one-shot. The
+    pending_plan shape ({clip_id, instruction, summary, steps}) is unchanged;
+    additive keys (refinements/resolved_moments) are ignored downstream.
+
+    extra_note (additive): an extra steering line appended to the user message
+    — used by regenerate_plan to ask for a NOTICEABLY different approach. The
+    returned plan keeps the CLEAN instruction so downstream records stay
+    canonical."""
+    clip = session.clip(clip_id)
+    words = session.words_for(clip)
+    transcript = _transcript_block(words)
+    # Plan times are CLIP-LOCAL PLAYER seconds: prefer the rendered duration,
+    # else the pre-speed transcript end mapped into the sped timeline.
+    from pipeline.media import ffprobe_info
+    if clip.get("current"):
+        duration = ffprobe_info(clip["current"])["duration"]
+    else:
+        duration = (words[-1]["end"] / session.speed_factor(clip)) \
+            if words else 0.0
 
     actions = "\n".join(f"- {k}: {v}" for k, v in PLAN_ACTIONS.items())
-    api_key, base_url, model = config.llm_settings(
-        getattr(session, "_tier", "fast"))
+    # PLANNER_TIER (env opt-in) lets the proposer run on the stronger model for
+    # sharper intent routing; unset = inherit the chat turn's tier (today's
+    # behavior). llm_settings falls back pro->fast when no pro model exists.
+    tier = config.PLANNER_TIER or getattr(session, "_tier", "fast")
+    api_key, base_url, model = config.llm_settings(tier)
     from openai import OpenAI
     client = OpenAI(api_key=api_key, base_url=base_url) if base_url \
         else OpenAI(api_key=api_key)
@@ -342,58 +527,154 @@ def propose(session: Session, clip_id: int, instruction: str) -> dict:
     except Exception:
         pass
 
-    resp = client.chat.completions.create(
-        model=model,
-        messages=[
-            {"role": "system",
-             "content": _SYSTEM.format(actions=actions) + pref_block},
-            {"role": "user", "content":
-                f"CURRENT STATE:\n{session.summary()}\n\n"
-                f"CLIP #{clip_id} TRANSCRIPT (current timeline):\n{transcript}"
-                f"{catalog_block}\n\n"
-                f"INSTRUCTION: {instruction}"},
-        ],
-        temperature=0.4,
-        **config.json_response_format(base_url),
-    )
-    data = config.extract_json(resp.choices[0].message.content)
+    messages: list[dict] = [
+        {"role": "system",
+         "content": _SYSTEM.format(actions=actions, rounds=MAX_PLAN_ROUNDS)
+         + pref_block},
+        {"role": "user", "content":
+            f"CURRENT STATE:\n{session.summary()}\n\n"
+            f"CLIP #{clip_id} TRANSCRIPT (current timeline):\n{transcript}"
+            f"{catalog_block}\n\n"
+            f"INSTRUCTION: {instruction}"
+            + (f"\n\nNOTE: {extra_note}" if extra_note else "")},
+    ]
 
-    steps, dropped = [], []
-    for s in data.get("steps", []):
-        action = s.get("action")
-        if action not in PLAN_ACTIONS:
+    # Bounded re-plan loop: emit -> dry-run validate / resolve lookups -> refine.
+    data: dict = {}
+    steps: list[dict] = []
+    issues: list[dict] = []
+    rounds_used = 0
+    resolved_moments = 0
+    for round_i in range(MAX_PLAN_ROUNDS):
+        rounds_used += 1
+        last = round_i == MAX_PLAN_ROUNDS - 1
+        resp = client.chat.completions.create(
+            model=model, messages=messages, temperature=0.4,
+            **config.json_response_format(base_url))
+        content = resp.choices[0].message.content
+        try:
+            data = config.extract_json(content)
+        except ValueError:
+            if last:
+                break
+            messages.append({"role": "assistant", "content": content or ""})
+            messages.append({"role": "user", "content":
+                             "Your reply was not valid JSON. Return ONLY the "
+                             "JSON object described above, nothing else."})
             continue
-        args = s.get("args") or {}
-        if not isinstance(args, dict):
+
+        # Moment lookup: resolve descriptions to exact clip-local spans, then
+        # let the model emit the corrected plan with real numbers.
+        lookups = data.get("lookup") or []
+        if lookups and not last:
+            from chat.tools import _find_moment_core  # runtime: avoid cycle
+            resolved: dict[str, list[dict]] = {}
+            for lk in lookups:
+                lid = str(lk.get("id") or f"m{len(resolved) + 1}")
+                desc = str(lk.get("description") or "")
+                try:
+                    spans = _find_moment_core(session, clip, desc, limit=2)
+                except Exception:
+                    spans = []
+                resolved[lid] = spans
+                resolved_moments += 1
+            messages.append({"role": "assistant", "content": content or ""})
+            messages.append({"role": "user", "content":
+                             "LOOKUP RESULTS (clip-local player seconds): "
+                             + json.dumps(resolved, ensure_ascii=False)
+                             + "\nNow return the corrected FULL plan."})
             continue
-        # file= must be a real on-disk path (set_music excepted — it resolves
-        # bare track names itself). A fabricated path would only surface as a
-        # "not found" failure at apply time; drop it here instead.
-        f = args.get("file")
-        if f and action != "set_music" and not Path(f).exists():
-            dropped.append(f"{action} (no such file: {f})")
+
+        steps, issues = _validate_steps(clip_id, data, duration, clip)
+        if issues and not last:
+            messages.append({"role": "assistant", "content": content or ""})
+            messages.append({"role": "user", "content":
+                             "VALIDATOR FEEDBACK — fix these and return the "
+                             "FULL corrected plan as the same JSON shape: "
+                             + json.dumps(issues, ensure_ascii=False)})
             continue
-        args["clip_id"] = clip_id  # the plan is scoped to ONE clip
-        steps.append({"action": action, "args": args,
-                      "why": s.get("why", "")})
-    # A factor the user NAMED ("3x", "0.5x", "10 kat") is unambiguous —
-    # enforce it deterministically (clamped to the tool's range); the LLM
-    # sometimes substitutes a "safer" value, silently changing the ask.
+        break
+
+    # Deterministic post-loop, exactly once. A factor the user NAMED ("3x",
+    # "0.5x", "10 kat") is unambiguous — enforce it (clamped to the tool's
+    # range); the LLM sometimes substitutes a "safer" value, changing the ask.
     m = re.search(r"(\d+(?:[.,]\d+)?)\s*(?:x\b|kat\b)", instruction, re.I)
     if m:
         named = max(0.25, min(4.0, float(m.group(1).replace(",", "."))))
         for st in steps:
             if st["action"] == "set_speed":
                 st["args"]["factor"] = named
+    steps = steps[:7]
     if not steps:
         msg = "Planner produced no valid steps."
-        if dropped:
-            msg += (" Dropped steps referencing files that don't exist: "
-                    + "; ".join(dropped)
-                    + ". The needed asset is probably missing from the user's "
+        if issues:
+            msg += (" Unresolved issues after refinement: "
+                    + json.dumps(issues, ensure_ascii=False)
+                    + ". A referenced asset may be missing from the user's "
                       "library (list_assets / ingest_assets).")
         if data.get("summary"):
             msg += f" Planner note: {data['summary']}"
         raise ValueError(msg)
     return {"clip_id": clip_id, "instruction": instruction,
-            "summary": data.get("summary", ""), "steps": steps[:7]}
+            "summary": data.get("summary", ""), "steps": steps,
+            "refinements": rounds_used - 1,
+            "resolved_moments": resolved_moments}
+
+
+# multiclip_plans — how many clips one project-scope proposal may span. Each
+# clip costs at least one planner LLM call (propose loops per clip), so the set
+# is bounded; the agent should warn on long sources before going wider.
+MAX_PROJECT_CLIPS = 8
+
+
+def _project_clip_ids(session: Session,
+                      clip_ids: list[int] | None = None) -> list[int]:
+    """Resolve the target clip set for a project-scope plan. Explicit ids are
+    honored (validated, de-duped, order-preserved); otherwise the candidates
+    are every NON-skipped clip in ranked order, capped at MAX_PROJECT_CLIPS."""
+    clips = session.data.get("clips") or []
+    if clip_ids:
+        valid = {c["id"] for c in clips}
+        seen: set[int] = set()
+        out: list[int] = []
+        for cid in clip_ids:
+            if cid in valid and cid not in seen:
+                seen.add(cid)
+                out.append(cid)
+        return out[:MAX_PROJECT_CLIPS]
+    out = [c["id"] for c in clips
+           if Session.clip_status(c) != "skipped"]
+    return out[:MAX_PROJECT_CLIPS]
+
+
+def propose_project(session: Session, instruction: str,
+                    clip_ids: list[int] | None = None,
+                    extra_note: str = "") -> dict:
+    """Project-scope plan: run the SAME single-clip propose() over the target
+    clips ("tighten every clip") and assemble a composite pending_plan shape
+    ({'scope':'project', 'instruction', 'plans':[<plan dict>, ...]}).
+
+    Looping the existing propose() reuses ALL of its validation, factor
+    enforcement and bounded re-plan loop per clip. Clips that yield no valid
+    plan (e.g. a step needed an asset they lack, or the clip is picture-locked)
+    are skipped with a note rather than failing the whole batch; raises only
+    when NO clip produced any step."""
+    targets = _project_clip_ids(session, clip_ids)
+    if not targets:
+        raise ValueError("No eligible clips for a project-scope plan.")
+    plans: list[dict] = []
+    skipped: list[str] = []
+    for cid in targets:
+        try:
+            plans.append(propose(session, cid, instruction,
+                                  extra_note=extra_note))
+        except ValueError as e:
+            skipped.append(f"#{cid}: {e}")
+    if not plans:
+        raise ValueError(
+            "No clip produced a valid plan. " + " | ".join(skipped))
+    summary = (f"Applies '{instruction}' across {len(plans)} clip(s)"
+               + (f"; skipped {len(skipped)}" if skipped else "") + ".")
+    return {"scope": "project", "instruction": instruction,
+            "summary": summary, "plans": plans,
+            "skipped": skipped or None}

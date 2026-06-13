@@ -22,7 +22,13 @@ MUTATING_TOOLS = frozenset({
     "duplicate_clip", "pick_variant", "join_clips",
     "set_look", "add_overlay", "add_reaction", "add_sticker", "add_emphasis",
     "auto_pace", "set_loudness", "add_gameplay_background", "fix_transcript",
+    "edit_event", "delete_event",
+    "set_aspect",  # reframe_aspect_tool: re-reframes the canvas (a render)
+    "remove_phrase",  # transcript_timeline: content-described trim (a render)
 })
+
+# Valid export aspect ratios (mirrors pipeline.tracking.ASPECTS keys).
+ASPECT_CHOICES = ("9:16", "1:1", "16:9")
 
 
 def _ok(**kw) -> dict:
@@ -321,9 +327,42 @@ def add_sound_effect(session: Session, clip_id: int, time: float,
     return _ok(file=out, events=len(events))
 
 
+def _caption_summary(sub: dict) -> str:
+    """One-line description of a style's caption look from its subtitle block."""
+    if not sub:
+        return ""
+    bits: list[str] = []
+    case = "UPPERCASE" if sub.get("uppercase") else "mixed-case"
+    bits.append("karaoke" if sub.get("karaoke") else "static")
+    bits.append(case)
+    if sub.get("text_color"):
+        bits.append(f"text {sub['text_color']}")
+    if sub.get("highlight_color"):
+        bits.append(f"highlight {sub['highlight_color']}")
+    pill = sub.get("pill")
+    if pill:
+        bits.append(f"pill {pill}" if isinstance(pill, str) else "pill")
+    anim = sub.get("animation")
+    if anim and anim != "none":
+        bits.append(f"{anim} animation")
+    if sub.get("auto_emoji"):
+        bits.append("auto-emoji")
+    return ", ".join(bits)
+
+
 def list_styles(session: Session) -> dict:
+    """The caption-template gallery: each style's label, prose description and a
+    short summary of its caption look (font/color/highlight/animation)."""
     from pipeline.styles import load_styles
-    return _ok(styles={k: v.get("label", "") for k, v in load_styles().items()})
+    gallery = {
+        k: {
+            "label": v.get("label", ""),
+            "description": v.get("description", v.get("label", "")),
+            "caption": _caption_summary(v.get("subtitle", {})),
+        }
+        for k, v in load_styles().items()
+    }
+    return _ok(styles=gallery)
 
 
 def apply_style(session: Session, clip_id: int, style: str) -> dict:
@@ -621,6 +660,244 @@ def get_transcript(session: Session, clip_id: int) -> dict:
     return _ok(transcript=" ".join(text).strip())
 
 
+_FIND_MOMENT_SYSTEM = """You locate moments in ONE short-video clip's transcript.
+You get a word-timestamped transcript (clip-local seconds, format "[s-e] word")
+and a description of WHAT is said/happens. Return the {limit} time spans that
+best match the description, ranked best-first. A span should tightly cover the
+matching words (not the whole clip). If nothing matches, return an empty list.
+
+Return ONLY JSON:
+{{
+  "candidates": [
+    {{"start": <s>, "end": <s>, "quote": "<the matched words>", "confidence": <0-1>}}
+  ]
+}}"""
+
+
+def _snap_words(s: float, e: float, words: list[dict]) -> tuple[float, float]:
+    """Snap a span to enclosing word boundaries (mirror editplan._snap)."""
+    inside = [w for w in words if w["end"] > s and w["start"] < e]
+    if not inside:
+        return s, e
+    return inside[0]["start"], inside[-1]["end"]
+
+
+def _keyword_moments(words: list[dict], description: str,
+                     limit: int) -> list[dict]:
+    """Non-LLM fallback: slide a ~6s window and score matched description tokens.
+
+    Returns top `limit` non-overlapping pre-speed {start,end,quote,confidence}
+    spans (player-time conversion happens in the caller).
+    """
+    from pipeline.jumpcut import _norm_word
+
+    tokens = {t for t in (_norm_word(w) for w in description.split())
+              if len(t) >= 3}
+    if not tokens or not words:
+        return []
+
+    win = 6.0
+    scored = []
+    for i, w in enumerate(words):
+        ws, we = w["start"], w["start"] + win
+        span = [x for x in words[i:] if x["start"] < we]
+        if not span:
+            continue
+        matched = 0
+        for x in span:
+            nx = _norm_word(x["word"])
+            if any(nx == t or nx.startswith(t) or t.startswith(nx)
+                   for t in tokens):
+                matched += 1
+        if matched:
+            scored.append((matched, ws, span[-1]["end"], span))
+    if not scored:
+        return []
+
+    scored.sort(key=lambda r: (-r[0], r[1]))
+    best = scored[0][0]
+    out: list[dict] = []
+    for matched, s, e, span in scored:
+        if any(not (e <= o["start"] or s >= o["end"]) for o in out):
+            continue
+        s, e = _snap_words(s, e, words)
+        out.append({"start": round(s, 2), "end": round(e, 2),
+                    "quote": " ".join(x["word"].strip() for x in span).strip(),
+                    "confidence": round(matched / best, 2)})
+        if len(out) >= limit:
+            break
+    return out
+
+
+def _find_moment_core(session: Session, clip: dict, description: str,
+                      limit: int = 3) -> list[dict]:
+    """Semantic in-clip lookup -> ranked clip-local PLAYER-time spans.
+
+    words_for is PRE-speed; consuming tools (add_zoom/add_broll/remove_section)
+    speak the player timeline, so every returned span is divided by the clip's
+    speed factor here (the single conversion point — see auto_zoom).
+    """
+    words = session.words_for(clip)
+    if not words:
+        return []
+    limit = max(1, min(10, int(limit)))
+    f = session.speed_factor(clip)
+    bound = words[-1]["end"]
+
+    cands: list[dict] = []
+    try:
+        from pipeline import config
+
+        api_key, base_url, model = config.llm_settings(
+            getattr(session, "_tier", "fast"))
+        from openai import OpenAI
+
+        client = OpenAI(api_key=api_key, base_url=base_url) if base_url \
+            else OpenAI(api_key=api_key)
+        transcript = "\n".join(
+            f"[{w['start']:.2f}-{w['end']:.2f}] {w['word']}" for w in words)
+        resp = client.chat.completions.create(
+            model=model,
+            messages=[
+                {"role": "system",
+                 "content": _FIND_MOMENT_SYSTEM.format(limit=limit)},
+                {"role": "user",
+                 "content": (f"Description: {description}\n\n"
+                             f"Transcript:\n{transcript}")},
+            ],
+            temperature=0.1,
+            **config.json_response_format(base_url),
+        )
+        data = config.extract_json(resp.choices[0].message.content)
+        for c in data.get("candidates", []):
+            try:
+                s, e = float(c["start"]), float(c["end"])
+            except (KeyError, TypeError, ValueError):
+                continue
+            if e <= s:
+                continue
+            s, e = _snap_words(s, e, words)
+            s = max(0.0, min(s, bound))
+            e = max(0.0, min(e, bound))
+            if e <= s:
+                continue
+            try:
+                conf = float(c.get("confidence", 0.5))
+            except (TypeError, ValueError):
+                conf = 0.5
+            cands.append({"start": round(s, 2), "end": round(e, 2),
+                          "quote": str(c.get("quote", "")).strip(),
+                          "confidence": round(max(0.0, min(1.0, conf)), 2)})
+    except Exception:
+        cands = []
+
+    if not cands:
+        cands = _keyword_moments(words, description, limit)
+    cands = cands[:limit]
+
+    return [{"start": round(c["start"] / f, 2), "end": round(c["end"] / f, 2),
+             "quote": c["quote"], "confidence": c["confidence"]}
+            for c in cands]
+
+
+def find_moment(session: Session, clip_id: int, description: str,
+                limit: int = 3) -> dict:
+    """Semantic in-clip moment lookup by description (read-only)."""
+    try:
+        clip = session.clip(clip_id)
+    except ValueError as exc:
+        return _err(str(exc))
+    try:
+        cands = _find_moment_core(session, clip, description, limit)
+    except ValueError:
+        return _err("Render or open the clip first.")
+    if not cands:
+        return _err("No moment matching that description was found in this clip.")
+    return _ok(candidates=cands, timeline="player",
+               note="start/end are clip-local CURRENT-player-timeline seconds — "
+                    "pass them directly to add_zoom/add_broll/remove_section/"
+                    "add_emphasis.")
+
+
+# A candidate must clear this confidence floor before remove_phrase will delete
+# it unattended; below it we _err so the agent re-confirms with the user rather
+# than guessing a span to cut.
+_PHRASE_CONF_FLOOR = 0.4
+
+
+def remove_phrase(session: Session, clip_id: int, description: str,
+                  occurrence: str = "first") -> dict:
+    """Delete the sentence/part where the speaker says X (content-described).
+
+    Resolves the span(s) with the SAME semantic lookup as find_moment
+    (_find_moment_core), then deletes them through the EXISTING trim pipeline —
+    snapping to words, mapping player->pre-speed, storing anchor_text and
+    enforcing the >50%-of-clip guard, exactly like remove_section.
+
+    occurrence='first' (default) removes the single best-matching span;
+    occurrence='all' removes EVERY candidate above the confidence floor in ONE
+    atomic trim update (a single snapshot -> one undo entry).
+    """
+    try:
+        clip = session.clip(clip_id)
+    except ValueError as exc:
+        return _err(str(exc))
+    if clip.get("locked"):
+        return _err("Clip is picture-locked — unlock it first.")
+
+    occ = (occurrence or "first").strip().lower()
+    if occ not in ("first", "all"):
+        return _err("occurrence must be 'first' or 'all'.")
+
+    # find_moment depends on a rendered/transcribable clip; _find_moment_core
+    # calls words_for which raises ValueError when the clip isn't opened yet.
+    try:
+        cands = _find_moment_core(session, clip, description, limit=5)
+    except ValueError:
+        return _err("Render or open the clip first.")
+    cands = [c for c in cands if c["confidence"] >= _PHRASE_CONF_FLOOR]
+    if not cands:
+        return _err(f"No part matching “{description}” cleared the confidence "
+                    "floor. Try find_moment to inspect candidates, or give a "
+                    "more specific quote.")
+
+    chosen = cands if occ == "all" else cands[:1]
+
+    # Map every chosen player-time span back to PRE-speed (u = p * factor) and
+    # anchor it to its words — mirrors remove_section, but we accumulate ALL
+    # ranges and commit them in ONE set_stage so undo stays atomic.
+    f = session.speed_factor(clip)
+    words = session.words_for(clip)
+    new_ranges = []
+    quotes = []
+    total_player = 0.0
+    for c in chosen:
+        ps, pe = c["start"] * f, c["end"] * f
+        seg = [w for w in words if w["end"] > ps and w["start"] < pe]
+        anchor = " ".join(w["word"].strip() for w in seg)
+        new_ranges.append({"start": ps, "end": pe, "anchor_text": anchor})
+        quotes.append(c.get("quote") or anchor)
+        total_player += c["end"] - c["start"]
+
+    # >50% guard on the COMBINED removal (cumulative across all spans), same
+    # spirit as remove_section's single-span guard.
+    from pipeline.media import ffprobe_info
+    dur = ffprobe_info(clip["current"])["duration"] if clip.get("current") else 0
+    if dur and total_player > 0.5 * dur:
+        return _err(f"That removes {total_player:.1f}s of a {dur:.1f}s clip "
+                    "(more than half). If intended, use set_cut to re-cut "
+                    "the clip instead.")
+
+    session.snapshot("remove_phrase")
+    existing = next((st["params"].get("ranges", []) for st in clip["stages"]
+                     if st["name"] == "trim"), [])
+    ranges = existing + new_ranges
+    out = session.set_stage(clip_id, "trim", {"ranges": ranges})
+    removed = [f"{c['start']:.1f}-{c['end']:.1f}s" for c in chosen]
+    return _ok(file=out, removed=removed, count=len(chosen),
+               removed_text=quotes, notes=session.last_notes)
+
+
 def _frame_of(clip: dict) -> tuple[int, int, float]:
     from pipeline.media import ffprobe_info
     ref = clip.get("current") or clip["stages"][-1]["output"]
@@ -758,6 +1035,123 @@ is already a valid word. When unsure, leave it alone.
 - Preserve the speaker's language; only repair mis-transcriptions.
 
 Output JSON: {"fixes":[{"from":"<exact token>","to":"<corrected token>"}]}"""
+
+
+_METADATA_SYSTEM = """You are a short-form video copywriter. Given a clip's \
+spoken transcript (and its working title/hook), write publish-ready metadata for \
+each requested platform. Write in the SAME language the speaker uses, unless an \
+explicit target language is given.
+
+Ground EVERYTHING in the transcript — never invent facts, names, numbers, or \
+claims that aren't supported by what was actually said. Per-platform conventions:
+- youtube_shorts: a punchy title <=100 chars + a 1-2 sentence keyword-rich \
+description. 0-3 hashtags.
+- tiktok: a hook-y caption (the first words must stop the scroll) + 3-5 \
+on-topic hashtags.
+- instagram_reels: a caption with a clear hook + up to 8 relevant hashtags.
+
+Hashtags are single tokens without spaces; the leading '#' is optional (it will \
+be added). Keep them topical, not spammy.
+
+Return ONLY JSON of this exact shape (one entry per requested platform key):
+{"platforms":{"<platform>":{"title":"...","description":"...",\
+"hashtags":["..."]}}}"""
+
+
+_METADATA_PLATFORMS = ("youtube_shorts", "tiktok", "instagram_reels")
+
+
+def _normalize_hashtags(raw) -> list[str]:
+    """Coerce model hashtag output to a capped list of '#'-prefixed tokens."""
+    out: list[str] = []
+    if not isinstance(raw, list):
+        return out
+    for tag in raw:
+        if not isinstance(tag, str):
+            continue
+        tok = tag.strip().lstrip("#").strip()
+        if not tok:
+            continue
+        out.append("#" + tok.replace(" ", ""))
+        if len(out) >= 8:
+            break
+    return out
+
+
+def generate_metadata(session: Session, clip_id: int,
+                      platforms: list[str] | None = None,
+                      language: str = "") -> dict:
+    """Write platform-specific publish copy (title/description/hashtags) for a
+    clip from its transcript. Read-only — no render, no approval gate, no undo
+    snapshot. Stores the result on the clip additively and returns it."""
+    aliases = {"youtube": "youtube_shorts", "shorts": "youtube_shorts",
+               "instagram": "instagram_reels", "reels": "instagram_reels",
+               "ig": "instagram_reels"}
+    if platforms:
+        wanted, seen = [], set()
+        for p in platforms:
+            key = aliases.get(str(p).strip().lower(), str(p).strip().lower())
+            if key in _METADATA_PLATFORMS and key not in seen:
+                seen.add(key)
+                wanted.append(key)
+        if not wanted:
+            return _err("platforms must be a subset of "
+                        + "|".join(_METADATA_PLATFORMS))
+    else:
+        primary = session.data.get("platform", "youtube_shorts")
+        wanted = ([primary] if primary in _METADATA_PLATFORMS else []) + [
+            p for p in _METADATA_PLATFORMS if p != primary]
+
+    try:
+        clip = session.clip(clip_id)
+        words = session.words_for(clip)
+    except ValueError as e:
+        return _err(str(e))
+    transcript = " ".join(w.get("word", "") for w in words).strip()
+    if not transcript:
+        return _err("No transcript words for this clip — open/render it first.")
+
+    from pipeline import config
+    api_key, base_url, model = config.llm_settings(
+        getattr(session, "_tier", "fast"))
+    from openai import OpenAI
+    client = OpenAI(api_key=api_key, base_url=base_url) if base_url \
+        else OpenAI(api_key=api_key)
+    user = (f"REQUESTED PLATFORMS: {', '.join(wanted)}\n"
+            f"WORKING TITLE: {clip.get('title', '')}\n"
+            f"HOOK: {clip.get('hook', '')}\n")
+    if language.strip():
+        user += f"TARGET LANGUAGE: {language.strip()}\n"
+    user += "\nTRANSCRIPT:\n" + transcript
+    resp = client.chat.completions.create(
+        model=model,
+        messages=[{"role": "system", "content": _METADATA_SYSTEM},
+                  {"role": "user", "content": user}],
+        temperature=0.7, **config.json_response_format(base_url))
+    try:
+        data = config.extract_json(resp.choices[0].message.content)
+        parsed = data.get("platforms", {}) if isinstance(data, dict) else {}
+    except (ValueError, TypeError):
+        return _err("Metadata generation failed — try again.")
+    if not isinstance(parsed, dict):
+        return _err("Metadata generation failed — try again.")
+
+    validated: dict[str, dict] = {}
+    for key in wanted:
+        entry = parsed.get(key)
+        if not isinstance(entry, dict):
+            continue
+        validated[key] = {
+            "title": str(entry.get("title", "")).strip(),
+            "description": str(entry.get("description", "")).strip(),
+            "hashtags": _normalize_hashtags(entry.get("hashtags")),
+        }
+    if not validated:
+        return _err("Metadata generation failed — try again.")
+
+    clip["metadata"] = validated
+    session.save()
+    return _ok(clip_id=clip_id, metadata=validated)
 
 
 def _llm_transcript_fixes(words: list[dict], hint: str = "") -> list[dict]:
@@ -1151,6 +1545,98 @@ def ingest_assets(session: Session, path: str) -> dict:
                errors=errors or None)
 
 
+# incremental_preview: which CANONICAL stage each plan action's edit lands on.
+# set_stages replays ONCE from the earliest changed stage, and every artifact is
+# an on-disk param-keyed cache hit (_out), so a preview only re-encodes stages
+# at/after this floor — and a re-preview of the same plan is a pure cache hit.
+# This map is purely ADVISORY: it feeds preview['preview_from'] for the UI/
+# telemetry, it does NOT drive the (already-correct) replay. Actions touching
+# several stages map to the EARLIEST (most upstream) one they invalidate.
+_ACTION_STAGE_FLOOR: dict[str, str] = {
+    "set_cut": "cut",
+    "remove_section": "trim",
+    "remove_phrase": "trim",
+    "restore_section": "trim",
+    "cut_silences": "jumpcut",
+    "remove_fillers": "jumpcut",
+    "apply_style": "jumpcut",   # touches jumpcut + downstream
+    "auto_pace": "jumpcut",     # may re-cut/retime then add interrupts
+    "set_aspect": "reframe",
+    "set_denoise": "denoise",
+    "set_speed": "speed",
+    "add_broll": "broll",
+    "set_look": "lut",
+    "add_zoom": "zoom",
+    "auto_zoom": "zoom",
+    "add_gameplay_background": "splitscreen",
+    "set_subtitles": "subtitles",
+    "fix_transcript": "subtitles",
+    "add_overlay": "overlay",
+    "add_sticker": "overlay",
+    "add_reaction": "overlay",
+    "set_title_card": "brand",
+    "set_watermark": "brand",
+    "add_emphasis": "fx",
+    "set_music": "music",
+    "add_sound_effect": "sfx",
+    "set_fade": "fade",
+    "set_loudness": "fade",
+}
+
+# Actions that edit a single time-localized moment — their args carry the span
+# (in current-timeline seconds) the UI should seek to when showing the preview.
+_SPAN_ARG_KEYS = (("start", "end"), ("time", "duration"))
+
+
+def _changed_stage_floor(plan: dict) -> str | None:
+    """The earliest CANONICAL stage any of the plan's steps touches.
+
+    Advisory only — set_stages already replays from the earliest change and the
+    param-keyed cache makes unchanged stages free; this just surfaces WHERE the
+    replay starts so the UI/telemetry can reason about the (latent) saving.
+    Returns None when no step maps to a known stage (e.g. metadata-only plans).
+    """
+    from chat.session import CANONICAL
+    order = {n: i for i, n in enumerate(CANONICAL)}
+    floors = [_ACTION_STAGE_FLOOR[s["action"]]
+              for s in plan.get("steps", [])
+              if s.get("action") in _ACTION_STAGE_FLOOR]
+    if not floors:
+        return None
+    return min(floors, key=lambda n: order[n])
+
+
+def _changed_span(plan: dict) -> list[float] | None:
+    """Union [start, end] (current-timeline seconds) of the plan's time-localized
+    edits, or None when the plan has no single-moment span (whole-clip edits like
+    set_subtitles/apply_style affect everything). Advisory: lets the UI seek to
+    the affected region; it does NOT trigger a partial-span re-encode (that would
+    break the word-timing origin t=0==clip.start and approved-export parity)."""
+    lo: float | None = None
+    hi: float | None = None
+    for step in plan.get("steps", []):
+        args = step.get("args") or {}
+        for a, b in _SPAN_ARG_KEYS:
+            if a not in args:
+                continue
+            try:
+                s = float(args[a])
+            except (TypeError, ValueError):
+                continue
+            if b == "duration":
+                e = s + float(args.get(b, 0.0) or 0.0)
+            elif b in args:
+                e = float(args[b])
+            else:
+                e = s
+            lo = s if lo is None else min(lo, s)
+            hi = e if hi is None else max(hi, e)
+            break
+    if lo is None or hi is None:
+        return None
+    return [round(lo, 2), round(hi, 2)]
+
+
 def _render_plan_preview(session: Session, plan: dict) -> dict | None:
     """Run the plan's steps on a throwaway copy of the session state and
     return the resulting clip artifact, WITHOUT committing anything.
@@ -1158,6 +1644,13 @@ def _render_plan_preview(session: Session, plan: dict) -> dict | None:
     The artifacts are hash-named, so they survive on disk as cache: if the
     user approves, apply_plan replays the same steps and every render is a
     free cache hit (instant). If they reject, the session is untouched.
+
+    incremental_preview: the preview re-encodes only stages at/after the
+    earliest changed stage (set_stages replays from there; upstream + unchanged
+    downstream artifacts are param-keyed cache hits). We surface that floor as
+    preview['preview_from'] and, for time-localized edits, preview['span'] —
+    both ADVISORY (UI/telemetry); neither alters the rendered bytes, the A/B
+    gate contract, or approved-export fidelity.
     """
     import copy
     clip_id = plan.get("clip_id")
@@ -1166,39 +1659,175 @@ def _render_plan_preview(session: Session, plan: dict) -> dict | None:
     backup = copy.deepcopy(session.data)
     session.suppress_snapshots = True
     try:
-        for step in plan["steps"]:
-            fn = REGISTRY.get(step["action"])
-            if fn is None or step["action"] in ("apply_plan", "discard_plan"):
-                return None
-            r = fn(session, **step["args"])
-            if not r.get("ok"):
-                return None
-        clip = session.clip(clip_id)
-        cur = clip.get("current")
-        if cur and Path(cur).exists():
-            preview = {"file": cur, "clip_id": clip_id}
-            # Ghost-diff: serialize the PREVIEW clip's timeline while its
-            # staged state is still live, so the UI can overlay plan-result
-            # tracks (dashed ghosts) on the current timeline before approval.
-            try:
-                from chat import timeline_view
-                from pipeline.media import ffprobe_info
-                info = ffprobe_info(cur)
-                words = session.words_for(clip)
-                preview["timeline"] = timeline_view.serialize(
-                    clip, words, info["duration"],
-                    session.data["source"].get("fps") or 30,
-                    speed=session.speed_factor(clip))
-            except Exception:  # noqa: BLE001 — ghost is optional polish
-                pass
-            return preview
-        return None
+        result = _stage_plan_preview(session, plan)
+        return result
     except Exception:
         return None
     finally:
         session.suppress_snapshots = False
         session.data = backup
         session.save()
+
+
+def _stage_plan_preview(session: Session, plan: dict) -> dict | None:
+    """Run ONE plan's steps in the CURRENT (already suppressed/backed-up)
+    session and capture its clip preview. Caller owns backup/restore so the
+    composite path can stage several plans before one restore. Returns the
+    same {file, clip_id, ...advisory} shape as before (back-compat)."""
+    clip_id = plan.get("clip_id")
+    if clip_id is None or not plan.get("steps"):
+        return None
+    for step in plan["steps"]:
+        fn = REGISTRY.get(step["action"])
+        if fn is None or step["action"] in ("apply_plan", "discard_plan"):
+            return None
+        r = fn(session, **step["args"])
+        if not r.get("ok"):
+            return None
+    clip = session.clip(clip_id)
+    cur = clip.get("current")
+    if not (cur and Path(cur).exists()):
+        return None
+    preview = {"file": cur, "clip_id": clip_id}
+    # incremental_preview: advisory hints (additive, never load-bearing).
+    # preview_from = earliest stage re-encoded; span = affected region for
+    # time-localized edits so the UI can seek there instead of replaying
+    # the whole clip. The actual render saving already came from
+    # set_stages' earliest-change replay + the param-keyed artifact cache.
+    floor = _changed_stage_floor(plan)
+    if floor is not None:
+        preview["preview_from"] = floor
+    span = _changed_span(plan)
+    if span is not None:
+        preview["span"] = span
+    # Ghost-diff: serialize the PREVIEW clip's timeline while its
+    # staged state is still live, so the UI can overlay plan-result
+    # tracks (dashed ghosts) on the current timeline before approval.
+    try:
+        from chat import timeline_view
+        from pipeline.media import ffprobe_info
+        info = ffprobe_info(cur)
+        words = session.words_for(clip)
+        preview["timeline"] = timeline_view.serialize(
+            clip, words, info["duration"],
+            session.data["source"].get("fps") or 30,
+            speed=session.speed_factor(clip))
+    except Exception:  # noqa: BLE001 — ghost is optional polish
+        pass
+    return preview
+
+
+def _render_composite_preview(session: Session,
+                              composite: dict) -> dict | None:
+    """multiclip_plans — stage EVERY plan of a project-scope composite under
+    ONE backup/restore and return a per-clip A/B carousel:
+    {'scope':'project', 'plans':[{file, clip_id, ...}, ...]}.
+
+    Each plan is replayed in sequence on the throwaway copy (cache makes the N
+    clips cheap — incremental_preview's earliest-change replay + param-keyed
+    artifacts). A plan whose preview can't be produced is simply omitted from
+    the carousel (its steps may not apply to that clip); the others still show.
+    Nothing is committed — the backup is restored in `finally`."""
+    import copy
+    plans = composite.get("plans") or []
+    if not plans:
+        return None
+    backup = copy.deepcopy(session.data)
+    session.suppress_snapshots = True
+    try:
+        previews: list[dict] = []
+        for plan in plans:
+            try:
+                p = _stage_plan_preview(session, plan)
+            except Exception:  # noqa: BLE001 — one bad clip mustn't kill the set
+                p = None
+            if p:
+                previews.append(p)
+        if not previews:
+            return None
+        return {"scope": "project", "plans": previews}
+    except Exception:
+        return None
+    finally:
+        session.suppress_snapshots = False
+        session.data = backup
+        session.save()
+
+
+# visual_perception — give the agent eyes. After a single-clip preview artifact
+# exists, OPTIONALLY pull a few keyframes and ask the 'pro' vision model to
+# verify the render (crop centered? sticker over captions?). A found problem
+# feeds ONE extra round of validator feedback back into the planner and we
+# re-preview once. Bounded to a single vision-refine iteration to cap cost, and
+# flag-gated (config.VISION_VERIFY) with a graceful no-vision fallback so the
+# default path is byte-identical to current behavior.
+def _vision_refine(session: Session, plan: dict,
+                   preview: dict | None) -> tuple[dict, dict | None]:
+    """If VISION_VERIFY is on and the preview shows a visible defect, re-plan
+    once with the critique and re-preview. Returns the (possibly refined)
+    (plan, preview). On the no-vision path this is a near-instant no-op:
+    critique_clip short-circuits to {ok:True} and we return the inputs."""
+    from pipeline import config as _cfg
+    if not _cfg.VISION_VERIFY or not preview or not preview.get("file"):
+        return plan, preview
+    from pipeline import perception
+    try:
+        frames = perception.extract_keyframes(preview["file"])
+        critique = perception.critique_clip(frames, plan.get("summary", ""))
+    except Exception:  # noqa: BLE001 — perception is best-effort; never break
+        return plan, preview
+    problems = critique.get("problems") or []
+    if critique.get("ok") or not problems:
+        return plan, preview
+    # One bounded refine: feed the visual critique back as steering for the
+    # planner's existing bounded re-plan loop, then re-preview once.
+    from chat.planner import propose as _propose
+    note = ("A visual review of the PREVIEW render found these defects — "
+            "produce a corrected plan that fixes them: "
+            + perception.critique_summary(problems))
+    try:
+        refined = _propose(session, plan["clip_id"], plan["instruction"],
+                           extra_note=note)
+    except ValueError:
+        # Re-plan failed — keep the original plan, but record the critique so
+        # the agent can mention it to the user.
+        preview["vision_problems"] = problems
+        return plan, preview
+    new_preview = _render_plan_preview(session, refined)
+    refined["vision_refined"] = True
+    refined["vision_problems"] = problems
+    return refined, (new_preview or preview)
+
+
+def _vision_verify_first(session: Session, composite: dict,
+                         preview: dict | None) -> dict:
+    """Project-scope verify: critique ONLY the first clip's preview (cost cap)
+    and attach any visible defects as composite['vision_problems'] — advisory,
+    no batch re-plan. No-op on the no-vision path (flag off / no key / no frame).
+    """
+    from pipeline import config as _cfg
+    if not _cfg.VISION_VERIFY or not preview:
+        return composite
+    plans = preview.get("plans") or []
+    first = plans[0] if plans else None
+    if not first or not first.get("file"):
+        return composite
+    from pipeline import perception
+    try:
+        frames = perception.extract_keyframes(first["file"])
+        summary = ""
+        for p in composite.get("plans") or []:
+            if p.get("clip_id") == first.get("clip_id"):
+                summary = p.get("summary", "")
+                break
+        critique = perception.critique_clip(frames, summary)
+    except Exception:  # noqa: BLE001 — best-effort; never break the proposal
+        return composite
+    problems = critique.get("problems") or []
+    if not critique.get("ok") and problems:
+        composite["vision_problems"] = {"clip_id": first.get("clip_id"),
+                                        "problems": problems}
+    return composite
 
 
 def propose_assets(session: Session, clip_id: int,
@@ -1268,6 +1897,9 @@ def propose_edit(session: Session, clip_id: int, instruction: str) -> dict:
         return res
 
     preview = _render_plan_preview(session, plan)
+    # visual_perception: optional verify-and-refine BEFORE the A/B gate. No-op
+    # (and no LLM/ffmpeg cost) unless VISION_VERIFY is set; bounded to one pass.
+    plan, preview = _vision_refine(session, plan, preview)
     if preview:
         plan["preview"] = preview
     session.data["pending_plan"] = plan
@@ -1287,45 +1919,220 @@ def propose_edit(session: Session, clip_id: int, instruction: str) -> dict:
     return _ok(plan=plan, msg=msg)
 
 
+def propose_project(session: Session, instruction: str,
+                    clip_ids: list[int] | None = None) -> dict:
+    """multiclip_plans — plan a project-scope 'vibe' edit that spans several
+    clips ('tighten every clip', 'hepsine altyazı ekle') WITHOUT executing.
+    Builds ONE composite pending_plan over the target clips (explicit clip_ids,
+    else every non-skipped clip, capped) and renders a per-clip A/B carousel.
+    Approval applies them all under a single undo."""
+    from chat.planner import propose_project as _propose
+    try:
+        composite = _propose(session, instruction, clip_ids=clip_ids)
+    except ValueError as e:
+        return _err(str(e))
+    preview = _render_composite_preview(session, composite)
+    # visual_perception: at project scope a composite can multiply cost, so we
+    # only verify the FIRST clip's preview (and only when VISION_VERIFY is on);
+    # a found defect is surfaced as an advisory note, not a full re-plan of the
+    # whole batch. No-op on the default no-vision path.
+    composite = _vision_verify_first(session, composite, preview)
+    if preview:
+        composite["preview"] = preview
+    session.data["pending_plan"] = composite
+    session.save()
+    n = len(composite.get("plans") or [])
+    if preview:
+        msg = (f"Project plan ready for {n} clip(s); a per-clip A/B preview "
+               "carousel is showing (A=current, B=plan per clip). Present the "
+               "per-clip steps, note any skipped clips, tell the user to "
+               "compare A/B across clips, and WAIT for approval. Only call "
+               "apply_plan after they confirm — it applies every clip's steps "
+               "under ONE undo (cached render, instant).")
+    else:
+        msg = (f"Project plan ready for {n} clip(s), but no preview render "
+               "could be produced. Present the per-clip steps, note there is "
+               "no A/B preview yet, and WAIT for approval. On approval call "
+               "apply_plan — one undo reverts the whole multi-clip op.")
+    return _ok(plan=composite, scope="project",
+               skipped=composite.get("skipped"), msg=msg)
+
+
 def apply_plan(session: Session) -> dict:
-    """Execute the pending plan as ONE atomic, single-undo operation."""
-    plan = session.data.get("pending_plan")
-    if not plan:
+    """Execute the pending plan(s) as ONE atomic, single-undo operation.
+
+    multiclip_plans — pending_plan may be a single plan OR a project-scope
+    composite spanning several clips (session.pending_plans() normalizes both
+    to a list). Either way we take ONE tagged snapshot and suppress per-step
+    snapshots across the WHOLE batch, so a single undo / one revert_plan
+    checkpoint reverts every clip's steps together (atomic multi-clip undo).
+    A failure mid-clip still leaves exactly ONE undo entry."""
+    composite = session.data.get("pending_plan")
+    plans = session.pending_plans()
+    if not plans:
         return _err("No pending plan. Use propose_edit first.")
-    session.snapshot(f"plan: {plan['instruction'][:48]}")
+    is_project = session.pending_plan_is_project()
+    instruction = (composite.get("instruction")
+                   or plans[0].get("instruction", "")) if composite else ""
+    import uuid
+    cp = uuid.uuid4().hex[:8]
+    # Tag the PRE-plan snapshot so revert_plan can pop to exactly this op's
+    # checkpoint later, regardless of how much history accrues on top. ONE
+    # snapshot covers every clip in the composite -> atomic multi-clip undo.
+    session.snapshot(f"plan: {instruction[:48]}", tag=cp)
     session.suppress_snapshots = True
     results: list[dict] = []
     failed_at = None
     try:
-        for i, step in enumerate(plan["steps"], 1):
-            fn = REGISTRY.get(step["action"])
-            if fn is None:
-                r = {"ok": False, "error": f"unknown action {step['action']}"}
-            else:
-                try:
-                    r = fn(session, **step["args"])
-                except Exception as e:
-                    r = {"ok": False, "error": f"{type(e).__name__}: {e}"}
-            entry = {"step": i, "action": step["action"],
-                     "ok": bool(r.get("ok"))}
-            if not r.get("ok"):
-                entry["error"] = r.get("error", "?")
-                failed_at = i
-            results.append(entry)
+        i = 0
+        for plan in plans:
+            pcid = plan.get("clip_id")
+            for step in plan["steps"]:
+                i += 1
+                fn = REGISTRY.get(step["action"])
+                if fn is None:
+                    r = {"ok": False,
+                         "error": f"unknown action {step['action']}"}
+                else:
+                    try:
+                        r = fn(session, **step["args"])
+                    except Exception as e:
+                        r = {"ok": False, "error": f"{type(e).__name__}: {e}"}
+                entry = {"step": i, "action": step["action"],
+                         "ok": bool(r.get("ok"))}
+                if is_project:
+                    entry["clip_id"] = pcid
+                if not r.get("ok"):
+                    entry["error"] = r.get("error", "?")
+                    failed_at = i
+                results.append(entry)
+                if failed_at:
+                    break  # later steps may depend on this one
             if failed_at:
-                break  # later steps may depend on this one
+                break  # stop the whole batch on the first failure
     finally:
         session.suppress_snapshots = False
     session.data["pending_plan"] = None
+    # Record this applied plan against its checkpoint so the chat thread can
+    # offer a per-message Revert / Regenerate (named checkpoints, not LIFO).
+    # ONE record covers all clips so revert/regenerate act on the whole op.
+    record = {"checkpoint": cp, "clip_id": plans[0].get("clip_id"),
+              "instruction": instruction,
+              "summary": (composite.get("summary", "") if composite else ""),
+              "steps": [s for p in plans for s in p["steps"]],
+              "failed_at": failed_at}
+    if is_project:
+        record["scope"] = "project"
+        record["clip_ids"] = [p.get("clip_id") for p in plans]
+        record["plans"] = plans
+    session.data.setdefault("applied_plans", []).append(record)
+    session.data["applied_plans"] = session.data["applied_plans"][-20:]
+    session.last_applied = record  # transient, surfaced in the chat payload
     session.save()
-    return _ok(applied=results, failed_at=failed_at,
-               msg="Completed steps are kept; one undo reverts the whole plan.")
+    msg = ("Completed steps are kept; one undo reverts the whole plan."
+           if not is_project else
+           f"Applied across {len(plans)} clip(s); one undo reverts the whole "
+           "multi-clip operation.")
+    return _ok(applied=results, failed_at=failed_at, checkpoint=cp, msg=msg)
 
 
 def discard_plan(session: Session) -> dict:
     session.data["pending_plan"] = None
     session.save()
     return _ok(msg="Pending plan discarded.")
+
+
+def _resolve_applied(session: Session, checkpoint: str = "") -> dict | None:
+    """The applied-plan record for a checkpoint id, or the most recent one
+    when checkpoint is empty. None if there are no applied plans (or no match)."""
+    records = session.data.get("applied_plans") or []
+    if not records:
+        return None
+    if not checkpoint:
+        return records[-1]
+    return next((r for r in records if r.get("checkpoint") == checkpoint), None)
+
+
+def revert_plan(session: Session, checkpoint: str = "") -> dict:
+    """Revert ONE previously applied plan by its checkpoint id."""
+    record = _resolve_applied(session, checkpoint)
+    cp = checkpoint or (record["checkpoint"] if record else "")
+    if not cp:
+        return _err("No applied plan to revert.")
+    # A pending plan staged over a now-reverted state is incoherent — clear it.
+    session.data["pending_plan"] = None
+    msg = session.revert_to_tag(cp)
+    if "not found" in msg:
+        session.save()
+        return _err(msg)
+    return _ok(reverted=cp, msg=msg + " (this restores the state BEFORE that "
+               "plan, including any later edits; the revert is itself undoable)")
+
+
+def regenerate_plan(session: Session, checkpoint: str = "",
+                    revert: bool = True) -> dict:
+    """Redo a previously applied plan DIFFERENTLY: optionally revert to its
+    checkpoint, then re-propose the same instruction with a 'take a different
+    approach' nudge. Returns a new pending plan for A/B approval."""
+    import json
+    from chat.planner import propose
+    record = _resolve_applied(session, checkpoint)
+    if record is None:
+        return _err("No applied plan found to regenerate.")
+    note = ""
+    if revert:
+        # Revert FIRST so the preview backup below captures the reverted state.
+        msg = session.revert_to_tag(record["checkpoint"])
+        if "not found" in msg:
+            note = ("Could not revert (the checkpoint aged out), so the new "
+                    "plan stacks on the current state. ")
+    extra_note = (
+        "The user REJECTED a previous plan for this same instruction. Take a "
+        "NOTICEABLY different approach (different actions or clearly different "
+        "parameters). Previous steps: "
+        + json.dumps([{s["action"]: s["args"]} for s in record["steps"]],
+                     ensure_ascii=False))
+    session.data["pending_plan"] = None
+    # multiclip_plans: a project-scope record regenerates as a project plan over
+    # the same clip set (re-proposes each clip with the different-approach nudge).
+    if record.get("scope") == "project":
+        from chat.planner import propose_project as _propose_project
+        try:
+            plan = _propose_project(session, record["instruction"],
+                                    clip_ids=record.get("clip_ids"),
+                                    extra_note=extra_note)
+        except ValueError as e:
+            return _err(str(e))
+        preview = _render_composite_preview(session, plan)
+        if preview:
+            plan["preview"] = preview
+        session.data["pending_plan"] = plan
+        session.save()
+        n = len(plan.get("plans") or [])
+        return _ok(plan=plan, scope="project", msg=(
+            note + f"New (different) project plan ready for {n} clip(s) with a "
+            "per-clip A/B carousel. Present the per-clip steps and WAIT for "
+            "approval; apply_plan commits them all under one undo."))
+    try:
+        plan = propose(session, record["clip_id"], record["instruction"],
+                       extra_note=extra_note)
+    except ValueError as e:
+        return _err(str(e))
+    preview = _render_plan_preview(session, plan)
+    if preview:
+        plan["preview"] = preview
+    session.data["pending_plan"] = plan
+    session.save()
+    if preview:
+        msg = (note + "New (different) plan ready with a PREVIEW render showing "
+               "in the player (A=current, B=plan). Present the numbered steps "
+               "(with each 'why'), tell the user to compare A/B, and WAIT for "
+               "approval. Only call apply_plan after they confirm.")
+    else:
+        msg = (note + "New (different) plan ready, but the preview render could "
+               "not be produced. Present the numbered steps (with each 'why'), "
+               "note there is no A/B preview, and WAIT for approval.")
+    return _ok(plan=plan, msg=msg)
 
 
 def nudge_edit(session: Session, clip_id: int, edge: str = "start",
@@ -1598,25 +2405,76 @@ def restore_section(session: Session, clip_id: int,
     return _err("That span is not inside any removed section.")
 
 
-def export_clip(session: Session, clip_id: int) -> dict:
+def set_aspect(session: Session, clip_id: int, aspect: str = "9:16") -> dict:
+    """Reframe a clip to a different aspect ratio (9:16 / 1:1 / 16:9).
+
+    Merges over the EXISTING reframe params so tracking stays on, then replays.
+    A different aspect is a distinct param-keyed artifact, so the upstream
+    cut/jumpcut cache is reused across ratios and downstream subtitles/overlays
+    auto-re-render on the new canvas (burn_subtitles reads the canvas from the
+    reframed input via ffprobe).
+    """
+    aspect = (aspect or "9:16").strip()
+    if aspect not in ASPECT_CHOICES:
+        return _err(f"aspect must be one of {list(ASPECT_CHOICES)}.")
+    clip = session.clip(clip_id)
+    if clip.get("locked"):
+        return _err("Clip is picture-locked — unlock it first.")
+    existing = dict(next((st["params"] for st in clip["stages"]
+                          if st["name"] == "reframe"), {}))
+    if existing.get("aspect", "9:16") == aspect and clip.get("current"):
+        return _ok(file=clip["current"], aspect=aspect,
+                   msg=f"Clip #{clip_id} is already {aspect}.")
+    session.snapshot(f"aspect:{aspect}")
+    existing["aspect"] = aspect
+    out = session.set_stage(clip_id, "reframe", existing)
+    return _ok(file=out, clip_id=clip_id, aspect=aspect,
+               msg=f"Reframed clip #{clip_id} to {aspect}.",
+               notes=session.last_notes)
+
+
+def export_clip(session: Session, clip_id: int, aspect: str = "") -> dict:
     """Phase 5 — render the FINAL full-resolution video for a clip.
 
     Interactive editing/preview runs against the cheap 540p proxy; this replays
     the clip's APPROVED stage-param chain against the full-res source for the
     deliverable. It does not change any edit, does not go through the A/B gate,
     and marks the clip 'exported'. Re-exporting an unedited clip is a cache hit.
+
+    aspect (optional): one of 9:16 / 1:1 / 16:9. When given, the reframe stage
+    is replayed at that ratio for THIS export only (param-keyed, so the upstream
+    cut/jumpcut cache is reused) WITHOUT changing the clip's stored recipe — the
+    editable stack keeps its current aspect. Omit to use the stored aspect.
     """
+    aspect = (aspect or "").strip()
+    if aspect and aspect not in ASPECT_CHOICES:
+        return _err(f"aspect must be one of {list(ASPECT_CHOICES)}.")
+    clip = session.clip(clip_id)
+    # Temporarily pin the reframe stage to the requested aspect for this export.
+    saved = None
+    if aspect:
+        for st in clip.get("stages") or []:
+            if st["name"] == "reframe":
+                saved = (st, dict(st["params"]))
+                st["params"] = {**st["params"], "aspect": aspect}
+                break
     try:
         out = session.export_clip(clip_id)
     except ValueError as e:
         return _err(str(e))
+    finally:
+        if saved is not None:
+            saved[0]["params"] = saved[1]
+            session.save()
     clip = session.clip(clip_id)
     clip["status"] = "exported"
     session.save()
     from pipeline.media import ffprobe_info
     info = ffprobe_info(out)
     return _ok(file=out, clip_id=clip_id,
+               aspect=aspect or "stored",
                resolution=f"{info.get('width')}x{info.get('height')}",
+               metadata=clip.get("metadata"),
                msg=f"Exported clip #{clip_id} at full resolution.")
 
 
@@ -1657,6 +2515,8 @@ _NUM = {"type": "number"}
 _INT = {"type": "integer"}
 _STR = {"type": "string"}
 _BOOL = {"type": "boolean"}
+_STAGE_ENUM = {"type": "string", "enum": sorted(_EDITABLE_EVENTS)}
+_ASPECT_ENUM = {"type": "string", "enum": list(ASPECT_CHOICES)}
 
 TOOL_SPECS = [
     _spec("ask_user", "Ask the user ONE short clarifying question when an edit "
@@ -1722,6 +2582,14 @@ TOOL_SPECS = [
     _spec("get_transcript", "Get a clip's timestamped transcript (to find "
           "moments for zoom/sfx or answer content questions).",
           {"clip_id": _INT}, ["clip_id"]),
+    _spec("find_moment", "Semantic in-clip moment lookup: describe WHAT is "
+          "said/happens ('where she mentions pricing', 'sondaki tekrar') and "
+          "get the best matching {start,end} time spans (clip-local player "
+          "seconds) with the matched quote. Use BEFORE add_zoom/add_broll/"
+          "remove_section/add_emphasis or inside a propose_edit instruction "
+          "when the user references content instead of times. Read-only.",
+          {"clip_id": _INT, "description": _STR, "limit": _INT},
+          ["clip_id", "description"]),
     _spec("list_styles", "List the available named editing styles (presets "
           "bundling captions+pacing+music+sfx).", {}, []),
     _spec("apply_style", "Apply a named style preset to a clip in one pass "
@@ -1746,6 +2614,17 @@ TOOL_SPECS = [
           "the player). Refuses to remove more than half the clip.",
           {"clip_id": _INT, "start": _NUM, "end": _NUM},
           ["clip_id", "start", "end"]),
+    # transcript_timeline: delete by CONTENT ('X dediği cümleyi sil') — resolves
+    # the span via the same lookup as find_moment, then trims it.
+    _spec("remove_phrase", "Delete the sentence/part where the speaker SAYS "
+          "something ('X dediği yeri/cümleyi sil'), described by CONTENT not "
+          "times. Resolves the matching span semantically (like find_moment) "
+          "then removes it through the trim pipeline. occurrence='all' deletes "
+          "every matching occurrence in one atomic step. Refuses if the total "
+          "removal exceeds half the clip.",
+          {"clip_id": _INT, "description": _STR,
+           "occurrence": {"type": "string", "enum": ["first", "all"]}},
+          ["clip_id", "description"]),
     _spec("set_speed", "Change a clip's constant playback speed. factor: "
           "2.0 = 2× faster, 0.5 = slow-motion, 1.0 = normal (range 0.25-4). "
           "Captions are rescaled with the footage so they stay in sync.",
@@ -1853,10 +2732,33 @@ TOOL_SPECS = [
           "Pass the user's instruction verbatim.",
           {"clip_id": _INT, "instruction": _STR},
           ["clip_id", "instruction"]),
-    _spec("apply_plan", "Execute the pending plan from propose_edit after "
-          "the user approves. One undo reverts the whole plan.", {}, []),
+    # multiclip_plans: project-scope 'tighten every clip' planning. Builds ONE
+    # composite pending plan over several clips; apply_plan commits them all
+    # under a single undo.
+    _spec("propose_project", "Plan a project-scope 'vibe' edit spanning "
+          "SEVERAL clips ('tighten every clip', 'hepsine altyazı ekle') "
+          "WITHOUT executing. Omit clip_ids to target every non-skipped clip "
+          "(capped); else pass the specific ids. Returns a per-clip A/B "
+          "carousel for approval. Pass the user's instruction verbatim.",
+          {"instruction": _STR,
+           "clip_ids": {"type": "array", "items": {"type": "integer"}}},
+          ["instruction"]),
+    _spec("apply_plan", "Execute the pending plan from propose_edit/"
+          "propose_project after the user approves. One undo reverts the "
+          "whole plan (every clip of a project plan, atomically).", {}, []),
     _spec("discard_plan", "Discard the pending plan (user said no/vazgeç).",
           {}, []),
+    _spec("revert_plan", "Revert ONE previously applied plan by its checkpoint "
+          "id (from apply_plan's result / the chat message). Restores the "
+          "pre-plan state — including any edits applied after it — without "
+          "disturbing later history (the revert itself is undoable). Empty "
+          "checkpoint = the most recent applied plan.",
+          {"checkpoint": _STR}, []),
+    _spec("regenerate_plan", "Redo a previously applied plan DIFFERENTLY: "
+          "reverts to its checkpoint and re-proposes the SAME instruction with "
+          "a 'take a different approach' nudge. Returns a new pending plan for "
+          "A/B approval. Empty checkpoint = the most recent applied plan.",
+          {"checkpoint": _STR, "revert": _BOOL}, []),
     _spec("export_captions", "Export a clip's captions as a downloadable "
           "subtitle sidecar file. format: srt (default) | vtt. Matches the "
           "on-screen captions exactly.",
@@ -1870,6 +2772,21 @@ TOOL_SPECS = [
           {"clip_id": _INT, "t": _NUM, "label": _STR}, ["clip_id", "t"]),
     _spec("remove_marker", "Remove a marker by its id.",
           {"clip_id": _INT, "marker_id": _STR}, ["clip_id", "marker_id"]),
+    _spec("edit_event", "Move/resize/retune ONE existing timeline event by its "
+          "0-based index (indices are shown per stage in the session state, "
+          "e.g. zoom[1] = the second zoom). start/end are clip-local "
+          "PLAYER-timeline seconds (frame-snapped); value retunes the stage's "
+          "knob (zoom strength 1.05-1.6 | sfx volume | overlay opacity); motion "
+          "(zoom only): center|left|right|up|down. Include only the fields you "
+          "change.",
+          {"clip_id": _INT, "stage": _STAGE_ENUM, "index": _INT,
+           "start": _NUM, "end": _NUM, "value": _NUM, "motion": _STR},
+          ["clip_id", "stage", "index"]),
+    _spec("delete_event", "Delete ONE timeline event (a specific zoom/sfx/"
+          "b-roll/overlay/fx hit) by stage + 0-based index from the session "
+          "state.",
+          {"clip_id": _INT, "stage": _STAGE_ENUM, "index": _INT},
+          ["clip_id", "stage", "index"]),
     _spec("lock_clip", "Picture-lock a clip — freeze its timing (cut/silence/"
           "trim); only visual & audio polish stays editable.",
           {"clip_id": _INT}, ["clip_id"]),
@@ -1879,12 +2796,29 @@ TOOL_SPECS = [
           "ask_all (approve everything) | auto_minor (auto-apply minor-only "
           "plans: fillers/loudness/fade; structural edits still ask).",
           {"mode": _STR}, ["mode"]),
+    # reframe_aspect_tool: change a clip's framing/aspect ratio (a render).
+    _spec("set_aspect", "Reframe a clip to a different aspect ratio: 9:16 "
+          "(dikey, default), 1:1 (kare) or 16:9 (yatay). Keeps the "
+          "active-speaker tracking and re-renders downstream captions/overlays "
+          "on the new canvas. Goes through the A/B approval gate.",
+          {"clip_id": _INT, "aspect": _ASPECT_ENUM}, ["clip_id", "aspect"]),
     _spec("export_clip", "Render the FINAL full-resolution video for a clip. "
           "Editing/preview uses a fast 540p proxy; this replays the approved "
           "edits on the full-res source for the deliverable. Marks the clip "
           "'exported'. Not part of the approval gate — call it when the user is "
-          "happy with the clip and wants the final file.",
-          {"clip_id": _INT}, ["clip_id"]),
+          "happy with the clip and wants the final file. Optional aspect "
+          "(9:16/1:1/16:9) exports that ratio for this render only without "
+          "changing the clip's stored framing.",
+          {"clip_id": _INT, "aspect": _ASPECT_ENUM}, ["clip_id"]),
+    _spec("generate_metadata", "Write platform-specific publish copy (title + "
+          "description + hashtags) for a clip from its transcript. platforms "
+          "subset of youtube_shorts|tiktok|instagram_reels (default: all). "
+          "Read-only — no render, no approval gate. Offer it after export_clip.",
+          {"clip_id": _INT,
+           "platforms": {"type": "array", "items": {
+               "type": "string",
+               "enum": ["youtube_shorts", "tiktok", "instagram_reels"]}},
+           "language": _STR}, ["clip_id"]),
     _spec("export_timeline", "Export a clip's cuts+markers as an NLE timeline "
           "for DaVinci Resolve / Premiere. format: xml (FCP7, default) | edl.",
           {"clip_id": _INT, "format": _STR}, ["clip_id"]),
@@ -1915,6 +2849,7 @@ REGISTRY = {
     "set_fade": set_fade,
     "add_sound_effect": add_sound_effect,
     "get_transcript": get_transcript,
+    "find_moment": find_moment,
     "list_styles": list_styles,
     "apply_style": apply_style,
     "remove_fillers": remove_fillers,
@@ -1922,6 +2857,7 @@ REGISTRY = {
     "remember_preference": remember_preference,
     "forget_preferences": forget_preferences,
     "remove_section": remove_section,
+    "remove_phrase": remove_phrase,  # transcript_timeline
     "set_speed": set_speed,
     "set_cut": set_cut,
     "auto_zoom": auto_zoom,
@@ -1944,8 +2880,11 @@ REGISTRY = {
     "ingest_assets": ingest_assets,
     "propose_assets": propose_assets,
     "propose_edit": propose_edit,
+    "propose_project": propose_project,  # multiclip_plans
     "apply_plan": apply_plan,
     "discard_plan": discard_plan,
+    "revert_plan": revert_plan,
+    "regenerate_plan": regenerate_plan,
     "export_captions": export_captions,
     "nudge_edit": nudge_edit,
     "add_marker": add_marker,
@@ -1956,9 +2895,11 @@ REGISTRY = {
     "unlock_clip": unlock_clip,
     "set_autonomy": set_autonomy,
     "export_clip": export_clip,
+    "generate_metadata": generate_metadata,
     "export_timeline": export_timeline,
     "restore_section": restore_section,
     "set_denoise": set_denoise,
+    "set_aspect": set_aspect,  # reframe_aspect_tool
     "undo": undo,
     "redo": redo,
 }

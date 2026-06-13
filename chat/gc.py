@@ -41,7 +41,13 @@ def _referenced_paths(session) -> set[str]:
         from_clips(clips)
     pp = session.data.get("pending_plan")
     if pp and isinstance(pp.get("preview"), dict):
-        add(pp["preview"].get("file"))
+        prev = pp["preview"]
+        add(prev.get("file"))
+        # multiclip_plans: a project-scope composite's preview is a per-clip
+        # A/B carousel — protect every clip's preview artifact, not just one.
+        for cp_prev in prev.get("plans") or []:
+            if isinstance(cp_prev, dict):
+                add(cp_prev.get("file"))
     for cp in session.data.get("compilations", []):
         add(cp.get("file"))
     return refs

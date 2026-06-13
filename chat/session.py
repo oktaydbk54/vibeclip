@@ -286,17 +286,23 @@ class Session:
     def save(self) -> None:
         self.path.write_text(json.dumps(self.data, ensure_ascii=False, indent=1))
 
-    def snapshot(self, label: str = "", source: str = "chat") -> None:
+    def snapshot(self, label: str = "", source: str = "chat",
+                 tag: str | None = None) -> None:
         """Push an undo point (deep copy of clips). Artifacts stay on disk.
 
         source tags who triggered the edit ('chat' | 'ui' | 'plan') — the
         edit-log surfaces this later; older entries simply read as 'chat'.
+        tag is an optional named-checkpoint id (set by apply_plan) so a single
+        applied plan can be reverted later regardless of LIFO position; older
+        entries simply lack the key.
         """
         if getattr(self, "suppress_snapshots", False):
             return  # apply_plan takes ONE snapshot for the whole plan
-        self.data["history"].append(
-            {"label": label, "source": source,
-             "clips": copy.deepcopy(self.data["clips"])})
+        entry = {"label": label, "source": source,
+                 "clips": copy.deepcopy(self.data["clips"])}
+        if tag:
+            entry["tag"] = tag
+        self.data["history"].append(entry)
         self.data["history"] = self.data["history"][-20:]
         # A fresh edit forks history — the redo branch is no longer reachable.
         self.data.pop("redo", None)
@@ -332,6 +338,26 @@ class Session:
         self.data["clips"] = entry["clips"]
         self.save()
         return "Re-applied the change."
+
+    def revert_to_tag(self, tag: str) -> str:
+        """Pop to a named checkpoint (e.g. an applied plan), restoring the
+        PRE-checkpoint clip state. Non-destructive: the revert itself is taken
+        as a fresh snapshot first, so it stays undoable and later history is
+        not rewritten. Returns a 'not found' message if the checkpoint has
+        aged out of the 20-step history (or never existed)."""
+        entry = next(
+            (e for e in self.data.get("history", [])
+             if isinstance(e, dict) and e.get("tag") == tag), None)
+        if entry is None:
+            return ("Checkpoint not found — it may have aged out of the "
+                    "20-step history.")
+        # Mirror /api/restore semantics: snapshot the current state, then swap
+        # in the checkpoint's clips. This restores the state BEFORE that plan,
+        # including any edits applied after it.
+        self.snapshot("before revert", source="ui")
+        self.data["clips"] = copy.deepcopy(entry["clips"])
+        self.save()
+        return "Reverted to the state before that edit."
 
     # ------------------------------------------------------------- accessors
     @property
@@ -439,6 +465,28 @@ class Session:
         return {"total": len(clips), "active_clip_id": cid,
                 "position": position, **counts}
 
+    # ----------------------------------------------------- pending plan(s)
+    # multiclip_plans — pending_plan stores EITHER today's single plan dict
+    # ({clip_id, instruction, steps, ...}) OR a project-scope composite
+    # ({'scope':'project', 'instruction', 'plans':[<plan dict>, ...]}) so one
+    # approval can span N clips under a SINGLE undo. Every reader (summary,
+    # apply_plan, the preview, the agent guard) goes through pending_plans()
+    # so single-clip flows stay byte-identical (a 1-element list).
+    def pending_plans(self) -> list[dict]:
+        """Normalize the pending plan to a flat list of per-clip plan dicts.
+        Empty when nothing is pending; a single-clip plan yields [plan]."""
+        pp = self.data.get("pending_plan")
+        if not pp:
+            return []
+        if pp.get("scope") == "project":
+            return [p for p in (pp.get("plans") or []) if p]
+        return [pp]
+
+    def pending_plan_is_project(self) -> bool:
+        """True when the pending plan is a multi-clip composite."""
+        pp = self.data.get("pending_plan")
+        return bool(pp and pp.get("scope") == "project")
+
     def summary(self) -> str:
         """Compact state block for the agent's system prompt."""
         s = self.data["source"]
@@ -455,10 +503,25 @@ class Session:
                      if k not in ("events", "windows", "path", "ranges")}
                 if st["name"] == "music" and st["params"].get("path"):
                     p["track"] = Path(st["params"]["path"]).name
+                # Indexed event listings so the model can address "the second
+                # zoom" by its 0-based index (cf. edit_event/delete_event).
                 if st["name"] == "zoom":
-                    p["windows"] = st["params"].get("windows", [])
-                if st["name"] == "sfx":
-                    p["count"] = len(st["params"].get("events", []))
+                    p["windows"] = [
+                        f"[{i}] {w[0]:.1f}-{w[1]:.1f}s x{w[2]:g}"
+                        + (f" {w[3]}" if len(w) > 3 else "")
+                        for i, w in enumerate(
+                            st["params"].get("windows", []))][:8]
+                if st["name"] in ("sfx", "fx"):
+                    p["events"] = [
+                        f"[{i}] {e['time']:.1f}s"
+                        + (f" {e.get('kind', '')}" if e.get("kind") else "")
+                        for i, e in enumerate(
+                            st["params"].get("events", []))][:8]
+                if st["name"] in ("broll", "overlay"):
+                    p["events"] = [
+                        f"[{i}] {e.get('start', 0):.1f}-{e.get('end', 0):.1f}s"
+                        for i, e in enumerate(
+                            st["params"].get("events", []))][:8]
                 if st["name"] == "trim":
                     p["removed"] = [
                         f"{r['start']:.1f}-{r['end']:.1f}s"
@@ -494,13 +557,25 @@ class Session:
                          + "; ".join(self.data["preferences"]))
         if self.data.get("pending_plan"):
             pp = self.data["pending_plan"]
-            lines.append(
-                f"PENDING PLAN on clip #{pp['clip_id']}: '{pp['instruction']}'"
-                " — awaiting user approval. On approval call apply_plan; on"
-                " rejection call discard_plan. NEVER run its steps yourself."
-                " If the user MODIFIES the request instead ('aslında 3x"
-                f" olsun'), call propose_edit on clip #{pp['clip_id']} with"
-                " the new instruction — it replaces this plan.")
+            if self.pending_plan_is_project():
+                ids = [str(p.get("clip_id")) for p in self.pending_plans()]
+                lines.append(
+                    f"PENDING PROJECT PLAN on clips #{', #'.join(ids)}:"
+                    f" '{pp.get('instruction', '')}' — one composite awaiting"
+                    " user approval. On approval call apply_plan (it applies"
+                    " EVERY clip's steps under a SINGLE undo); on rejection"
+                    " call discard_plan. NEVER run its steps yourself. The"
+                    " preview is a per-clip A/B carousel. If the user MODIFIES"
+                    " the request, call propose_edit (project scope) again —"
+                    " it replaces this plan.")
+            else:
+                lines.append(
+                    f"PENDING PLAN on clip #{pp['clip_id']}: '{pp['instruction']}'"
+                    " — awaiting user approval. On approval call apply_plan; on"
+                    " rejection call discard_plan. NEVER run its steps yourself."
+                    " If the user MODIFIES the request instead ('aslında 3x"
+                    f" olsun'), call propose_edit on clip #{pp['clip_id']} with"
+                    " the new instruction — it replaces this plan.")
         return "\n".join(lines)
 
     # ------------------------------------------------------------- words
@@ -969,11 +1044,13 @@ class Session:
             return retime(inp, f, out_path=out_path)
 
         if name == "reframe":
+            aspect = p.get("aspect", "9:16")
             if p.get("tracked", True):
                 from pipeline.tracking import reframe_vertical_tracked
-                return reframe_vertical_tracked(inp, out_path=out_path)
+                return reframe_vertical_tracked(inp, out_path=out_path,
+                                                aspect=aspect)
             from pipeline.reframe import reframe_vertical
-            return reframe_vertical(inp, out_path=out_path)
+            return reframe_vertical(inp, out_path=out_path, aspect=aspect)
 
         if name == "denoise":
             from pipeline.denoise import denoise_audio
@@ -1053,6 +1130,30 @@ class Session:
                 style.hilite_scale = float(p["hilite_pop"])
             if "uppercase" in p:
                 style.uppercase = bool(p["uppercase"])
+            # Caption-engine knobs: per-word entrance animation, a rounded pill
+            # behind the active word, an LLM keyword-emphasis pass and auto-emoji.
+            if "animation" in p:
+                style.animation = str(p["animation"])
+            if "pill" in p:
+                style.pill = p["pill"]
+            if "auto_emoji" in p:
+                style.auto_emoji = bool(p["auto_emoji"])
+            if p.get("highlight_color"):
+                style.color_emphasis = _hex_rgba(p["highlight_color"])
+            want_emphasis = str(p.get("emphasis", "none")) == "llm"
+            want_emoji = bool(p.get("auto_emoji"))
+            if (want_emphasis or want_emoji) and words:
+                cache = clip.setdefault("_caption_emphasis", {})
+                key = f"{want_emphasis}:{want_emoji}"
+                if key not in cache:
+                    cache[key] = list(sub._plan_emphasis(
+                        words, want_emphasis=want_emphasis,
+                        want_emoji=want_emoji))
+                emph, emoji_map = cache[key]
+                if want_emphasis and emph:
+                    style.emphasis_keywords = list(emph)
+                if want_emoji and emoji_map:
+                    style.emoji_map = dict(emoji_map)
             return sub.burn_subtitles(
                 inp, words, clip_start=0.0,
                 karaoke=p.get("karaoke", True),

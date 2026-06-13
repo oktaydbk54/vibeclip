@@ -33,6 +33,11 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+        with:
+          # Full history so gitleaks' PR diff scan (base^..head) has the base
+          # commit's parent available; a shallow clone makes its git log write
+          # to stderr and the action treats that as a failure.
+          fetch-depth: 0
       - name: Scan for committed secrets
         uses: gitleaks/gitleaks-action@v2
         env:

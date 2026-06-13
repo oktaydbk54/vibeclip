@@ -3,7 +3,10 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>VibeClip Studio — AI Video Editing Studio</title>
+<title>VibeClip — Talk-to-Edit AI Video Editor for Shorts · Open Source</title>
+<link rel="canonical" href="https://vibeclip.dev/">
+<meta name="robots" content="index, follow, max-image-preview:large">
+<meta name="keywords" content="AI video editor, talk to edit video, turn long video into shorts, open source video editor, self-hosted video editor, Opus Clip alternative, CapCut alternative, auto captions, AI reframe, BYOK">
 <link rel="icon" type="image/svg+xml" href="/static/favicon.svg">
 <link rel="icon" type="image/x-icon" href="/static/favicon.ico" sizes="any">
 <link rel="apple-touch-icon" href="/static/apple-touch-icon.png">
@@ -17,12 +20,148 @@
   gtag('config', 'G-VLDS78ZF9K');
 </script>
 <!-- Google Search Console: domain ownership verified via DNS TXT (Namecheap) -->
-<meta name="description" content="VibeClip turns your long videos into viral-ready clips in seconds — an AI editing studio you control by talking.">
+<meta name="description" content="VibeClip is an open-source (AGPL-3.0) AI video editor you control by talking: turn long videos into publish-ready vertical shorts — cut, caption, reframe — then approve before/after in one click. Self-host with your own LLM key.">
+<!-- Open Graph + Twitter (mirrors blog_render._head so social/AI previews render) -->
+<meta property="og:site_name" content="VibeClip">
+<meta property="og:type" content="website">
+<meta property="og:title" content="VibeClip — Talk-to-Edit AI Video Editor for Shorts · Open Source">
+<meta property="og:description" content="Open-source (AGPL-3.0) AI video editor you control by talking. Turn long videos into publish-ready vertical shorts; self-host with your own LLM key.">
+<meta property="og:url" content="https://vibeclip.dev/">
+<meta property="og:image" content="https://vibeclip.dev/static/icon-512.png">
+<meta property="og:image:width" content="512">
+<meta property="og:image:height" content="512">
+<meta property="og:image:alt" content="VibeClip — the AI video editor you control by talking">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="VibeClip — Talk-to-Edit AI Video Editor for Shorts · Open Source">
+<meta name="twitter:description" content="Open-source (AGPL-3.0) AI video editor you control by talking. Turn long videos into publish-ready vertical shorts; self-host with your own LLM key.">
+<meta name="twitter:image" content="https://vibeclip.dev/static/icon-512.png">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Archivo:wght@400;500;600;700;800&family=Bricolage+Grotesque:opsz,wght@12..96,600;12..96,700;12..96,800&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="/static/landing.css">
 <link rel="stylesheet" href="/static/mascot.css">
+<!-- Structured data: entity + product + FAQ + video, so search engines and AI
+     answer engines (ChatGPT/Perplexity/AI Overviews) can classify and cite VibeClip. -->
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@graph": [
+    {
+      "@type": "Organization",
+      "@id": "https://vibeclip.dev/#org",
+      "name": "VibeClip",
+      "url": "https://vibeclip.dev/",
+      "logo": {
+        "@type": "ImageObject",
+        "url": "https://vibeclip.dev/static/icon-512.png",
+        "width": 512,
+        "height": 512
+      },
+      "description": "Open-source (AGPL-3.0) AI video editor you control by talking.",
+      "sameAs": [
+        "https://github.com/oktaydbk54/vibeclip",
+        "https://x.com/codebod1"
+      ]
+    },
+    {
+      "@type": "WebSite",
+      "@id": "https://vibeclip.dev/#website",
+      "url": "https://vibeclip.dev/",
+      "name": "VibeClip",
+      "publisher": { "@id": "https://vibeclip.dev/#org" },
+      "potentialAction": {
+        "@type": "SearchAction",
+        "target": {
+          "@type": "EntryPoint",
+          "urlTemplate": "https://vibeclip.dev/blog?q={search_term_string}"
+        },
+        "query-input": "required name=search_term_string"
+      }
+    },
+    {
+      "@type": "SoftwareApplication",
+      "@id": "https://vibeclip.dev/#app",
+      "name": "VibeClip",
+      "url": "https://vibeclip.dev/",
+      "applicationCategory": "MultimediaApplication",
+      "operatingSystem": "Web",
+      "description": "VibeClip turns long videos into publish-ready vertical clips. Describe the edit in plain words — cut, caption, reframe — then review the before/after and approve in one click. Open source, AGPL-3.0, runs on your machine and your LLM key.",
+      "publisher": { "@id": "https://vibeclip.dev/#org" },
+      "license": "https://www.gnu.org/licenses/agpl-3.0.html",
+      "featureList": [
+        "Talk-to-edit: describe edits in plain language",
+        "Smart reframe: speaker-tracked 16:9 to 9:16 crop",
+        "Word-synced auto-captions",
+        "Silence and filler removal",
+        "A/B before-after approval, fully reversible",
+        "Style presets and gameplay split-screen",
+        "Browser-native — no install, no GPU"
+      ],
+      "offers": {
+        "@type": "Offer",
+        "price": "0",
+        "priceCurrency": "USD",
+        "description": "Self-host free forever (bring your own LLM key); hosted free during early access."
+      }
+    },
+    {
+      "@type": "FAQPage",
+      "@id": "https://vibeclip.dev/#faq",
+      "mainEntity": [
+        {
+          "@type": "Question",
+          "name": "Do I need to install anything?",
+          "acceptedAnswer": { "@type": "Answer", "text": "No. VibeClip runs entirely in your browser — open a tab, drop in a video, and start editing by chat. No app, no GPU, no render farm." }
+        },
+        {
+          "@type": "Question",
+          "name": "How does editing by talking actually work?",
+          "acceptedAnswer": { "@type": "Answer", "text": "You describe the edit in plain words — cut the silences, add captions, make it punchier. VibeClip runs the matching pipeline and stages a before/after so you approve the result before it sticks." }
+        },
+        {
+          "@type": "Question",
+          "name": "Can I undo an edit I don't like?",
+          "acceptedAnswer": { "@type": "Answer", "text": "Always. Every edit is proposed as a B version next to your current A. Keep it or discard it — nothing is destructive, and the full history is reversible." }
+        },
+        {
+          "@type": "Question",
+          "name": "What kind of videos work best?",
+          "acceptedAnswer": { "@type": "Answer", "text": "Talking-head footage, podcasts, streams, lectures, interviews — any long landscape recording you want to turn into vertical 9:16 shorts. Smart reframe keeps the speaker centered as it crops." }
+        },
+        {
+          "@type": "Question",
+          "name": "Is VibeClip open source? Can I self-host it?",
+          "acceptedAnswer": { "@type": "Answer", "text": "Yes — the entire studio is open source under AGPL-3.0. Clone the repo, run one docker compose up, add your own LLM key, and you have the full thing on your own server. No feature is held back for the hosted version." }
+        },
+        {
+          "@type": "Question",
+          "name": "Where do my videos and API key go?",
+          "acceptedAnswer": { "@type": "Answer", "text": "When you self-host, footage never leaves your machine — speech-to-text and every render run locally. The only thing that touches the network is the LLM provider you choose (your key), and optionally Pexels for stock b-roll. Per-user keys are encrypted at rest and never sent back to the browser." }
+        },
+        {
+          "@type": "Question",
+          "name": "How much does it cost?",
+          "acceptedAnswer": { "@type": "Answer", "text": "Self-hosting is free forever — it's open source; you only pay your own LLM provider for tokens (a typical short is a few cents). The managed hosted version is free during early access while we shape paid plans." }
+        },
+        {
+          "@type": "Question",
+          "name": "Can I export in 1080p without a watermark?",
+          "acceptedAnswer": { "@type": "Answer", "text": "Yes — high-resolution, clean exports are part of what we're building. Specifics will firm up alongside our pricing; for now, early-access creators get the full studio." }
+        }
+      ]
+    },
+    {
+      "@type": "VideoObject",
+      "name": "VibeClip — turn a long video into a vertical short by talking",
+      "description": "A real VibeClip pipeline output: a long landscape recording reframed to 9:16 with word-synced captions, edited by chat.",
+      "thumbnailUrl": "https://vibeclip.dev/static/demo/poster.jpg",
+      "contentUrl": "https://vibeclip.dev/static/demo/demo_mb.mp4",
+      "uploadDate": "2026-06-01",
+      "publisher": { "@id": "https://vibeclip.dev/#org" }
+    }
+  ]
+}
+</script>
 </head>
 <body>
 

@@ -199,6 +199,30 @@ def render_index() -> str:
 </html>"""
 
 
+def _faq_blocks(p: dict) -> tuple[str, dict | None]:
+    """Optional FAQ for GEO: returns (prose-HTML, FAQPage JSON-LD).
+
+    Posts may carry a `faq` list of {"q", "a"} (plain text). AI answer engines
+    and Google rich results lift question/answer pairs verbatim, so a well-formed
+    FAQPage block is the single biggest citation lever. Empty when no `faq`.
+    """
+    faq = p.get("faq")
+    if not faq:
+        return "", None
+    items = ""
+    entities = []
+    for qa in faq:
+        items += f"\n<h3>{html.escape(qa['q'])}</h3>\n<p>{html.escape(qa['a'])}</p>"
+        entities.append({
+            "@type": "Question",
+            "name": qa["q"],
+            "acceptedAnswer": {"@type": "Answer", "text": qa["a"]},
+        })
+    block = f'\n<h2 id="faq">Frequently asked questions</h2>{items}'
+    jsonld = {"@context": "https://schema.org", "@type": "FAQPage", "mainEntity": entities}
+    return block, jsonld
+
+
 def render_article(slug: str) -> str | None:
     p = bc.get_post(slug)
     if not p:
@@ -206,6 +230,7 @@ def render_article(slug: str) -> str | None:
     canonical = f"{bc.SITE_URL}/blog/{slug}"
     idx = bc.POSTS.index(p)
     related = [q for q in bc.POSTS if q["slug"] != slug][:3]
+    faq_html, faq_ld = _faq_blocks(p)
 
     article_ld = {
         "@context": "https://schema.org",
@@ -304,3 +329,31 @@ def render_robots() -> str:
             f"Disallow: /studio\nDisallow: /projects\nDisallow: /admin\n"
             f"Disallow: /api/\n\n"
             f"Sitemap: {bc.SITE_URL}/sitemap.xml\n")
+
+
+def render_llms() -> str:
+    """A plain, JS-free product card for AI answer engines (GEO). Served at
+    /llms.txt. One citable fact per line; SITE_URL is single-sourced from
+    blog_content so it never drifts from canonical/sitemap. Lists the blog posts
+    so engines have crawlable, quotable sources to cite."""
+    posts = "\n".join(
+        f"- {bc.SITE_URL}/blog/{p['slug']} — {p['title']}" for p in bc.POSTS)
+    return (
+        f"# {bc.SITE_NAME} — open-source AI video editor you control by talking\n\n"
+        f"URL: {bc.SITE_URL}\n"
+        "License: AGPL-3.0 (open source, self-hostable)\n"
+        "What: Turn long landscape videos into publish-ready 9:16 vertical shorts "
+        "by describing edits in plain language — cut, caption, reframe — then "
+        "review the before/after and approve in one click.\n"
+        "Who it's for: creators, podcasters, streamers, educators repurposing long "
+        "recordings into shorts for TikTok, Reels and YouTube Shorts.\n"
+        "Features: talk-to-edit; smart reframe (speaker-tracked 16:9 to 9:16); "
+        "word-synced auto-captions; silence and filler removal; A/B before-after "
+        "approval (fully reversible); style presets; gameplay split-screen; "
+        "browser-native, no install, no GPU.\n"
+        "Pricing: self-host free forever (bring your own LLM key, ~cents per short "
+        "in tokens); managed hosted version free during early access.\n"
+        "Privacy: when self-hosted, footage and speech-to-text stay on your "
+        "machine; only your chosen LLM provider is called. Keys encrypted at rest.\n"
+        f"Repository: https://github.com/oktaydbk54/vibeclip\n"
+        f"Docs and articles to cite:\n{posts}\n")

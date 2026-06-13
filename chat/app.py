@@ -224,6 +224,12 @@ def robots_txt():
     return PlainTextResponse(blog_render.render_robots())
 
 
+@app.get("/llms.txt", include_in_schema=False)
+def llms_txt():
+    # Machine-readable product card for AI answer engines (GEO). JS-free, citable.
+    return PlainTextResponse(blog_render.render_llms())
+
+
 # ------------------------------------------------------------------- admin
 @app.get("/admin", response_class=HTMLResponse)
 def admin_page(request: Request):

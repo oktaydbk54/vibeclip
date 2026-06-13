@@ -20,6 +20,211 @@ OG_IMAGE = f"{SITE_URL}/static/icon-512.png"
 # Newest first. `date` is ISO (used for <time>, JSON-LD, sitemap lastmod).
 POSTS = [
     {
+        "slug": "vibeclip-vs-opus-clip",
+        "title": "VibeClip vs. Opus Clip: An Open-Source AI Clip Editor Compared",
+        "description": "Opus Clip auto-clips long videos in the cloud on a credit/"
+                       "subscription model. VibeClip is the open-source, self-hostable, "
+                       "bring-your-own-key alternative you edit by talking. Here's how they differ.",
+        "keywords": "opus clip alternative, vibeclip vs opus clip, open source opus clip, "
+                    "ai clip generator, free ai video editor, self-hosted clip maker",
+        "tag": "COMPARE",
+        "read_min": 8,
+        "date": "2026-06-13",
+        "excerpt": "Opus Clip popularised one-click auto-clipping. VibeClip takes the same "
+                   "long-video-to-shorts job and makes it open source, self-hostable, and "
+                   "editable by chat — on your own LLM key.",
+        "body": """
+<p class="lede">If you've looked for a tool that turns a long video into a stack of
+short, captioned clips, you've met <strong>Opus Clip</strong>. It made one-click
+auto-clipping mainstream. <strong>VibeClip</strong> tackles the same job from a different
+angle: it's <strong>open source (AGPL-3.0)</strong>, you can <strong>self-host</strong> it,
+and you drive the edit by <strong>talking</strong> to it on <em>your own</em> LLM key.</p>
+
+<p>This isn't a teardown — Opus Clip is a polished product. It's a comparison of two
+philosophies so you can pick the one that fits how you work.</p>
+
+<h2>The core difference: a closed cloud service vs. an open, ownable studio</h2>
+<p>Opus Clip is a hosted SaaS. You upload to their cloud, it runs on their infrastructure,
+and you pay through credits and subscription tiers. That's frictionless — and it also means
+your footage lives on someone else's servers and your costs scale with their pricing.</p>
+<p>VibeClip is software you can actually own. Run the hosted version, or clone the repo and
+<code>docker compose up</code> on your own box. When you self-host, your footage never
+leaves your machine, speech-to-text and rendering run locally, and the only outbound call is
+to the LLM provider <em>you</em> chose with the key <em>you</em> control.</p>
+
+<h2>Side by side</h2>
+<table>
+  <thead><tr><th>&nbsp;</th><th>Opus Clip</th><th>VibeClip</th></tr></thead>
+  <tbody>
+    <tr><td>Model</td><td>Hosted SaaS</td><td>Open source (AGPL-3.0) + optional hosted</td></tr>
+    <tr><td>Self-host</td><td>No</td><td>Yes — full studio, nothing held back</td></tr>
+    <tr><td>Where your video lives</td><td>Their cloud</td><td>Your machine (when self-hosted)</td></tr>
+    <tr><td>Pricing</td><td>Credits / subscription</td><td>Free to self-host; you pay your own LLM tokens (cents per short)</td></tr>
+    <tr><td>How you edit</td><td>Auto-clip, then UI tweaks</td><td>Auto-clip <em>and</em> refine by chat: "cut the silences", "bigger captions"</td></tr>
+    <tr><td>Control over the AI</td><td>Their models</td><td>Bring your own key — OpenAI, Claude, Gemini, local models</td></tr>
+    <tr><td>Edits reversible</td><td>Yes, in-app</td><td>Yes — every change is an A/B you approve; nothing destructive</td></tr>
+  </tbody>
+</table>
+
+<h2>Where VibeClip wins</h2>
+<ul>
+  <li><strong>Ownership &amp; privacy.</strong> Self-host and your raw footage and keys stay
+  on infrastructure you control — the right call for agencies, regulated teams, and anyone
+  who'd rather not upload client material to a third party.</li>
+  <li><strong>Cost at scale.</strong> No per-clip credits. You pay your LLM provider directly,
+  which for most creators is a few cents per short instead of a monthly clip quota.</li>
+  <li><strong>Talk-to-edit refinement.</strong> Auto-clipping gets you 80% there; the last
+  20% is taste. VibeClip lets you say what you want in plain words and stages a before/after,
+  so you're not hunting through panels. (Here's <a href="/blog/talk-to-edit-video-editing-by-chat">how editing by chat works</a>.)</li>
+  <li><strong>No lock-in.</strong> It's AGPL — fork it, extend it, run it forever.</li>
+</ul>
+
+<h2>Where a hosted SaaS still makes sense</h2>
+<p>If you never want to think about infrastructure and prefer a fixed monthly bill to managing
+an LLM key, a turnkey cloud tool is genuinely simpler on day one. VibeClip's hosted version
+exists for exactly that — but unlike a closed product, you can always take the open-source
+build and walk.</p>
+
+<h2>The bottom line</h2>
+<p>Opus Clip is a great closed product for hands-off cloud clipping. VibeClip is for creators
+who want the same long-video-to-shorts speed <em>plus</em> ownership, privacy, lower running
+cost, and an editor they can talk to. New to the category? Start with
+<a href="/blog/what-is-an-ai-video-editor">what an AI video editor actually is</a>, or just
+<a href="/signup">try VibeClip free</a> and turn your next long video into shorts.</p>
+""",
+    },
+    {
+        "slug": "open-source-vs-saas-video-editor",
+        "title": "Open-Source vs. SaaS Video Editing: Why Self-Hosting Wins for Creators",
+        "description": "Cloud video tools are convenient but rent-forever and upload your "
+                       "footage to someone else's servers. Here's the case for a free, "
+                       "open-source, self-hosted AI video editor — and when SaaS still fits.",
+        "keywords": "free open source video editor, self-hosted video editor, open source "
+                    "video editing, private video editor, agpl video editor, byok video editor",
+        "tag": "COMPARE",
+        "read_min": 7,
+        "date": "2026-06-13",
+        "excerpt": "Convenience vs. ownership. Why an open-source, self-hosted AI editor "
+                   "beats a rented cloud tool on privacy and cost — and the cases where "
+                   "SaaS is still the right call.",
+        "body": """
+<p class="lede">Almost every AI video tool today is a <strong>SaaS</strong>: you upload your
+footage to a cloud, it processes on their servers, and you pay a recurring bill. It's
+convenient — and it quietly trades away two things creators increasingly care about:
+<strong>ownership</strong> and <strong>privacy</strong>. Here's the honest case for the
+open-source, self-hosted alternative.</p>
+
+<h2>What "self-hosted" actually means</h2>
+<p>A self-hosted app runs on infrastructure <em>you</em> control — your laptop, your VPS, your
+company server. With an open-source AI video editor like VibeClip, that means your raw video
+files, your transcripts, and your renders never leave your machine. Speech-to-text and every
+render run locally; the only thing that touches the network is the LLM provider you pick,
+called with a key you own (that's the "bring your own key" / BYOK model).</p>
+
+<h2>Three reasons it wins</h2>
+<ul>
+  <li><strong>Privacy by default.</strong> Unreleased footage, client material, internal
+  recordings — none of it gets uploaded to a third party. For agencies and regulated teams
+  that's not a nice-to-have, it's a requirement.</li>
+  <li><strong>Cost that doesn't compound.</strong> SaaS pricing scales with <em>their</em>
+  margins and your usage tier. Self-hosting is free; you pay your LLM provider directly for
+  tokens — typically a few cents per short. No per-clip credits, no seat fees.</li>
+  <li><strong>No lock-in, ever.</strong> Open source (VibeClip is AGPL-3.0) means you can read
+  the code, fork it, extend it, and keep running it even if the company behind it disappears.
+  A closed SaaS can change pricing, gate features, or shut down — and your workflow goes with it.</li>
+</ul>
+
+<h2>The convenience tax</h2>
+<p>Let's be fair: SaaS is easier on day one. There's nothing to install, no key to manage, no
+server to keep alive. For a creator who edits occasionally and prefers a predictable monthly
+fee, that simplicity is worth real money.</p>
+<p>The open-source answer to "but setup is hard" is to make setup trivial. VibeClip runs in the
+browser, and self-hosting is one <code>docker compose up</code>. You add your LLM key once and
+you're editing. (Curious how the editing itself feels?
+<a href="/blog/talk-to-edit-video-editing-by-chat">You talk to it.</a>)</p>
+
+<h2>When SaaS still makes sense</h2>
+<p>If you have zero interest in infrastructure, edit rarely, and want one bill with support
+attached, a managed product is a reasonable choice. The best of both worlds is a tool that
+offers a hosted option <em>and</em> an open-source build — so you start easy and can take
+ownership whenever you outgrow the cloud.</p>
+
+<h2>How VibeClip fits</h2>
+<p>VibeClip is open source under AGPL-3.0, self-hostable in one command, and BYOK — and there's
+a hosted version for people who want turnkey. Same studio either way; no feature held back for
+the paid tier. If you're weighing tools, here's a concrete head-to-head:
+<a href="/blog/vibeclip-vs-opus-clip">VibeClip vs. Opus Clip</a>. Or just
+<a href="/signup">spin it up free</a> and see how
+<a href="/blog/turn-long-video-into-shorts-with-ai">one long video becomes a week of shorts</a>.</p>
+""",
+    },
+    {
+        "slug": "capcut-alternative-ai-video-editor",
+        "title": "A CapCut Alternative for Creators Who Hate the Timeline",
+        "description": "CapCut is powerful but it's still a manual timeline editor. If you're "
+                       "repurposing long videos into shorts, a talk-to-edit AI editor like "
+                       "VibeClip is faster — and it's open source. Here's the comparison.",
+        "keywords": "capcut alternative, capcut for podcasts, ai video editor vs capcut, "
+                    "no timeline video editor, repurpose long video, open source capcut alternative",
+        "tag": "COMPARE",
+        "read_min": 7,
+        "date": "2026-06-13",
+        "excerpt": "CapCut gives you every knob — and every knob is your job. For turning long "
+                   "recordings into shorts, a talk-to-edit AI editor removes the timeline "
+                   "entirely. Here's how VibeClip compares.",
+        "body": """
+<p class="lede"><strong>CapCut</strong> is the default mobile/desktop editor for a huge number
+of creators, and for good reason — it's free to start, feature-rich, and great for hands-on,
+frame-level work. But if your actual job is <em>repurposing long recordings into shorts</em>,
+CapCut still asks you to do the editing. <strong>VibeClip</strong> is the alternative that does
+the editing for you — you just talk to it.</p>
+
+<h2>Two different jobs</h2>
+<p>CapCut is a <strong>manual timeline editor</strong> with AI features bolted on. You import
+clips, arrange them on a timeline, and control every transition, caption, and cut yourself.
+That's perfect when you want total creative control over a single piece.</p>
+<p>VibeClip is built for the <strong>long-video-to-shorts</strong> workflow specifically. Drop
+in an hour of podcast or stream, and it finds the postable moments, reframes them to vertical,
+captions them, and tightens the pacing — then you refine by describing what you want. There's
+no timeline to scrub. (New to the idea?
+<a href="/blog/what-is-an-ai-video-editor">Here's what an AI video editor does.</a>)</p>
+
+<h2>Side by side</h2>
+<table>
+  <thead><tr><th>&nbsp;</th><th>CapCut</th><th>VibeClip</th></tr></thead>
+  <tbody>
+    <tr><td>Editing model</td><td>Manual timeline + AI tools</td><td>Talk-to-edit; AI does the work, you approve</td></tr>
+    <tr><td>Best at</td><td>Hands-on, frame-level edits</td><td>Turning long videos into many shorts fast</td></tr>
+    <tr><td>Finds clips for you</td><td>No — you scrub and cut</td><td>Yes — highlight detection proposes the moments</td></tr>
+    <tr><td>Open source / self-host</td><td>No</td><td>Yes — AGPL-3.0, runs on your server</td></tr>
+    <tr><td>Your footage</td><td>Processed by the app/cloud</td><td>Stays on your machine when self-hosted</td></tr>
+    <tr><td>Learning curve</td><td>Real — it's a full NLE</td><td>Describe the edit in plain words</td></tr>
+  </tbody>
+</table>
+
+<h2>When to reach for which</h2>
+<p>Keep CapCut for one-off hero edits where you want to place every element by hand. Reach for
+VibeClip when you have a backlog of long recordings and need to ship shorts on a schedule —
+batching a week of content out of one upload is exactly the case timelines make slow.
+(See <a href="/blog/repurpose-one-video-into-a-week-of-shorts">how to repurpose one video into a week of shorts</a>.)</p>
+
+<h2>Why creators switch for repurposing</h2>
+<ul>
+  <li><strong>Speed.</strong> No timeline means no scrubbing. The bottleneck — finding and
+  cutting the good moments — is what the AI handles.</li>
+  <li><strong>Ownership.</strong> VibeClip is open source and self-hostable; your footage and
+  your LLM key stay yours. (More on that:
+  <a href="/blog/open-source-vs-saas-video-editor">open source vs. SaaS</a>.)</li>
+  <li><strong>Approval, not surrender.</strong> Every AI edit is staged as a before/after you
+  accept or reject — you keep creative control without the manual labour.</li>
+</ul>
+
+<h2>Try it on your next long video</h2>
+<p>If timelines are the part of editing you dread, that's exactly the part VibeClip removes.
+<a href="/signup">Start free</a>, drop in a long recording, and describe the shorts you want.</p>
+""",
+    },
+    {
         "slug": "what-is-an-ai-video-editor",
         "title": "What Is an AI Video Editor? How It Turns Long Videos Into Shorts",
         "description": "An AI video editor reads your footage and does the editing for "

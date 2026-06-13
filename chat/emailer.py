@@ -105,3 +105,22 @@ def send_otp(to_email: str, code: str, name: str = "") -> bool:
     except Exception as e:  # noqa: BLE001 — never let email failure crash signup
         print(f"[emailer] Resend request failed: {e}", flush=True)
         return False
+
+
+if __name__ == "__main__":
+    # Config smoke test: send a dummy OTP so you can confirm Resend works BEFORE
+    # flipping REQUIRE_EMAIL_VERIFICATION=true (otherwise a misconfig silently
+    # blocks real signups). On the server:
+    #   docker compose exec <service> python -m chat.emailer you@example.com
+    import sys
+
+    dest = sys.argv[1] if len(sys.argv) > 1 else ""
+    if not dest:
+        print("usage: python -m chat.emailer <to-email>")
+        raise SystemExit(2)
+    print(f"[emailer] mode={_mode()}  from={_from_addr()}")
+    ok = send_otp(dest, "123456", "VibeClip test")
+    print("[emailer] sent OK ✓" if ok else
+          "[emailer] FAILED ✗ — check EMAIL_MODE=resend, RESEND_API_KEY, "
+          "and that RESEND_FROM's domain is verified in Resend")
+    raise SystemExit(0 if ok else 1)

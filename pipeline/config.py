@@ -148,6 +148,45 @@ def llm_settings(tier: str = "fast",
         "or add your own key in Settings."
     )
 
+# --- Planner / agent model tier -------------------------------------------
+# The proposer (chat.planner.propose) drives edit-intent routing. By default it
+# runs on the SAME tier the chat turn chose (per-request, stashed on the
+# session) — usually "fast" (gpt-4o-mini) to keep cost/latency low. Setting
+# PLANNER_TIER=pro makes the planner OPT IN to the stronger model
+# (OPENAI_MODEL_PRO) for sharper intent understanding without changing anything
+# else: the deterministic approve/reject backstops and the detailed phrase maps
+# in agent.SYSTEM_RULES / planner._SYSTEM stay as safety/latency optimizations,
+# and llm_settings already falls back pro->fast for BYOK users with no pro
+# model configured, so this is always safe. Empty/unset = no override (the
+# session's tier wins, preserving today's behavior).
+PLANNER_TIER = os.getenv("PLANNER_TIER", "").strip().lower() or None
+
+# --- Visual perception (give the agent eyes) -------------------------------
+# OFF by default: when set (VISION_VERIFY=1), the proposal loop extracts a few
+# keyframes from the PREVIEW artifact and asks the "pro" vision model to verify
+# the result (crop centered? sticker over captions?). A found problem feeds ONE
+# extra round of validator feedback back into the planner. Everything degrades
+# gracefully to current (no-vision) behavior when off or when the model/key is
+# unavailable or rejects images — so existing behavior/tests are unchanged.
+VISION_VERIFY = os.getenv("VISION_VERIFY", "").strip().lower() in ("1", "true", "yes", "on")
+
+# --- DNN face detection for reframe (YuNet) --------------------------------
+# opencv-python-headless>=4.13 ships cv2.FaceDetectorYN (YuNet). We download the
+# small .onnx model into CACHE_DIR once at runtime (best-effort, short timeout)
+# and use it for active-speaker reframe — it handles profile/tilted/multiple
+# faces far better than the Haar cascade. On ANY failure (no network, download
+# error, create error) the reframe detection degrades GRACEFULLY to the existing
+# Haar cascade so nothing ever hard-breaks offline. Set YUNET_DISABLE=1 to force
+# the Haar path. URL points at the pinned OpenCV Zoo model by default.
+YUNET_URL = os.getenv(
+    "YUNET_URL",
+    "https://github.com/opencv/opencv_zoo/raw/main/models/"
+    "face_detection_yunet/face_detection_yunet_2023mar.onnx",
+)
+YUNET_DISABLE = os.getenv("YUNET_DISABLE", "").strip().lower() in (
+    "1", "true", "yes", "on")
+YUNET_MODEL_PATH = CACHE_DIR / "face_detection_yunet_2023mar.onnx"
+
 # --- Stock b-roll (V2.3) ---------------------------------------------------
 # Free key from https://www.pexels.com/api/ (200 req/h). Empty = b-roll search
 # is disabled; local files still work via add_broll(file=...).

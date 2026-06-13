@@ -32,12 +32,21 @@ from pipeline.media import ffprobe_info, run_ffmpeg
 
 TARGET_RATIO = 9 / 16  # width / height for vertical
 
+# Supported export aspect ratios -> (width/height ratio, output canvas w, h).
+# 9:16 keeps the historical 1080x1920 contract byte-for-byte.
+ASPECTS: dict[str, tuple[float, int, int]] = {
+    "9:16": (9 / 16, 1080, 1920),
+    "1:1": (1.0, 1080, 1080),
+    "16:9": (16 / 9, 1920, 1080),
+}
+
 # Scene-classification thresholds.
 _SCREENCAST_EDGE_RATIO = 0.11   # Canny "on" pixel fraction above this => text/UI heavy
 _FACE_CLUSTER_GAP = 0.18        # face centers within this frac of W are the same speaker
 _MULTI_MIN_PRESENCE = 0.20      # a second cluster must appear in >=20% of sampled frames
 
 _HAAR = "haarcascade_frontalface_default.xml"
+_YUNET_SCORE_THRESH = 0.6  # min YuNet confidence to accept a detection
 
 
 # --------------------------------------------------------------------------- #
@@ -48,15 +57,130 @@ def _cascade():
     return cv2.CascadeClassifier(cv2.data.haarcascades + _HAAR)
 
 
-def _largest_face(cascade, frame_gray, min_size: int = 50):
-    """Return (cx, cy, w, h) of the largest detected face, or None."""
-    faces = cascade.detectMultiScale(
-        frame_gray, scaleFactor=1.1, minNeighbors=5, minSize=(min_size, min_size)
-    )
-    if len(faces) == 0:
+def _yunet_model_path() -> str | None:
+    """Path to the cached YuNet .onnx, downloading it once if needed.
+
+    Best-effort: returns the cached path if present, otherwise tries a single
+    short download into CACHE_DIR. On ANY failure (disabled, no network, bad
+    response, missing FaceDetectorYN) returns None so callers fall back to Haar.
+    The cache lives under config.CACHE_DIR (gitignored); subsequent runs reuse it.
+    """
+    if config.YUNET_DISABLE:
         return None
-    x, y, w, h = max(faces, key=lambda f: f[2] * f[3])
-    return (x + w / 2.0, y + h / 2.0, float(w), float(h))
+    try:
+        import cv2
+        if not hasattr(cv2, "FaceDetectorYN"):
+            return None
+    except Exception:
+        return None
+
+    path = config.YUNET_MODEL_PATH
+    if path.exists() and path.stat().st_size > 0:
+        return str(path)
+
+    # Download once, best-effort with a short timeout.
+    import urllib.request
+    tmp = path.with_suffix(".onnx.part")
+    try:
+        with urllib.request.urlopen(config.YUNET_URL, timeout=10) as resp:
+            data = resp.read()
+        if not data:
+            return None
+        tmp.write_bytes(data)
+        tmp.replace(path)
+        print(f"[reframe] downloaded YuNet face model -> {path}")
+        return str(path)
+    except Exception as exc:  # offline / airgapped / URL error -> Haar fallback
+        print(f"[reframe] YuNet model unavailable ({exc}); using Haar cascade")
+        try:
+            tmp.unlink(missing_ok=True)
+        except Exception:
+            pass
+        return None
+
+
+class _YuNetDetector:
+    """YuNet (DNN) face detector returning (cx, cy, w, h) pixel tuples.
+
+    Detects profile / tilted / multiple faces far better than Haar. setInputSize
+    must match each frame's (w, h); detections are score-filtered. Any per-frame
+    error is swallowed (returns [] for that frame) so a YuNet glitch degrades to
+    "no face this frame" — handled by interpolation — rather than crashing.
+    """
+
+    def __init__(self, model_path: str):
+        import cv2
+        self._cv2 = cv2
+        self._det = cv2.FaceDetectorYN.create(
+            model_path, "", (320, 320), score_threshold=_YUNET_SCORE_THRESH)
+        self._size = (320, 320)
+
+    def detect(self, frame_bgr) -> list[tuple[float, float, float, float]]:
+        try:
+            h, w = frame_bgr.shape[:2]
+            if (w, h) != self._size:
+                self._det.setInputSize((w, h))
+                self._size = (w, h)
+            _, faces = self._det.detect(frame_bgr)
+            if faces is None or len(faces) == 0:
+                return []
+            out: list[tuple[float, float, float, float]] = []
+            for f in faces:
+                x, y, fw, fh = float(f[0]), float(f[1]), float(f[2]), float(f[3])
+                if fw <= 0 or fh <= 0:
+                    continue
+                out.append((x + fw / 2.0, y + fh / 2.0, fw, fh))
+            return out
+        except Exception:
+            return []
+
+
+class _HaarDetector:
+    """Haar-cascade fallback detector with the same detect(frame_bgr) contract."""
+
+    def __init__(self, min_size: int = 50):
+        self._cascade = _cascade()
+        self._min = min_size
+
+    def detect(self, frame_bgr) -> list[tuple[float, float, float, float]]:
+        import cv2
+        gray = cv2.cvtColor(frame_bgr, cv2.COLOR_BGR2GRAY)
+        faces = self._cascade.detectMultiScale(
+            gray, scaleFactor=1.1, minNeighbors=5,
+            minSize=(self._min, self._min))
+        out: list[tuple[float, float, float, float]] = []
+        for x, y, w, h in faces:
+            out.append((x + w / 2.0, y + h / 2.0, float(w), float(h)))
+        return out
+
+
+def _face_detector(min_size: int = 50):
+    """Return the active face detector (YuNet if available, else Haar).
+
+    The detector exposes detect(frame_bgr) -> list of (cx, cy, w, h) pixel
+    tuples. YuNet is preferred for profile/tilted/multi-face robustness; it
+    degrades to the historical Haar cascade whenever the model or the
+    FaceDetectorYN API is unavailable, so offline self-hosts never break.
+    """
+    model = _yunet_model_path()
+    if model:
+        try:
+            return _YuNetDetector(model)
+        except Exception as exc:
+            print(f"[reframe] YuNet init failed ({exc}); using Haar cascade")
+    return _HaarDetector(min_size)
+
+
+def _largest_face(detector, frame_bgr):
+    """Return (cx, cy, w, h) of the largest detected face, or None.
+
+    `detector` is a _face_detector() instance; `frame_bgr` is the COLOR frame
+    (YuNet needs BGR — the Haar fallback converts to gray internally).
+    """
+    faces = detector.detect(frame_bgr)
+    if not faces:
+        return None
+    return max(faces, key=lambda f: f[2] * f[3])
 
 
 def analyze_audio_energy(video_path: str, hop: float = 0.20) -> list[dict]:
@@ -106,7 +230,7 @@ def classify_scene_type(clip_path: str, samples: int = 24) -> str:
     import cv2
     import numpy as np
 
-    cascade = _cascade()
+    detector = _face_detector()
     cap = cv2.VideoCapture(clip_path)
     frame_count = int(cap.get(cv2.CAP_PROP_FRAME_COUNT)) or 1
     width = int(cap.get(cv2.CAP_PROP_FRAME_WIDTH)) or 1
@@ -127,7 +251,7 @@ def classify_scene_type(clip_path: str, samples: int = 24) -> str:
         edges = cv2.Canny(gray, 100, 200)
         edge_ratios.append(float(np.count_nonzero(edges)) / edges.size)
 
-        face = _largest_face(cascade, gray)
+        face = _largest_face(detector, frame)
         if face is not None:
             face_centers_x.append(face[0] / max(1, width))  # normalized 0..1
         idx += step
@@ -174,7 +298,7 @@ def detect_face_track(clip_path: str, fps_sample: float = 5.0) -> list[dict]:
     duration = info["duration"]
     width, height = info["width"], info["height"]
 
-    cascade = _cascade()
+    detector = _face_detector()
     cap = cv2.VideoCapture(clip_path)
     src_fps = cap.get(cv2.CAP_PROP_FPS) or 30.0
     frame_count = int(cap.get(cv2.CAP_PROP_FRAME_COUNT)) or int(duration * src_fps) or 1
@@ -190,8 +314,7 @@ def detect_face_track(clip_path: str, fps_sample: float = 5.0) -> list[dict]:
         if not ok:
             raw.append(None)
             continue
-        gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
-        face = _largest_face(cascade, gray)
+        face = _largest_face(detector, frame)
         if face is None:
             raw.append(None)
         else:
@@ -402,24 +525,29 @@ def _build_x_expr(keyframes: list[tuple[float, float]], crop_w: int,
     return expr
 
 
-def build_reframe_vf(clip_path: str) -> str:
-    """Build the 9:16 reframe -vf chain WITHOUT rendering (for pass fusion).
+def build_reframe_vf(clip_path: str, aspect: str = "9:16") -> str:
+    """Build the reframe -vf chain WITHOUT rendering (for pass fusion).
 
-    The chain always outputs 1080x1920. Used by reframe_vertical_tracked and by
-    orchestrate's fused render pass.
+    The chain outputs the canvas for `aspect` (default 9:16 -> 1080x1920,
+    keeping the historical contract byte-for-byte). The time-varying crop-x
+    keyframe panning is unchanged; only the target ratio / output canvas and
+    the derived crop width change per aspect. Used by reframe_vertical_tracked
+    and by orchestrate's fused render pass.
     """
+    target_ratio, canvas_w, canvas_h = ASPECTS.get(aspect, ASPECTS["9:16"])
     info = ffprobe_info(clip_path)
     w, h = info["width"], info["height"]
 
-    scale_pad = ("scale=1080:1920:force_original_aspect_ratio=decrease,"
-                 "pad=1080:1920:(ow-iw)/2:(oh-ih)/2")
+    scale_pad = (f"scale={canvas_w}:{canvas_h}:force_original_aspect_ratio=decrease,"
+                 f"pad={canvas_w}:{canvas_h}:(ow-iw)/2:(oh-ih)/2")
 
-    crop_w = int(round(h * TARGET_RATIO))
+    crop_w = int(round(h * target_ratio))
 
-    # Source is already tall enough (no horizontal crop possible/needed):
-    # center-crop height like reframe_vertical does.
+    # Source is not wide enough for a full-height crop at this ratio:
+    # center-crop height like reframe_vertical does (covers 16:9 of a
+    # landscape source -> center-crop height to the wider ratio).
     if crop_w >= w:
-        crop_h = int(round(w / TARGET_RATIO))
+        crop_h = int(round(w / target_ratio))
         y = max(0, (h - crop_h) // 2)
         return f"crop={w}:{crop_h}:0:{y},{scale_pad}"
 
@@ -452,17 +580,21 @@ def build_reframe_vf(clip_path: str) -> str:
     return vf
 
 
-def reframe_vertical_tracked(clip_path: str, out_path: str | None = None) -> str:
-    """Active-speaker / motion-tracked 9:16 reframe. Drop-in for reframe_vertical.
+def reframe_vertical_tracked(clip_path: str, out_path: str | None = None,
+                             aspect: str = "9:16") -> str:
+    """Active-speaker / motion-tracked reframe. Drop-in for reframe_vertical.
 
     - 'screencast': letterbox the full frame (scale-to-fit + pad), no crop.
     - 'single'/'multi': time-varying crop x following the (smoothed) active
-      speaker, then scale=1080:1920 + pad tail. Returns the output path.
+      speaker, then scale + pad tail. Returns the output path.
+
+    aspect: one of pipeline.tracking.ASPECTS ('9:16' | '1:1' | '16:9'); default
+    keeps the historical 1080x1920 9:16 behavior byte-for-byte.
     """
     src = Path(clip_path)
     out = out_path or str(src.with_name(src.stem + "_tracked.mp4"))
     run_ffmpeg([
-        "-i", str(src.resolve()), "-vf", build_reframe_vf(clip_path),
+        "-i", str(src.resolve()), "-vf", build_reframe_vf(clip_path, aspect),
         "-c:v", config.VIDEO_ENCODER, "-c:a", "copy",
         str(Path(out).resolve()),
     ])

@@ -41,6 +41,11 @@ PLAN_ACTIONS: dict[str, str] = {
     "remove_fillers": '{} — cut hesitation sounds (um/uh/ee)',
     "remove_section": '{"start": s, "end": s} — delete a span '
                       '(current-timeline seconds)',
+    "remove_phrase": '{"description": "<what the speaker says>", '
+                     '"occurrence": "first|all"} — delete the sentence/part '
+                     'described by CONTENT (resolves the span semantically, '
+                     'no times needed); use when the user names WHAT was said '
+                     '("X dediği cümleyi sil") rather than a time range',
     "set_cut": '{"start": s, "end": s} — re-cut clip bounds in SOURCE seconds',
     "auto_zoom": '{"density": 0.1-0.4, "strength": 1.1-1.3} — auto-place '
                  'punch-in zooms on emphatic phrases',
@@ -77,6 +82,10 @@ PLAN_ACTIONS: dict[str, str] = {
                     'final loudness mastering',
     "set_denoise": '{"strength": "light|medium|strong|off"} — clean '
                    'background noise/hum from the voice track',
+    "set_aspect": '{"aspect": "9:16|1:1|16:9"} — reframe the clip to a '
+                  'different aspect ratio (9:16 dikey/default, 1:1 kare, 16:9 '
+                  'yatay); keeps speaker tracking and re-renders captions on '
+                  'the new canvas',
     "fix_transcript": '{"hint": "optional: a specific wrong->right the user '
                       'named"} — re-read the transcript and correct obvious '
                       'speech-to-text errors (mis-heard English tech terms: '
@@ -129,6 +138,26 @@ _SYSTEM = """You are a senior short-form video editor. The user gives a vague \
 realizes it. You see the clip's CURRENT edit state and transcript — edit \
 RELATIVE to that state (e.g. raise the existing music volume, don't reset the \
 track; keep what already matches the vibe).
+
+CAPABILITY MAP (high-level intent -> action; the detailed arg specs are the \
+authoritative list below — use it for exact names/ranges):
+- Trim/clean speech: cut_silences, remove_fillers, remove_section (by time), \
+remove_phrase (by what was SAID), set_cut (re-cut bounds).
+- Motion/emphasis: auto_zoom, add_zoom, add_emphasis, set_speed.
+- Look/sound: set_look (color grade), set_music, add_sound_effect, set_fade, \
+set_loudness, set_denoise.
+- Captions/titles: set_subtitles (size/position/color/karaoke), \
+set_title_card, fix_transcript (correct ASR text, keep timing).
+- Framing: set_aspect (9:16 / 1:1 / 16:9 reframe).
+- Assets/FX: add_broll, add_overlay, add_reaction, add_sticker, set_watermark, \
+add_gameplay_background (split-screen gameplay).
+- Edit existing events: edit_event / delete_event (use the 0-based indices \
+from CURRENT STATE; deletes go last).
+Canonical examples: "yarı hıza al" -> set_speed factor=0.5; "kare yap" -> \
+set_aspect aspect=1:1; "X dediği cümleyi sil" -> remove_phrase; "altyazıyı \
+büyüt ve yukarı al" -> set_subtitles {{scale, y_ratio}}; "sinematik görünüm" -> \
+set_look look=cinematic. When unsure between two actions, prefer the one whose \
+arg spec below best matches the user's words.
 
 House taste rules (hard):
 - ALL time args (time/start/end) are CLIP-LOCAL seconds, from 0 to the clip's \
@@ -457,8 +486,11 @@ def propose(session: Session, clip_id: int, instruction: str,
             if words else 0.0
 
     actions = "\n".join(f"- {k}: {v}" for k, v in PLAN_ACTIONS.items())
-    api_key, base_url, model = config.llm_settings(
-        getattr(session, "_tier", "fast"))
+    # PLANNER_TIER (env opt-in) lets the proposer run on the stronger model for
+    # sharper intent routing; unset = inherit the chat turn's tier (today's
+    # behavior). llm_settings falls back pro->fast when no pro model exists.
+    tier = config.PLANNER_TIER or getattr(session, "_tier", "fast")
+    api_key, base_url, model = config.llm_settings(tier)
     from openai import OpenAI
     client = OpenAI(api_key=api_key, base_url=base_url) if base_url \
         else OpenAI(api_key=api_key)
@@ -587,3 +619,62 @@ def propose(session: Session, clip_id: int, instruction: str,
             "summary": data.get("summary", ""), "steps": steps,
             "refinements": rounds_used - 1,
             "resolved_moments": resolved_moments}
+
+
+# multiclip_plans — how many clips one project-scope proposal may span. Each
+# clip costs at least one planner LLM call (propose loops per clip), so the set
+# is bounded; the agent should warn on long sources before going wider.
+MAX_PROJECT_CLIPS = 8
+
+
+def _project_clip_ids(session: Session,
+                      clip_ids: list[int] | None = None) -> list[int]:
+    """Resolve the target clip set for a project-scope plan. Explicit ids are
+    honored (validated, de-duped, order-preserved); otherwise the candidates
+    are every NON-skipped clip in ranked order, capped at MAX_PROJECT_CLIPS."""
+    clips = session.data.get("clips") or []
+    if clip_ids:
+        valid = {c["id"] for c in clips}
+        seen: set[int] = set()
+        out: list[int] = []
+        for cid in clip_ids:
+            if cid in valid and cid not in seen:
+                seen.add(cid)
+                out.append(cid)
+        return out[:MAX_PROJECT_CLIPS]
+    out = [c["id"] for c in clips
+           if Session.clip_status(c) != "skipped"]
+    return out[:MAX_PROJECT_CLIPS]
+
+
+def propose_project(session: Session, instruction: str,
+                    clip_ids: list[int] | None = None,
+                    extra_note: str = "") -> dict:
+    """Project-scope plan: run the SAME single-clip propose() over the target
+    clips ("tighten every clip") and assemble a composite pending_plan shape
+    ({'scope':'project', 'instruction', 'plans':[<plan dict>, ...]}).
+
+    Looping the existing propose() reuses ALL of its validation, factor
+    enforcement and bounded re-plan loop per clip. Clips that yield no valid
+    plan (e.g. a step needed an asset they lack, or the clip is picture-locked)
+    are skipped with a note rather than failing the whole batch; raises only
+    when NO clip produced any step."""
+    targets = _project_clip_ids(session, clip_ids)
+    if not targets:
+        raise ValueError("No eligible clips for a project-scope plan.")
+    plans: list[dict] = []
+    skipped: list[str] = []
+    for cid in targets:
+        try:
+            plans.append(propose(session, cid, instruction,
+                                  extra_note=extra_note))
+        except ValueError as e:
+            skipped.append(f"#{cid}: {e}")
+    if not plans:
+        raise ValueError(
+            "No clip produced a valid plan. " + " | ".join(skipped))
+    summary = (f"Applies '{instruction}' across {len(plans)} clip(s)"
+               + (f"; skipped {len(skipped)}" if skipped else "") + ".")
+    return {"scope": "project", "instruction": instruction,
+            "summary": summary, "plans": plans,
+            "skipped": skipped or None}

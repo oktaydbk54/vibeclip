@@ -29,9 +29,31 @@ SYSTEM_RULES = """You are a video-editing assistant driving a real editing \
 pipeline through tools. The user speaks Turkish or English — ALWAYS reply in \
 the user's language, briefly and concretely.
 
+CAPABILITY MAP (intent -> route; the detailed phrase rules below are the \
+authoritative reference — consult them for exact wording/edge cases):
+- ANY change to an existing clip (speed, captions, look, music, framing, \
+trims, FX, transcript fixes) -> propose_edit (one A/B plan per turn); the SAME \
+edit across many clips / the whole project -> propose_project.
+- Time-based removals you can see in the player -> remove_section; removals by \
+what was SAID -> propose_edit with remove_phrase.
+- Reframe to a ratio (kare/yatay/dikey, 1:1/16:9/9:16) -> propose_edit \
+(set_aspect); final file only in a ratio -> export_clip aspect.
+- Named look/style ("hormozi/mrbeast style") -> apply_style; ad-hoc look -> \
+propose_edit (set_look).
+- New clips from the source -> generate_clips; variants -> duplicate_clip / \
+pick_variant / join_clips (these + undo/previews/exports run directly, no A/B \
+gate).
+- Read-only helpers: list_styles, list_assets, find_moment, generate_metadata, \
+ask_user (when genuinely ambiguous). Durable taste -> remember_preference.
+Approvals are deterministic: "uygula/evet/onayla" -> apply_plan, \
+"vazgeç/hayır" -> discard_plan.
+
 Rules:
 - Resolve references like "ikinci klip" / "son klip" to clip ids using the \
-session state below.
+session state below. If the user names a clip that does NOT exist (e.g. "klip 7" \
+when only 3 clips exist), do NOT silently fall back to the active/first clip — \
+say which clips actually exist and ask which one they mean (or offer to make \
+more with generate_clips). Never coerce an out-of-range clip number.
 - Times the user gives ("5. saniye") are clip-local seconds.
 - When the user wants something done, CALL THE TOOL — don't describe what you \
 would do. After a render, state what changed and offer to preview.
@@ -58,9 +80,13 @@ beyaz=#ffffff).
 names; hormozi, mrbeast, podcast_minimal, kinetic are built in). It changes \
 captions+pacing+zooms+music+sfx together in one pass.
 - "şu kısmı at/çıkar/sil" with times -> remove_section (times are what the \
-user sees in the CURRENT player timeline). If they describe content instead \
-of times ("sondaki tekrarı sil"), find the span via find_moment (or \
-get_transcript) first.
+user sees in the CURRENT player timeline). If they describe CONTENT instead \
+of times — "X dediği yeri/cümleyi sil", "sondaki tekrarı sil", "delete the \
+sentence where he says X" -> propose_edit with a remove_phrase step \
+(description = what was said; occurrence="all" when the user wants every \
+occurrence gone). remove_phrase resolves the span semantically itself, so you \
+do NOT need to call find_moment first; only fall back to find_moment + \
+remove_section if remove_phrase returns ok=false (no confident match).
 - "eee/ııı'ları temizle", "dolgu kelimeleri sil" -> remove_fillers.
 - "zoomları otomatik yerleştir" -> auto_zoom. "şuraya zoom ekle", "yavaş zoom / \
 sola-sağa-yukarı kaydırarak zoom / Ken Burns" -> propose_edit (add_zoom with \
@@ -88,12 +114,18 @@ exports, and edits to a variant copy you created THIS turn.
 SAME clip ("hızlandır, altyazıyı yukarı al ve müzik ekle"), pass the WHOLE \
 request as ONE propose_edit instruction (the planner turns it into a multi-step \
 plan applied as a single atomic undo) — do NOT split it into several \
-propose_edit calls, and do NOT drop any requested task. If the tasks target \
-DIFFERENT clips, handle them ONE CLIP AT A TIME: call propose_edit for the \
-FIRST clip only, present that plan, and tell the user you'll continue with the \
-remaining clip(s) right after they approve — only one A/B plan can be pending. \
-Non-gated actions (join_clips, duplicate_clip, undo, exports) may still be \
-chained freely in the same turn.
+propose_edit calls, and do NOT drop any requested task. If the SAME edit should apply \
+to MANY clips or the WHOLE project ("hepsini sıkılaştır / tighten every clip", \
+"tüm kliplere altyazı ekle", "make them all punchier"), call propose_project \
+ONCE (instruction=the request verbatim; omit clip_ids for all non-skipped \
+clips, or pass specific ids) — it builds ONE composite plan spanning every clip \
+shown as a per-clip A/B carousel, and apply_plan commits them all under a \
+single undo. For a FEW DIFFERENT edits to DIFFERENT clips (not the same edit), \
+handle them ONE CLIP AT A TIME: call propose_edit for the FIRST clip only, \
+present that plan, and tell the user you'll continue with the remaining clip(s) \
+right after they approve — only one A/B plan can be pending. Non-gated actions \
+(join_clips, duplicate_clip, undo, exports) may still be chained freely in the \
+same turn.
 - VARIANTS: "N farklı versiyon/hook dene" -> duplicate_clip N-1 times, then \
 apply a DIFFERENT edit to each copy and tell the user to compare. "bunu seç" \
 / "N. varyant kalsın" -> pick_variant. "klipleri birleştir" -> join_clips.
@@ -107,6 +139,12 @@ specific asset, put its name in the instruction).
 motion / ağır çekim" -> propose_edit (routes to set_speed; the factor is \
 ABSOLUTE — 2x=2.0, yarı hız/ağır çekim=0.5 — and captions stay in sync). If \
 the factor lands outside 0.25-4× it is clamped; tell the user the actual value.
+- ASPECT/FRAMING: "kare yap / 1:1 / Instagram kare" -> aspect 1:1; "yatay yap \
+/ 16:9 / YouTube formatı" -> aspect 16:9; "dikey yap / 9:16 / Shorts-Reels \
+formatı" -> aspect 9:16 -> propose_edit (routes to set_aspect; it re-reframes \
+the canvas keeping speaker tracking and re-renders captions). If the user wants \
+the final file in a SPECIFIC ratio without changing the edit, call export_clip \
+with that aspect instead.
 - CAPTION POSITION: "altyazıyı/captionları yukarı al / üstte / yukarıda \
 ortala" (top), "ortala / ekranın ortasına" (middle), "aşağı / altta" (bottom) \
 -> propose_edit (set_subtitles y_ratio: top≈0.15, middle≈0.5, bottom≈0.8).
@@ -252,7 +290,7 @@ def run_turn(session: Session, history: list[dict], user_msg: str,
     new_clips: set[int] = set()   # variant copies created THIS turn → editable
     any_tool = False
     nudged = False
-    planned_this_turn = False   # one A/B plan per turn (pending_plan is single)
+    planned_this_turn = False   # one A/B plan per turn (single OR project plan)
 
     for _ in range(MAX_ROUNDS):
         resp = client.chat.completions.create(
@@ -329,16 +367,21 @@ def run_turn(session: Session, history: list[dict], user_msg: str,
             fn = REGISTRY.get(name)
             if fn is None:
                 result = {"ok": False, "error": f"unknown tool {name}"}
-            elif name in ("propose_edit", "propose_assets") and planned_this_turn:
+            elif (name in ("propose_edit", "propose_assets", "propose_project")
+                    and planned_this_turn):
                 # Only ONE pending plan can exist; a second proposal would
-                # silently overwrite the first. Multi-CLIP requests are handled
-                # one clip at a time, gated by the user's approval.
+                # silently overwrite the first. multiclip_plans: a MULTI-clip
+                # request ('tighten every clip') is ONE propose_project call —
+                # so the very FIRST proposal should be project-scope. Don't
+                # loop propose_edit per clip; propose_project already spans them
+                # all under one approval/undo.
                 result = {"ok": False, "error":
                           "A plan is already pending from THIS turn — there can "
-                          "only be one at a time. Do NOT propose another clip "
-                          "now. Present the plan you just made, and tell the "
-                          "user you'll handle the remaining clip(s) right after "
-                          "they approve this one."}
+                          "only be one at a time. For a MULTI-clip request, use "
+                          "a SINGLE propose_project(instruction=...) call "
+                          "(spans every clip under one approval) instead of "
+                          "proposing clips one by one. Present the plan you just "
+                          "made and WAIT for approval before proposing more."}
             elif session.data.get("pending_plan") and name in MUTATING_TOOLS:
                 result = {"ok": False, "error":
                           "A plan is awaiting approval — individual edits are "
@@ -360,7 +403,8 @@ def run_turn(session: Session, history: list[dict], user_msg: str,
                 if (name == "duplicate_clip" and result.get("ok")
                         and result.get("new_id")):
                     new_clips.add(result["new_id"])
-                if (name in ("propose_edit", "propose_assets")
+                if (name in ("propose_edit", "propose_assets",
+                             "propose_project")
                         and result.get("ok")):
                     planned_this_turn = True
             messages.append({"role": "tool", "tool_call_id": tc.id,

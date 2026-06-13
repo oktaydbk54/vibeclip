@@ -533,7 +533,7 @@ def _submit_processing_job(sess: Session, llm_override=None):
             intake["error"] = err
             intake["processing_job"] = None
             intake["processed_at"] = \
-                datetime.datetime.utcnow().isoformat() + "Z"
+                datetime.datetime.now(datetime.timezone.utc).replace(tzinfo=None).isoformat() + "Z"
             sess.save()
         return result
 
@@ -790,7 +790,7 @@ def _submit_prepare_job(sess: Session):
             intake["error"] = err
             intake["processing_job"] = None
             intake["processed_at"] = \
-                datetime.datetime.utcnow().isoformat() + "Z"
+                datetime.datetime.now(datetime.timezone.utc).replace(tzinfo=None).isoformat() + "Z"
             sess.save()
         return {"ok": err is None, "error": err}
 

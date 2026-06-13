@@ -22,6 +22,7 @@ MUTATING_TOOLS = frozenset({
     "duplicate_clip", "pick_variant", "join_clips",
     "set_look", "add_overlay", "add_reaction", "add_sticker", "add_emphasis",
     "auto_pace", "set_loudness", "add_gameplay_background", "fix_transcript",
+    "edit_event", "delete_event",
 })
 
 
@@ -621,6 +622,165 @@ def get_transcript(session: Session, clip_id: int) -> dict:
     return _ok(transcript=" ".join(text).strip())
 
 
+_FIND_MOMENT_SYSTEM = """You locate moments in ONE short-video clip's transcript.
+You get a word-timestamped transcript (clip-local seconds, format "[s-e] word")
+and a description of WHAT is said/happens. Return the {limit} time spans that
+best match the description, ranked best-first. A span should tightly cover the
+matching words (not the whole clip). If nothing matches, return an empty list.
+
+Return ONLY JSON:
+{{
+  "candidates": [
+    {{"start": <s>, "end": <s>, "quote": "<the matched words>", "confidence": <0-1>}}
+  ]
+}}"""
+
+
+def _snap_words(s: float, e: float, words: list[dict]) -> tuple[float, float]:
+    """Snap a span to enclosing word boundaries (mirror editplan._snap)."""
+    inside = [w for w in words if w["end"] > s and w["start"] < e]
+    if not inside:
+        return s, e
+    return inside[0]["start"], inside[-1]["end"]
+
+
+def _keyword_moments(words: list[dict], description: str,
+                     limit: int) -> list[dict]:
+    """Non-LLM fallback: slide a ~6s window and score matched description tokens.
+
+    Returns top `limit` non-overlapping pre-speed {start,end,quote,confidence}
+    spans (player-time conversion happens in the caller).
+    """
+    from pipeline.jumpcut import _norm_word
+
+    tokens = {t for t in (_norm_word(w) for w in description.split())
+              if len(t) >= 3}
+    if not tokens or not words:
+        return []
+
+    win = 6.0
+    scored = []
+    for i, w in enumerate(words):
+        ws, we = w["start"], w["start"] + win
+        span = [x for x in words[i:] if x["start"] < we]
+        if not span:
+            continue
+        matched = 0
+        for x in span:
+            nx = _norm_word(x["word"])
+            if any(nx == t or nx.startswith(t) or t.startswith(nx)
+                   for t in tokens):
+                matched += 1
+        if matched:
+            scored.append((matched, ws, span[-1]["end"], span))
+    if not scored:
+        return []
+
+    scored.sort(key=lambda r: (-r[0], r[1]))
+    best = scored[0][0]
+    out: list[dict] = []
+    for matched, s, e, span in scored:
+        if any(not (e <= o["start"] or s >= o["end"]) for o in out):
+            continue
+        s, e = _snap_words(s, e, words)
+        out.append({"start": round(s, 2), "end": round(e, 2),
+                    "quote": " ".join(x["word"].strip() for x in span).strip(),
+                    "confidence": round(matched / best, 2)})
+        if len(out) >= limit:
+            break
+    return out
+
+
+def _find_moment_core(session: Session, clip: dict, description: str,
+                      limit: int = 3) -> list[dict]:
+    """Semantic in-clip lookup -> ranked clip-local PLAYER-time spans.
+
+    words_for is PRE-speed; consuming tools (add_zoom/add_broll/remove_section)
+    speak the player timeline, so every returned span is divided by the clip's
+    speed factor here (the single conversion point — see auto_zoom).
+    """
+    words = session.words_for(clip)
+    if not words:
+        return []
+    limit = max(1, min(10, int(limit)))
+    f = session.speed_factor(clip)
+    bound = words[-1]["end"]
+
+    cands: list[dict] = []
+    try:
+        from pipeline import config
+
+        api_key, base_url, model = config.llm_settings(
+            getattr(session, "_tier", "fast"))
+        from openai import OpenAI
+
+        client = OpenAI(api_key=api_key, base_url=base_url) if base_url \
+            else OpenAI(api_key=api_key)
+        transcript = "\n".join(
+            f"[{w['start']:.2f}-{w['end']:.2f}] {w['word']}" for w in words)
+        resp = client.chat.completions.create(
+            model=model,
+            messages=[
+                {"role": "system",
+                 "content": _FIND_MOMENT_SYSTEM.format(limit=limit)},
+                {"role": "user",
+                 "content": (f"Description: {description}\n\n"
+                             f"Transcript:\n{transcript}")},
+            ],
+            temperature=0.1,
+            **config.json_response_format(base_url),
+        )
+        data = config.extract_json(resp.choices[0].message.content)
+        for c in data.get("candidates", []):
+            try:
+                s, e = float(c["start"]), float(c["end"])
+            except (KeyError, TypeError, ValueError):
+                continue
+            if e <= s:
+                continue
+            s, e = _snap_words(s, e, words)
+            s = max(0.0, min(s, bound))
+            e = max(0.0, min(e, bound))
+            if e <= s:
+                continue
+            try:
+                conf = float(c.get("confidence", 0.5))
+            except (TypeError, ValueError):
+                conf = 0.5
+            cands.append({"start": round(s, 2), "end": round(e, 2),
+                          "quote": str(c.get("quote", "")).strip(),
+                          "confidence": round(max(0.0, min(1.0, conf)), 2)})
+    except Exception:
+        cands = []
+
+    if not cands:
+        cands = _keyword_moments(words, description, limit)
+    cands = cands[:limit]
+
+    return [{"start": round(c["start"] / f, 2), "end": round(c["end"] / f, 2),
+             "quote": c["quote"], "confidence": c["confidence"]}
+            for c in cands]
+
+
+def find_moment(session: Session, clip_id: int, description: str,
+                limit: int = 3) -> dict:
+    """Semantic in-clip moment lookup by description (read-only)."""
+    try:
+        clip = session.clip(clip_id)
+    except ValueError as exc:
+        return _err(str(exc))
+    try:
+        cands = _find_moment_core(session, clip, description, limit)
+    except ValueError:
+        return _err("Render or open the clip first.")
+    if not cands:
+        return _err("No moment matching that description was found in this clip.")
+    return _ok(candidates=cands, timeline="player",
+               note="start/end are clip-local CURRENT-player-timeline seconds — "
+                    "pass them directly to add_zoom/add_broll/remove_section/"
+                    "add_emphasis.")
+
+
 def _frame_of(clip: dict) -> tuple[int, int, float]:
     from pipeline.media import ffprobe_info
     ref = clip.get("current") or clip["stages"][-1]["output"]
@@ -758,6 +918,123 @@ is already a valid word. When unsure, leave it alone.
 - Preserve the speaker's language; only repair mis-transcriptions.
 
 Output JSON: {"fixes":[{"from":"<exact token>","to":"<corrected token>"}]}"""
+
+
+_METADATA_SYSTEM = """You are a short-form video copywriter. Given a clip's \
+spoken transcript (and its working title/hook), write publish-ready metadata for \
+each requested platform. Write in the SAME language the speaker uses, unless an \
+explicit target language is given.
+
+Ground EVERYTHING in the transcript — never invent facts, names, numbers, or \
+claims that aren't supported by what was actually said. Per-platform conventions:
+- youtube_shorts: a punchy title <=100 chars + a 1-2 sentence keyword-rich \
+description. 0-3 hashtags.
+- tiktok: a hook-y caption (the first words must stop the scroll) + 3-5 \
+on-topic hashtags.
+- instagram_reels: a caption with a clear hook + up to 8 relevant hashtags.
+
+Hashtags are single tokens without spaces; the leading '#' is optional (it will \
+be added). Keep them topical, not spammy.
+
+Return ONLY JSON of this exact shape (one entry per requested platform key):
+{"platforms":{"<platform>":{"title":"...","description":"...",\
+"hashtags":["..."]}}}"""
+
+
+_METADATA_PLATFORMS = ("youtube_shorts", "tiktok", "instagram_reels")
+
+
+def _normalize_hashtags(raw) -> list[str]:
+    """Coerce model hashtag output to a capped list of '#'-prefixed tokens."""
+    out: list[str] = []
+    if not isinstance(raw, list):
+        return out
+    for tag in raw:
+        if not isinstance(tag, str):
+            continue
+        tok = tag.strip().lstrip("#").strip()
+        if not tok:
+            continue
+        out.append("#" + tok.replace(" ", ""))
+        if len(out) >= 8:
+            break
+    return out
+
+
+def generate_metadata(session: Session, clip_id: int,
+                      platforms: list[str] | None = None,
+                      language: str = "") -> dict:
+    """Write platform-specific publish copy (title/description/hashtags) for a
+    clip from its transcript. Read-only — no render, no approval gate, no undo
+    snapshot. Stores the result on the clip additively and returns it."""
+    aliases = {"youtube": "youtube_shorts", "shorts": "youtube_shorts",
+               "instagram": "instagram_reels", "reels": "instagram_reels",
+               "ig": "instagram_reels"}
+    if platforms:
+        wanted, seen = [], set()
+        for p in platforms:
+            key = aliases.get(str(p).strip().lower(), str(p).strip().lower())
+            if key in _METADATA_PLATFORMS and key not in seen:
+                seen.add(key)
+                wanted.append(key)
+        if not wanted:
+            return _err("platforms must be a subset of "
+                        + "|".join(_METADATA_PLATFORMS))
+    else:
+        primary = session.data.get("platform", "youtube_shorts")
+        wanted = ([primary] if primary in _METADATA_PLATFORMS else []) + [
+            p for p in _METADATA_PLATFORMS if p != primary]
+
+    try:
+        clip = session.clip(clip_id)
+        words = session.words_for(clip)
+    except ValueError as e:
+        return _err(str(e))
+    transcript = " ".join(w.get("word", "") for w in words).strip()
+    if not transcript:
+        return _err("No transcript words for this clip — open/render it first.")
+
+    from pipeline import config
+    api_key, base_url, model = config.llm_settings(
+        getattr(session, "_tier", "fast"))
+    from openai import OpenAI
+    client = OpenAI(api_key=api_key, base_url=base_url) if base_url \
+        else OpenAI(api_key=api_key)
+    user = (f"REQUESTED PLATFORMS: {', '.join(wanted)}\n"
+            f"WORKING TITLE: {clip.get('title', '')}\n"
+            f"HOOK: {clip.get('hook', '')}\n")
+    if language.strip():
+        user += f"TARGET LANGUAGE: {language.strip()}\n"
+    user += "\nTRANSCRIPT:\n" + transcript
+    resp = client.chat.completions.create(
+        model=model,
+        messages=[{"role": "system", "content": _METADATA_SYSTEM},
+                  {"role": "user", "content": user}],
+        temperature=0.7, **config.json_response_format(base_url))
+    try:
+        data = config.extract_json(resp.choices[0].message.content)
+        parsed = data.get("platforms", {}) if isinstance(data, dict) else {}
+    except (ValueError, TypeError):
+        return _err("Metadata generation failed — try again.")
+    if not isinstance(parsed, dict):
+        return _err("Metadata generation failed — try again.")
+
+    validated: dict[str, dict] = {}
+    for key in wanted:
+        entry = parsed.get(key)
+        if not isinstance(entry, dict):
+            continue
+        validated[key] = {
+            "title": str(entry.get("title", "")).strip(),
+            "description": str(entry.get("description", "")).strip(),
+            "hashtags": _normalize_hashtags(entry.get("hashtags")),
+        }
+    if not validated:
+        return _err("Metadata generation failed — try again.")
+
+    clip["metadata"] = validated
+    session.save()
+    return _ok(clip_id=clip_id, metadata=validated)
 
 
 def _llm_transcript_fixes(words: list[dict], hint: str = "") -> list[dict]:
@@ -1292,7 +1569,11 @@ def apply_plan(session: Session) -> dict:
     plan = session.data.get("pending_plan")
     if not plan:
         return _err("No pending plan. Use propose_edit first.")
-    session.snapshot(f"plan: {plan['instruction'][:48]}")
+    import uuid
+    cp = uuid.uuid4().hex[:8]
+    # Tag the PRE-plan snapshot so revert_plan can pop to exactly this plan's
+    # checkpoint later, regardless of how much history accrues on top.
+    session.snapshot(f"plan: {plan['instruction'][:48]}", tag=cp)
     session.suppress_snapshots = True
     results: list[dict] = []
     failed_at = None
@@ -1317,8 +1598,17 @@ def apply_plan(session: Session) -> dict:
     finally:
         session.suppress_snapshots = False
     session.data["pending_plan"] = None
+    # Record this applied plan against its checkpoint so the chat thread can
+    # offer a per-message Revert / Regenerate (named checkpoints, not LIFO).
+    record = {"checkpoint": cp, "clip_id": plan.get("clip_id"),
+              "instruction": plan["instruction"],
+              "summary": plan.get("summary", ""),
+              "steps": plan["steps"], "failed_at": failed_at}
+    session.data.setdefault("applied_plans", []).append(record)
+    session.data["applied_plans"] = session.data["applied_plans"][-20:]
+    session.last_applied = record  # transient, surfaced in the chat payload
     session.save()
-    return _ok(applied=results, failed_at=failed_at,
+    return _ok(applied=results, failed_at=failed_at, checkpoint=cp,
                msg="Completed steps are kept; one undo reverts the whole plan.")
 
 
@@ -1326,6 +1616,79 @@ def discard_plan(session: Session) -> dict:
     session.data["pending_plan"] = None
     session.save()
     return _ok(msg="Pending plan discarded.")
+
+
+def _resolve_applied(session: Session, checkpoint: str = "") -> dict | None:
+    """The applied-plan record for a checkpoint id, or the most recent one
+    when checkpoint is empty. None if there are no applied plans (or no match)."""
+    records = session.data.get("applied_plans") or []
+    if not records:
+        return None
+    if not checkpoint:
+        return records[-1]
+    return next((r for r in records if r.get("checkpoint") == checkpoint), None)
+
+
+def revert_plan(session: Session, checkpoint: str = "") -> dict:
+    """Revert ONE previously applied plan by its checkpoint id."""
+    record = _resolve_applied(session, checkpoint)
+    cp = checkpoint or (record["checkpoint"] if record else "")
+    if not cp:
+        return _err("No applied plan to revert.")
+    # A pending plan staged over a now-reverted state is incoherent — clear it.
+    session.data["pending_plan"] = None
+    msg = session.revert_to_tag(cp)
+    if "not found" in msg:
+        session.save()
+        return _err(msg)
+    return _ok(reverted=cp, msg=msg + " (this restores the state BEFORE that "
+               "plan, including any later edits; the revert is itself undoable)")
+
+
+def regenerate_plan(session: Session, checkpoint: str = "",
+                    revert: bool = True) -> dict:
+    """Redo a previously applied plan DIFFERENTLY: optionally revert to its
+    checkpoint, then re-propose the same instruction with a 'take a different
+    approach' nudge. Returns a new pending plan for A/B approval."""
+    import json
+    from chat.planner import propose
+    record = _resolve_applied(session, checkpoint)
+    if record is None:
+        return _err("No applied plan found to regenerate.")
+    note = ""
+    if revert:
+        # Revert FIRST so the preview backup below captures the reverted state.
+        msg = session.revert_to_tag(record["checkpoint"])
+        if "not found" in msg:
+            note = ("Could not revert (the checkpoint aged out), so the new "
+                    "plan stacks on the current state. ")
+    extra_note = (
+        "The user REJECTED a previous plan for this same instruction. Take a "
+        "NOTICEABLY different approach (different actions or clearly different "
+        "parameters). Previous steps: "
+        + json.dumps([{s["action"]: s["args"]} for s in record["steps"]],
+                     ensure_ascii=False))
+    session.data["pending_plan"] = None
+    try:
+        plan = propose(session, record["clip_id"], record["instruction"],
+                       extra_note=extra_note)
+    except ValueError as e:
+        return _err(str(e))
+    preview = _render_plan_preview(session, plan)
+    if preview:
+        plan["preview"] = preview
+    session.data["pending_plan"] = plan
+    session.save()
+    if preview:
+        msg = (note + "New (different) plan ready with a PREVIEW render showing "
+               "in the player (A=current, B=plan). Present the numbered steps "
+               "(with each 'why'), tell the user to compare A/B, and WAIT for "
+               "approval. Only call apply_plan after they confirm.")
+    else:
+        msg = (note + "New (different) plan ready, but the preview render could "
+               "not be produced. Present the numbered steps (with each 'why'), "
+               "note there is no A/B preview, and WAIT for approval.")
+    return _ok(plan=plan, msg=msg)
 
 
 def nudge_edit(session: Session, clip_id: int, edge: str = "start",
@@ -1617,6 +1980,7 @@ def export_clip(session: Session, clip_id: int) -> dict:
     info = ffprobe_info(out)
     return _ok(file=out, clip_id=clip_id,
                resolution=f"{info.get('width')}x{info.get('height')}",
+               metadata=clip.get("metadata"),
                msg=f"Exported clip #{clip_id} at full resolution.")
 
 
@@ -1657,6 +2021,7 @@ _NUM = {"type": "number"}
 _INT = {"type": "integer"}
 _STR = {"type": "string"}
 _BOOL = {"type": "boolean"}
+_STAGE_ENUM = {"type": "string", "enum": sorted(_EDITABLE_EVENTS)}
 
 TOOL_SPECS = [
     _spec("ask_user", "Ask the user ONE short clarifying question when an edit "
@@ -1722,6 +2087,14 @@ TOOL_SPECS = [
     _spec("get_transcript", "Get a clip's timestamped transcript (to find "
           "moments for zoom/sfx or answer content questions).",
           {"clip_id": _INT}, ["clip_id"]),
+    _spec("find_moment", "Semantic in-clip moment lookup: describe WHAT is "
+          "said/happens ('where she mentions pricing', 'sondaki tekrar') and "
+          "get the best matching {start,end} time spans (clip-local player "
+          "seconds) with the matched quote. Use BEFORE add_zoom/add_broll/"
+          "remove_section/add_emphasis or inside a propose_edit instruction "
+          "when the user references content instead of times. Read-only.",
+          {"clip_id": _INT, "description": _STR, "limit": _INT},
+          ["clip_id", "description"]),
     _spec("list_styles", "List the available named editing styles (presets "
           "bundling captions+pacing+music+sfx).", {}, []),
     _spec("apply_style", "Apply a named style preset to a clip in one pass "
@@ -1857,6 +2230,17 @@ TOOL_SPECS = [
           "the user approves. One undo reverts the whole plan.", {}, []),
     _spec("discard_plan", "Discard the pending plan (user said no/vazgeç).",
           {}, []),
+    _spec("revert_plan", "Revert ONE previously applied plan by its checkpoint "
+          "id (from apply_plan's result / the chat message). Restores the "
+          "pre-plan state — including any edits applied after it — without "
+          "disturbing later history (the revert itself is undoable). Empty "
+          "checkpoint = the most recent applied plan.",
+          {"checkpoint": _STR}, []),
+    _spec("regenerate_plan", "Redo a previously applied plan DIFFERENTLY: "
+          "reverts to its checkpoint and re-proposes the SAME instruction with "
+          "a 'take a different approach' nudge. Returns a new pending plan for "
+          "A/B approval. Empty checkpoint = the most recent applied plan.",
+          {"checkpoint": _STR, "revert": _BOOL}, []),
     _spec("export_captions", "Export a clip's captions as a downloadable "
           "subtitle sidecar file. format: srt (default) | vtt. Matches the "
           "on-screen captions exactly.",
@@ -1870,6 +2254,21 @@ TOOL_SPECS = [
           {"clip_id": _INT, "t": _NUM, "label": _STR}, ["clip_id", "t"]),
     _spec("remove_marker", "Remove a marker by its id.",
           {"clip_id": _INT, "marker_id": _STR}, ["clip_id", "marker_id"]),
+    _spec("edit_event", "Move/resize/retune ONE existing timeline event by its "
+          "0-based index (indices are shown per stage in the session state, "
+          "e.g. zoom[1] = the second zoom). start/end are clip-local "
+          "PLAYER-timeline seconds (frame-snapped); value retunes the stage's "
+          "knob (zoom strength 1.05-1.6 | sfx volume | overlay opacity); motion "
+          "(zoom only): center|left|right|up|down. Include only the fields you "
+          "change.",
+          {"clip_id": _INT, "stage": _STAGE_ENUM, "index": _INT,
+           "start": _NUM, "end": _NUM, "value": _NUM, "motion": _STR},
+          ["clip_id", "stage", "index"]),
+    _spec("delete_event", "Delete ONE timeline event (a specific zoom/sfx/"
+          "b-roll/overlay/fx hit) by stage + 0-based index from the session "
+          "state.",
+          {"clip_id": _INT, "stage": _STAGE_ENUM, "index": _INT},
+          ["clip_id", "stage", "index"]),
     _spec("lock_clip", "Picture-lock a clip — freeze its timing (cut/silence/"
           "trim); only visual & audio polish stays editable.",
           {"clip_id": _INT}, ["clip_id"]),
@@ -1885,6 +2284,15 @@ TOOL_SPECS = [
           "'exported'. Not part of the approval gate — call it when the user is "
           "happy with the clip and wants the final file.",
           {"clip_id": _INT}, ["clip_id"]),
+    _spec("generate_metadata", "Write platform-specific publish copy (title + "
+          "description + hashtags) for a clip from its transcript. platforms "
+          "subset of youtube_shorts|tiktok|instagram_reels (default: all). "
+          "Read-only — no render, no approval gate. Offer it after export_clip.",
+          {"clip_id": _INT,
+           "platforms": {"type": "array", "items": {
+               "type": "string",
+               "enum": ["youtube_shorts", "tiktok", "instagram_reels"]}},
+           "language": _STR}, ["clip_id"]),
     _spec("export_timeline", "Export a clip's cuts+markers as an NLE timeline "
           "for DaVinci Resolve / Premiere. format: xml (FCP7, default) | edl.",
           {"clip_id": _INT, "format": _STR}, ["clip_id"]),
@@ -1915,6 +2323,7 @@ REGISTRY = {
     "set_fade": set_fade,
     "add_sound_effect": add_sound_effect,
     "get_transcript": get_transcript,
+    "find_moment": find_moment,
     "list_styles": list_styles,
     "apply_style": apply_style,
     "remove_fillers": remove_fillers,
@@ -1946,6 +2355,8 @@ REGISTRY = {
     "propose_edit": propose_edit,
     "apply_plan": apply_plan,
     "discard_plan": discard_plan,
+    "revert_plan": revert_plan,
+    "regenerate_plan": regenerate_plan,
     "export_captions": export_captions,
     "nudge_edit": nudge_edit,
     "add_marker": add_marker,
@@ -1956,6 +2367,7 @@ REGISTRY = {
     "unlock_clip": unlock_clip,
     "set_autonomy": set_autonomy,
     "export_clip": export_clip,
+    "generate_metadata": generate_metadata,
     "export_timeline": export_timeline,
     "restore_section": restore_section,
     "set_denoise": set_denoise,

@@ -1102,6 +1102,49 @@ function addMsg(cls, text) {
   return d;
 }
 
+/* Per-message Revert / Regenerate on a just-applied plan (named checkpoint —
+   pops to the exact pre-plan state, not LIFO). Additive: only shown when the
+   chat payload carries `applied`. */
+function renderAppliedActions(applied) {
+  const cp = applied.checkpoint;
+  const row = document.createElement("div");
+  row.className = "clarify-chips";
+  const mk = (label, fn) => {
+    const b = document.createElement("button");
+    b.type = "button"; b.className = "clarify-chip"; b.textContent = label;
+    b.onclick = async () => {
+      row.querySelectorAll("button").forEach(x => x.disabled = true);
+      try { await fn(); } catch (e) { addMsg("bot", "Error: " + e.message); }
+    };
+    return b;
+  };
+  row.appendChild(mk("Geri al", async () => {
+    const job = await runJob("/api/tool?sync=1",
+      { name: "revert_plan", args: { checkpoint: cp } });
+    const env = job.result || {};            // {ok, result, clips, history}
+    const res = env.result || {};            // the tool's own _ok/_err dict
+    if (res.error) { addMsg("bot", "Error: " + res.error); return; }
+    CLIPS = env.clips || CLIPS; renderLibrary();
+    renderHistory(env.history || []); refreshActive();
+    addMsg("bot", res.msg || "Reverted.");
+  }));
+  row.appendChild(mk("Farklı dene", async () => {
+    const job = await runJob("/api/tool?sync=1",
+      { name: "regenerate_plan", args: { checkpoint: cp, revert: true } });
+    const env = job.result || {};
+    const res = env.result || {};
+    if (res.error) { addMsg("bot", "Error: " + res.error); return; }
+    CLIPS = env.clips || CLIPS; renderLibrary();
+    renderHistory(env.history || []); refreshActive();
+    if (res.msg) addMsg("bot", res.msg);
+    if (res.plan) {
+      renderPlanCard(res.plan);
+      if (res.plan.preview) enterPlanCompare(res.plan);
+    }
+  }));
+  chat.appendChild(row); chat.scrollTop = chat.scrollHeight;
+}
+
 /* QC card: measured loudness/true-peak/format checks → chat panel card. */
 const QC_ICON = { ok: "✓", warn: "⚠", fail: "✗" };
 async function runQC(clipId) {
@@ -1197,6 +1240,7 @@ $("form").addEventListener("submit", async (e) => {
       renderClarify(d.clarify.options);
     if (d.pending_plan && (d.tools || []).some(t => t.startsWith("propose")))
       renderPlanCard(d.pending_plan);
+    if (d.applied && d.applied.checkpoint) renderAppliedActions(d.applied);
     CLIPS = d.clips || CLIPS; COMPS = d.compilations || COMPS;
     renderLibrary(); renderHistory(d.history || []);
     refreshActive();

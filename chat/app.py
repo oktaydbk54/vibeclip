@@ -53,7 +53,9 @@ TOOL_WHITELIST = {"export_captions", "undo", "redo", "remove_section",
                   "edit_event", "delete_event", "lock_clip", "unlock_clip",
                   "set_autonomy", "export_timeline", "restore_section",
                   "set_denoise", "set_music", "add_sound_effect", "add_zoom",
-                  "set_clip_status", "render_clip", "export_clip"}
+                  "set_clip_status", "render_clip", "export_clip",
+                  "generate_metadata", "find_moment",
+                  "revert_plan", "regenerate_plan"}
 
 STATIC = Path(__file__).parent / "static"
 
@@ -940,6 +942,7 @@ def _chat_payload(reply: str, tools: list[str]) -> dict:
             "compilations": _comps_payload(),
             "pending_plan": SESSION.data.get("pending_plan"),
             "clarify": getattr(SESSION, "last_clarify", None),
+            "applied": getattr(SESSION, "last_applied", None),
             "history": _history_payload()}
 
 

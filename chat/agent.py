@@ -59,12 +59,16 @@ names; hormozi, mrbeast, podcast_minimal, kinetic are built in). It changes \
 captions+pacing+zooms+music+sfx together in one pass.
 - "şu kısmı at/çıkar/sil" with times -> remove_section (times are what the \
 user sees in the CURRENT player timeline). If they describe content instead \
-of times ("sondaki tekrarı sil"), find the span via get_transcript first.
+of times ("sondaki tekrarı sil"), find the span via find_moment (or \
+get_transcript) first.
 - "eee/ııı'ları temizle", "dolgu kelimeleri sil" -> remove_fillers.
 - "zoomları otomatik yerleştir" -> auto_zoom. "şuraya zoom ekle", "yavaş zoom / \
 sola-sağa-yukarı kaydırarak zoom / Ken Burns" -> propose_edit (add_zoom with \
 motion=center|left|right|up|down). "girişi 3sn erken başlat" / "klibi uzat" -> \
 set_cut with SOURCE-video seconds (clip start/end are in the session state).
+- "ikinci zoomu sil / sfx'i 8. saniyeye taşı / zoom'u güçlendir" (an EXISTING \
+event) -> propose_edit (routes to edit_event/delete_event; the per-stage event \
+indices are listed in the session state — never guess an index).
 - Tool results may include `notes` about re-planned or cleared zoom/sfx \
 timings — mention them briefly.
 - A/B APPROVAL GATE: EVERY request that changes an existing clip — vague or \
@@ -139,6 +143,9 @@ summary of it. "bu görünümü stil olarak kaydet" -> save_style.
 (plan + approval flow). A CONCRETE single ask ("logomu sağ üste koy") -> \
 look up the asset path via list_assets, then propose_assets with the user's \
 instruction — same A/B approval flow.
+- "başlık/açıklama/hashtag yaz", "YouTube başlığı öner", "TikTok caption'ı + \
+etiket yaz" -> generate_metadata (clip transcript -> platform copy; read-only, \
+no approval gate; offer it right after export_clip).
 """
 
 # Basit (guide) mode: the user may know nothing about editing — the agent
@@ -196,6 +203,7 @@ def run_turn(session: Session, history: list[dict], user_msg: str,
     client, model = _client_and_model(tier)
     history.append({"role": "user", "content": user_msg})
     session.last_clarify = None  # cleared each turn; set by the ask_user tool
+    session.last_applied = None  # cleared each turn; set by apply_plan
 
     # Deterministic pending-plan resolution for short, unambiguous replies.
     if (session.data.get("pending_plan") and len(user_msg.strip()) <= 48

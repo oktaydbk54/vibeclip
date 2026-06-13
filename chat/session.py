@@ -286,17 +286,23 @@ class Session:
     def save(self) -> None:
         self.path.write_text(json.dumps(self.data, ensure_ascii=False, indent=1))
 
-    def snapshot(self, label: str = "", source: str = "chat") -> None:
+    def snapshot(self, label: str = "", source: str = "chat",
+                 tag: str | None = None) -> None:
         """Push an undo point (deep copy of clips). Artifacts stay on disk.
 
         source tags who triggered the edit ('chat' | 'ui' | 'plan') — the
         edit-log surfaces this later; older entries simply read as 'chat'.
+        tag is an optional named-checkpoint id (set by apply_plan) so a single
+        applied plan can be reverted later regardless of LIFO position; older
+        entries simply lack the key.
         """
         if getattr(self, "suppress_snapshots", False):
             return  # apply_plan takes ONE snapshot for the whole plan
-        self.data["history"].append(
-            {"label": label, "source": source,
-             "clips": copy.deepcopy(self.data["clips"])})
+        entry = {"label": label, "source": source,
+                 "clips": copy.deepcopy(self.data["clips"])}
+        if tag:
+            entry["tag"] = tag
+        self.data["history"].append(entry)
         self.data["history"] = self.data["history"][-20:]
         # A fresh edit forks history — the redo branch is no longer reachable.
         self.data.pop("redo", None)
@@ -332,6 +338,26 @@ class Session:
         self.data["clips"] = entry["clips"]
         self.save()
         return "Re-applied the change."
+
+    def revert_to_tag(self, tag: str) -> str:
+        """Pop to a named checkpoint (e.g. an applied plan), restoring the
+        PRE-checkpoint clip state. Non-destructive: the revert itself is taken
+        as a fresh snapshot first, so it stays undoable and later history is
+        not rewritten. Returns a 'not found' message if the checkpoint has
+        aged out of the 20-step history (or never existed)."""
+        entry = next(
+            (e for e in self.data.get("history", [])
+             if isinstance(e, dict) and e.get("tag") == tag), None)
+        if entry is None:
+            return ("Checkpoint not found — it may have aged out of the "
+                    "20-step history.")
+        # Mirror /api/restore semantics: snapshot the current state, then swap
+        # in the checkpoint's clips. This restores the state BEFORE that plan,
+        # including any edits applied after it.
+        self.snapshot("before revert", source="ui")
+        self.data["clips"] = copy.deepcopy(entry["clips"])
+        self.save()
+        return "Reverted to the state before that edit."
 
     # ------------------------------------------------------------- accessors
     @property
@@ -455,10 +481,25 @@ class Session:
                      if k not in ("events", "windows", "path", "ranges")}
                 if st["name"] == "music" and st["params"].get("path"):
                     p["track"] = Path(st["params"]["path"]).name
+                # Indexed event listings so the model can address "the second
+                # zoom" by its 0-based index (cf. edit_event/delete_event).
                 if st["name"] == "zoom":
-                    p["windows"] = st["params"].get("windows", [])
-                if st["name"] == "sfx":
-                    p["count"] = len(st["params"].get("events", []))
+                    p["windows"] = [
+                        f"[{i}] {w[0]:.1f}-{w[1]:.1f}s x{w[2]:g}"
+                        + (f" {w[3]}" if len(w) > 3 else "")
+                        for i, w in enumerate(
+                            st["params"].get("windows", []))][:8]
+                if st["name"] in ("sfx", "fx"):
+                    p["events"] = [
+                        f"[{i}] {e['time']:.1f}s"
+                        + (f" {e.get('kind', '')}" if e.get("kind") else "")
+                        for i, e in enumerate(
+                            st["params"].get("events", []))][:8]
+                if st["name"] in ("broll", "overlay"):
+                    p["events"] = [
+                        f"[{i}] {e.get('start', 0):.1f}-{e.get('end', 0):.1f}s"
+                        for i, e in enumerate(
+                            st["params"].get("events", []))][:8]
                 if st["name"] == "trim":
                     p["removed"] = [
                         f"{r['start']:.1f}-{r['end']:.1f}s"

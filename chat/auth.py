@@ -37,6 +37,16 @@ LEGACY_COOKIE_NAME = "kesim_session"
 COOKIE_MAX_AGE = 30 * 86400   # 30 days
 
 
+def _secure_cookies() -> bool:
+    """Mark the session cookie `Secure` (HTTPS-only) on a public deployment.
+
+    Off by default so a self-hoster on plain http://localhost can still log in;
+    set SECURE_COOKIES=true on any instance served over HTTPS (e.g. vibeclip.dev)
+    so the session cookie is never transmitted over an unencrypted connection."""
+    return os.getenv("SECURE_COOKIES", "false").strip().lower() in (
+        "1", "true", "yes", "on")
+
+
 def _read_session_cookie(request: Request) -> str | None:
     return (request.cookies.get(COOKIE_NAME)
             or request.cookies.get(LEGACY_COOKIE_NAME))
@@ -378,6 +388,7 @@ def _set_cookie(resp: JSONResponse, user_id: int) -> None:
     resp.set_cookie(
         COOKIE_NAME, mint_cookie(user_id),
         max_age=COOKIE_MAX_AGE, httponly=True, samesite="lax", path="/",
+        secure=_secure_cookies(),
     )
 
 

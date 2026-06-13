@@ -44,6 +44,46 @@ def _ver(rel: str) -> str:
         return ""
 
 
+def org_schema() -> dict:
+    """The Organization entity (@id `#org`), single-sourced from blog_content.
+
+    Mirrors the landing page's `#org` node so the entire site — landing, blog
+    index, every article — resolves to ONE organization in Google's and the AI
+    answer engines' knowledge graphs. Blog `author`/`publisher` fields reference
+    this same `@id` rather than repeating an inline name, which is what lets the
+    graph link up across pages.
+    """
+    return {
+        "@type": "Organization",
+        "@id": f"{bc.SITE_URL}/#org",
+        "name": bc.SITE_NAME,
+        "url": f"{bc.SITE_URL}/",
+        "logo": {"@type": "ImageObject", "url": bc.OG_IMAGE, "width": 512, "height": 512},
+        "description": "Open-source (AGPL-3.0) AI video editor you control by talking.",
+        "sameAs": bc.SAME_AS,
+    }
+
+
+def website_schema() -> dict:
+    """The WebSite entity (@id `#website`) with a blog SearchAction. Mirrors the
+    landing page so the sitelinks search box can attach to the brand."""
+    return {
+        "@type": "WebSite",
+        "@id": f"{bc.SITE_URL}/#website",
+        "url": f"{bc.SITE_URL}/",
+        "name": bc.SITE_NAME,
+        "publisher": {"@id": f"{bc.SITE_URL}/#org"},
+        "potentialAction": {
+            "@type": "SearchAction",
+            "target": {
+                "@type": "EntryPoint",
+                "urlTemplate": f"{bc.SITE_URL}/blog?q={{search_term_string}}",
+            },
+            "query-input": "required name=search_term_string",
+        },
+    }
+
+
 def _head(*, title: str, description: str, canonical: str, keywords: str = "",
           og_type: str = "website", published: str = "", jsonld: list | None = None) -> str:
     """Common <head>: SEO meta + Open Graph + Twitter + favicon + GA4 + fonts."""
@@ -81,7 +121,8 @@ def _head(*, title: str, description: str, canonical: str, keywords: str = "",
 <meta name="twitter:image" content="{bc.OG_IMAGE}">{art}{_ga_block()}{ld}
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Archivo:wght@400;500;600;700;800&family=Bricolage+Grotesque:opsz,wght@12..96,600;12..96,700;12..96,800&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<link rel="stylesheet" media="print" onload="this.media='all'" href="https://fonts.googleapis.com/css2?family=Archivo:wght@400;500;600;700;800&family=Bricolage+Grotesque:opsz,wght@12..96,600;12..96,700;12..96,800&family=IBM+Plex+Mono:wght@400;500;600&display=swap">
+<noscript><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo:wght@400;500;600;700;800&family=Bricolage+Grotesque:opsz,wght@12..96,600;12..96,700;12..96,800&family=IBM+Plex+Mono:wght@400;500;600&display=swap"></noscript>
 <link rel="stylesheet" href="/static/blog.css{_ver('blog.css')}">"""
 
 
@@ -147,6 +188,7 @@ def render_index() -> str:
         "name": f"{bc.SITE_NAME} Blog",
         "description": "Guides on AI video editing — turning long videos into vertical shorts.",
         "url": canonical,
+        "publisher": {"@id": f"{bc.SITE_URL}/#org"},
         "blogPost": [
             {
                 "@type": "BlogPosting",
@@ -154,7 +196,7 @@ def render_index() -> str:
                 "description": p["description"],
                 "datePublished": p["date"],
                 "url": f"{bc.SITE_URL}/blog/{p['slug']}",
-                "author": {"@type": "Organization", "name": bc.SITE_NAME},
+                "author": {"@id": f"{bc.SITE_URL}/#org"},
             }
             for p in bc.POSTS
         ],
@@ -167,7 +209,7 @@ def render_index() -> str:
         keywords="ai video editor blog, ai video editing, long video to shorts, video "
                  "repurposing, talk to edit",
         canonical=canonical,
-        jsonld=[item_list],
+        jsonld=[org_schema(), website_schema(), item_list],
     )
     cards = "\n".join(_card(p) for p in bc.POSTS)
     return f"""<!doctype html>
@@ -238,13 +280,9 @@ def render_article(slug: str) -> str | None:
         "headline": p["title"],
         "description": p["description"],
         "datePublished": p["date"],
-        "dateModified": p["date"],
-        "author": {"@type": "Organization", "name": bc.SITE_NAME, "url": bc.SITE_URL},
-        "publisher": {
-            "@type": "Organization",
-            "name": bc.SITE_NAME,
-            "logo": {"@type": "ImageObject", "url": bc.OG_IMAGE},
-        },
+        "dateModified": p.get("updated", p["date"]),
+        "author": {"@id": f"{bc.SITE_URL}/#org"},
+        "publisher": {"@id": f"{bc.SITE_URL}/#org"},
         "image": bc.OG_IMAGE,
         "url": canonical,
         "mainEntityOfPage": {"@type": "WebPage", "@id": canonical},
@@ -266,7 +304,7 @@ def render_article(slug: str) -> str | None:
         canonical=canonical,
         og_type="article",
         published=p["date"],
-        jsonld=[article_ld, breadcrumb],
+        jsonld=[org_schema(), article_ld, breadcrumb],
     )
     related_html = "\n".join(_card(q) for q in related)
     return f"""<!doctype html>
@@ -308,16 +346,24 @@ def render_article(slug: str) -> str | None:
 
 
 def render_sitemap() -> str:
+    # A post's lastmod is its `updated` date when present, else its publish date,
+    # so editing a post (and bumping `updated`) re-signals freshness to crawlers.
+    def lastmod_of(p: dict) -> str:
+        return p.get("updated", p["date"])
+
+    # The home + blog index change whenever any post does → newest post date.
+    newest = max((lastmod_of(p) for p in bc.POSTS), default=None)
     urls = [
-        (f"{bc.SITE_URL}/", "1.0", None),
-        (f"{bc.SITE_URL}/blog", "0.9", bc.POSTS[0]["date"] if bc.POSTS else None),
+        (f"{bc.SITE_URL}/", "1.0", "weekly", newest),
+        (f"{bc.SITE_URL}/blog", "0.9", "weekly", newest),
     ]
     for p in bc.POSTS:
-        urls.append((f"{bc.SITE_URL}/blog/{p['slug']}", "0.7", p["date"]))
+        urls.append((f"{bc.SITE_URL}/blog/{p['slug']}", "0.7", "monthly", lastmod_of(p)))
     rows = ""
-    for loc, prio, lastmod in urls:
+    for loc, prio, freq, lastmod in urls:
         lm = f"\n    <lastmod>{lastmod}</lastmod>" if lastmod else ""
         rows += (f"\n  <url>\n    <loc>{loc}</loc>{lm}"
+                 f"\n    <changefreq>{freq}</changefreq>"
                  f"\n    <priority>{prio}</priority>\n  </url>")
     return ('<?xml version="1.0" encoding="UTF-8"?>\n'
             '<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">'

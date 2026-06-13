@@ -17,6 +17,11 @@ SITE_URL = os.getenv("SITE_URL", "https://vibeclip.dev").rstrip("/")
 SITE_NAME = os.getenv("SITE_NAME", "VibeClip")
 OG_IMAGE = f"{SITE_URL}/static/icon-512.png"
 
+# Canonical social/source profiles for the Organization entity. Single-sourced
+# here so the blog's JSON-LD #org node never drifts from the landing page's.
+REPO_URL = os.getenv("REPO_URL", "https://github.com/oktaydbk54/vibeclip")
+SAME_AS = [REPO_URL, "https://x.com/codebod1"]
+
 # Newest first. `date` is ISO (used for <time>, JSON-LD, sitemap lastmod).
 POSTS = [
     {

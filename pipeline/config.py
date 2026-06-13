@@ -138,6 +138,14 @@ def llm_settings(tier: str = "fast",
         model = (ov.get("model_pro") or ov.get("model")) if pro else ov.get("model")
         model = model or (OPENAI_MODEL_PRO if pro else OPENAI_MODEL)
         return ov["api_key"], (ov.get("base_url") or None), model
+    if ov and ov.get("require_byok"):
+        # A locked-down public instance: this account has no key of its own and
+        # is NOT allowed to spend the operator's server key. Force BYOK instead
+        # of silently falling through to OPENAI_API_KEY below.
+        raise RuntimeError(
+            "Add your own LLM API key in Settings to use VibeClip — this instance "
+            "doesn't lend its server key to other accounts."
+        )
     if OPENAI_API_KEY:
         return OPENAI_API_KEY, LLM_BASE_URL, (OPENAI_MODEL_PRO if pro else OPENAI_MODEL)
     if DEEPSEEK_API_KEY:

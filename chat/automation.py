@@ -89,11 +89,16 @@ def _now_iso() -> str:
             .replace(tzinfo=None).isoformat() + "Z")
 
 
-def _llm_override_for(profile: dict):
+def _llm_override_for(uid: int, profile: dict):
     """Build the BYOK override from a profile dict (the poller has no request
-    context). user_llm_override only reads the profile_json field."""
+    context). Includes the user's is_admin so the SERVER_KEY_ADMINS_ONLY gate in
+    user_llm_override behaves the same here as on request paths."""
+    row = {"profile_json": json.dumps(profile)}
     try:
-        return auth.user_llm_override({"profile_json": json.dumps(profile)})
+        r = auth._row_by_id(uid)
+        if r:
+            row["is_admin"] = r.get("is_admin", 0)
+        return auth.user_llm_override(row)
     except Exception:  # noqa: BLE001 — fall back to the env key
         return None
 
@@ -245,7 +250,7 @@ def poll_user(uid: int, profile: dict, cfg: dict, force: bool = False) -> dict:
             new_videos.append(v)
     # If last_seen is empty we only SEED (no backfill of the whole channel).
 
-    override = _llm_override_for(profile)
+    override = _llm_override_for(uid, profile)
     style = cfg.get("auto_edit_style") or DEFAULT_STYLE
     for v in reversed(new_videos):         # oldest-first → chronological projects
         submit_ingest_job(uid, v["url"], v["video_id"], v["title"], style,

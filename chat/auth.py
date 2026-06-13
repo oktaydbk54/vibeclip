@@ -732,17 +732,33 @@ class LlmSettingsIn(BaseModel):
     model_pro: str = ""
 
 
+def _server_key_admins_only() -> bool:
+    """When true, only admins fall back to the server's OPENAI_API_KEY; every
+    other account must bring its own key. Off by default so a solo self-hoster's
+    .env key keeps working for them. Set true on a PUBLIC multi-user instance
+    (e.g. vibeclip.dev) so a random signup can't spend the operator's API key."""
+    return os.getenv("SERVER_KEY_ADMINS_ONLY", "false").strip().lower() in (
+        "1", "true", "yes", "on")
+
+
 def user_llm_override(user_row: dict | None) -> dict | None:
-    """Build the BYOK override for the pipeline from a user's stored settings,
-    or None to fall back to the server env key. Never raises."""
+    """Build the BYOK override for the pipeline from a user's stored settings.
+
+    Returns the user's key override when they've configured one. With no key:
+    returns None (fall back to the server env key) — UNLESS SERVER_KEY_ADMINS_ONLY
+    is set and this is a non-admin account, in which case it returns a
+    {"require_byok": True} sentinel so the pipeline refuses to lend the operator's
+    server key and forces the user to add their own. Never raises."""
     if not user_row:
         return None
     try:
         cfg = json.loads(user_row["profile_json"] or "{}").get("llm") or {}
     except (ValueError, TypeError, KeyError):
-        return None
+        cfg = {}
     enc = cfg.get("key_enc")
     if not enc:
+        if _server_key_admins_only() and not user_row.get("is_admin"):
+            return {"require_byok": True}
         return None
     from chat import secretbox
     key = secretbox.decrypt(enc)

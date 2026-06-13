@@ -4,7 +4,10 @@ via their compat endpoints)."""
 
 import json
 
+import pytest
+
 from chat import auth, secretbox
+from pipeline import config
 
 
 def test_all_providers_present():
@@ -40,3 +43,52 @@ def test_base_url_validation_rejects_bad_scheme():
     assert not ok
     ok, _ = auth._validate_base_url("https://api.anthropic.com/v1/")
     assert ok
+
+
+# --- SERVER_KEY_ADMINS_ONLY gate: a public instance must not lend its key ----
+
+def _row(*, has_key=False, is_admin=0):
+    prof = {}
+    if has_key:
+        prof["llm"] = {"key_enc": secretbox.encrypt("sk-user-own")}
+    return {"profile_json": json.dumps(prof), "is_admin": is_admin}
+
+
+def _resolve(monkeypatch, override):
+    monkeypatch.setattr(config, "OPENAI_API_KEY", "sk-SERVER-KEY")
+    tok = config.set_llm_override(override)
+    try:
+        return config.llm_settings()
+    finally:
+        config.reset_llm_override(tok)
+
+
+def test_gate_off_everyone_uses_server_key(monkeypatch):
+    """Default (self-host): a logged-in user with no key falls back to env."""
+    monkeypatch.delenv("SERVER_KEY_ADMINS_ONLY", raising=False)
+    assert auth.user_llm_override(_row(is_admin=0)) is None
+    key, _, _ = _resolve(monkeypatch, None)
+    assert key == "sk-SERVER-KEY"
+
+
+def test_gate_on_non_admin_without_key_is_forced_to_byok(monkeypatch):
+    monkeypatch.setenv("SERVER_KEY_ADMINS_ONLY", "true")
+    ov = auth.user_llm_override(_row(is_admin=0))
+    assert ov == {"require_byok": True}
+    with pytest.raises(RuntimeError):
+        _resolve(monkeypatch, ov)
+
+
+def test_gate_on_admin_still_uses_server_key(monkeypatch):
+    monkeypatch.setenv("SERVER_KEY_ADMINS_ONLY", "true")
+    assert auth.user_llm_override(_row(is_admin=1)) is None
+    key, _, _ = _resolve(monkeypatch, None)
+    assert key == "sk-SERVER-KEY"
+
+
+def test_gate_on_user_with_own_key_unaffected(monkeypatch):
+    monkeypatch.setenv("SERVER_KEY_ADMINS_ONLY", "true")
+    ov = auth.user_llm_override(_row(has_key=True, is_admin=0))
+    assert ov["api_key"] == "sk-user-own"
+    key, _, _ = _resolve(monkeypatch, ov)
+    assert key == "sk-user-own"

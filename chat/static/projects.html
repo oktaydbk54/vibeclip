@@ -177,6 +177,131 @@ body::before{
 .pill.on{color:var(--accent); border-color:var(--accent-dim);
   background:var(--accent-glow)}
 
+/* -------- toolbar: filters | search · sort · view -------- */
+.toolbar{display:none; align-items:center; gap:14px; margin-bottom:18px;
+  flex-wrap:wrap}
+.toolbar.on{display:flex}
+.toolbar .filters{margin-bottom:0}
+.tb-right{display:flex; align-items:center; gap:10px; margin-left:auto;
+  flex-wrap:wrap}
+.search{position:relative; display:flex; align-items:center}
+.search svg{position:absolute; left:10px; width:14px; height:14px;
+  color:var(--bone-faint); pointer-events:none}
+.search input{background:var(--panel-quiet); border:1px solid var(--line);
+  color:var(--bone); border-radius:8px; padding:8px 12px 8px 30px;
+  font-family:'Archivo',sans-serif; font-size:.78rem; width:200px;
+  transition:border-color .15s, width .2s}
+.search input:focus{outline:none; border-color:var(--accent-dim); width:230px}
+.search input::placeholder{color:var(--bone-faint)}
+.sortsel{background:var(--panel-quiet); border:1px solid var(--line);
+  color:var(--bone-dim); border-radius:8px; padding:8px 10px; font-size:.66rem;
+  letter-spacing:.04em; cursor:pointer}
+.sortsel:focus{outline:none; border-color:var(--accent-dim)}
+.viewtoggle{display:flex; border:1px solid var(--line); border-radius:8px;
+  overflow:hidden}
+.viewtoggle button{background:var(--panel-quiet); border:none; cursor:pointer;
+  color:var(--bone-faint); width:34px; height:34px; display:flex;
+  align-items:center; justify-content:center; transition:.15s}
+.viewtoggle button svg{width:16px; height:16px}
+.viewtoggle button+button{border-left:1px solid var(--line)}
+.viewtoggle button:hover{color:var(--bone-dim)}
+.viewtoggle button.on{color:var(--accent); background:var(--accent-glow)}
+
+/* score badge on the thumbnail (top-right) — VibeClip's hook/flow/value score,
+   the thing Opus/Klap paywall. Color ramps with the score. */
+.tscore{position:absolute; top:8px; right:8px; z-index:2;
+  font-family:'IBM Plex Mono',monospace; font-size:.62rem; font-weight:600;
+  letter-spacing:.02em; padding:3px 7px; border-radius:5px; line-height:1;
+  border:1px solid currentColor; background:rgba(7,4,14,.6);
+  backdrop-filter:blur(2px)}
+.tscore.hi{color:var(--green)} .tscore.mid{color:var(--orange)}
+.tscore.lo{color:var(--bone-dim)}
+.tscore .lbl{opacity:.6; font-size:.5rem; letter-spacing:.1em; margin-left:3px}
+
+/* recents row — "jump back in" fast path, shown only with enough projects */
+.recents{display:none; margin-bottom:26px}
+.recents.on{display:block; animation:fadeUp .45s ease both}
+.rec-h{font-size:.6rem; letter-spacing:.26em; color:var(--bone-faint);
+  text-transform:uppercase; margin-bottom:11px}
+.rec-strip{display:flex; gap:12px; overflow-x:auto; padding-bottom:4px}
+.rec-card{flex:none; width:208px; background:var(--panel);
+  border:1px solid var(--line); border-radius:9px; overflow:hidden;
+  cursor:pointer; transition:border-color .15s, transform .15s}
+.rec-card:hover{border-color:var(--line-hi); transform:translateY(-2px)}
+.rec-thumb{aspect-ratio:16/9; background:var(--panel2); position:relative;
+  display:flex; align-items:center; justify-content:center}
+.rec-thumb img{width:100%; height:100%; object-fit:cover}
+.rec-thumb .glyph svg{width:34px; height:34px; color:var(--line-hi)}
+.rec-meta{padding:9px 11px}
+.rec-nm{font-size:.78rem; font-weight:600; overflow:hidden;
+  text-overflow:ellipsis; white-space:nowrap}
+.rec-sub{font-size:.58rem; color:var(--bone-faint); letter-spacing:.04em;
+  margin-top:2px}
+
+/* -------- publishing panel (scheduler surfacing) -------- */
+.publishing{margin-top:34px}
+.pub-h{display:flex; align-items:baseline; gap:10px; margin-bottom:12px}
+.pub-count{font-size:.6rem; color:var(--bone-faint)}
+.pub-list{display:flex; flex-direction:column; gap:8px}
+.pub-row{display:flex; align-items:center; gap:14px; padding:11px 14px;
+  border:1px solid var(--line); border-radius:9px; background:var(--panel)}
+.pub-when{flex:none; width:128px; font-family:'IBM Plex Mono',monospace;
+  font-size:.62rem; color:var(--bone-dim); letter-spacing:.02em}
+.pub-when .st{display:block; font-size:.54rem; letter-spacing:.14em;
+  text-transform:uppercase; margin-top:3px}
+.pub-row.sched .st{color:var(--accent-hi)} .pub-row.pub .st{color:var(--ok)}
+.pub-row.err .st{color:var(--err)} .pub-row.work .st{color:var(--warn)}
+.pub-plat{flex:none; font-family:'IBM Plex Mono',monospace; font-size:.58rem;
+  letter-spacing:.1em; text-transform:uppercase; color:var(--bone-dim);
+  border:1px solid var(--line-hi); border-radius:5px; padding:4px 8px}
+.pub-body{flex:1; min-width:0}
+.pub-cap{font-size:.78rem; overflow:hidden; text-overflow:ellipsis;
+  white-space:nowrap}
+.pub-sub{font-size:.58rem; color:var(--bone-faint); letter-spacing:.03em; margin-top:2px}
+.pub-link{flex:none; font-size:.64rem; color:var(--accent-hi); text-decoration:none;
+  border:1px solid var(--line-hi); border-radius:6px; padding:6px 10px}
+.pub-link:hover{border-color:var(--accent-dim)}
+@media (max-width:640px){ .pub-when{width:auto} .pub-plat{display:none} }
+
+/* -------- hub: connected accounts + automation status -------- */
+.hub{margin-top:34px}
+.hub-grid{display:grid; grid-template-columns:1fr 1fr; gap:18px}
+@media (max-width:760px){ .hub-grid{grid-template-columns:1fr} }
+.hub-card{background:var(--panel); border:1px solid var(--line); border-radius:10px;
+  padding:16px 18px 18px}
+.hub-h{display:flex; align-items:center; justify-content:space-between; margin-bottom:13px; gap:10px}
+.hub-h .rec-h{margin-bottom:0}
+.hub-link{font-size:.56rem; letter-spacing:.14em; text-transform:uppercase;
+  color:var(--accent-hi); text-decoration:none; border:1px solid var(--line-hi);
+  border-radius:6px; padding:4px 9px; flex:none}
+.hub-link:hover{border-color:var(--accent-dim)}
+.acct-row{display:flex; flex-wrap:wrap; gap:10px}
+.acct{display:flex; align-items:center; gap:9px; padding:6px 13px 6px 6px;
+  border:1px solid var(--line-hi); border-radius:999px; background:var(--panel-quiet)}
+.acct .av{width:30px; height:30px; border-radius:50%; object-fit:cover; flex:none}
+.acct .av-ph{display:flex; align-items:center; justify-content:center; color:#fff;
+  font-weight:700; font-size:.82rem; text-transform:uppercase}
+.acct .am{display:flex; flex-direction:column; line-height:1.15}
+.acct .nm{font-size:.74rem; font-weight:600}
+.acct .pl{font-size:.52rem; letter-spacing:.12em; text-transform:uppercase; color:var(--bone-faint)}
+.acct-empty{font-size:.74rem; color:var(--bone-dim); line-height:1.5}
+.acct-empty a{color:var(--accent-hi); text-decoration:none}
+.auto-state{display:flex; align-items:center; gap:9px; font-size:.84rem; color:var(--bone)}
+.auto-dot{width:8px; height:8px; border-radius:50%; background:var(--bone-faint); flex:none}
+.auto-dot.on{background:var(--green); box-shadow:0 0 8px var(--green)}
+.auto-state b{color:var(--accent-hi); font-weight:700}
+.auto-sub{font-size:.72rem; color:var(--bone-dim); line-height:1.55; margin-top:7px}
+.auto-meta{font-size:.58rem; color:var(--bone-faint); margin-top:8px; letter-spacing:.02em}
+.auto-meta.err{color:var(--orange)}
+
+/* "AUTO · YouTube" chip on auto-ingested project thumbnails */
+.tauto{position:absolute; left:8px; bottom:8px; z-index:2; display:flex;
+  align-items:center; gap:4px; font-family:'IBM Plex Mono',monospace;
+  font-size:.52rem; letter-spacing:.12em; color:#fff; padding:3px 7px;
+  border-radius:5px; background:rgba(255,0,0,.82)}
+.tauto svg{width:11px; height:11px}
+body.selmode .tauto{display:none}
+
 /* -------- grid + cards -------- */
 .grid{display:grid; gap:20px; grid-template-columns:repeat(auto-fill,minmax(300px,1fr))}
 .card{
@@ -223,6 +348,48 @@ body::before{
   border:1px solid var(--accent-dim); border-radius:4px; padding:2px 6px;
   text-transform:uppercase}
 .cmeta{font-size:.62rem; color:var(--bone-faint); letter-spacing:.02em}
+
+/* ---- list view: cards become horizontal rows ---- */
+.grid.list{grid-template-columns:1fr; gap:10px}
+.grid.list .card{flex-direction:row; align-items:center}
+.grid.list .thumb{aspect-ratio:auto; width:150px; height:96px; flex:none}
+.grid.list .cbody{flex:1; justify-content:center; padding:12px 16px}
+.grid.list .progress{max-width:280px}
+.grid.list .cfoot{margin-top:0; max-width:320px; margin-left:auto}
+.grid.list .tscore{top:6px; right:6px}
+@media (max-width:640px){
+  .grid.list .thumb{width:104px}
+  .grid.list .cfoot{max-width:160px}
+}
+
+/* ---- bulk selection ---- */
+.selbox{position:absolute; top:8px; left:8px; z-index:3; width:22px; height:22px;
+  border-radius:6px; border:1.5px solid var(--line-hi); background:rgba(7,4,14,.6);
+  backdrop-filter:blur(2px); cursor:pointer; display:none; align-items:center;
+  justify-content:center; color:transparent; transition:.12s}
+body.selmode .selbox{display:flex}
+.selbox svg{width:13px; height:13px}
+.card.selected .selbox{background:var(--accent); border-color:var(--accent);
+  color:var(--accent-ink)}
+.card.selected{border-color:var(--accent-dim);
+  box-shadow:0 0 0 1px var(--accent-dim)}
+/* the status badge sits top-left too; nudge it right when select boxes show */
+body.selmode .tbadge{left:38px}
+.selbar{position:fixed; bottom:24px; left:50%; transform:translateX(-50%)
+  translateY(140%); display:flex; align-items:center; gap:14px;
+  background:var(--raise); border:1px solid var(--line-hi); border-radius:12px;
+  padding:11px 16px; z-index:55; box-shadow:0 18px 50px -20px rgba(0,0,0,.8);
+  transition:transform .22s ease}
+.selbar.on{transform:translateX(-50%) translateY(0)}
+.selbar .sel-n{font-size:.74rem; color:var(--bone); font-weight:600}
+.selbar .sel-n b{color:var(--accent-hi)}
+.selbar button{font-family:'Archivo',sans-serif; font-size:.72rem;
+  font-weight:600; padding:8px 13px; border-radius:7px; cursor:pointer;
+  border:1px solid var(--line-hi); background:none; color:var(--bone-dim)}
+.selbar button:hover{color:var(--bone)}
+.selbar button.danger:hover{color:var(--red); border-color:var(--red)}
+.selbar button.armed{color:#fff; background:var(--red); border-color:var(--red)}
+.selbar .sep{width:1px; height:20px; background:var(--line-hi)}
 
 .seglabel{font-size:.58rem; letter-spacing:.03em; color:var(--bone-dim);
   min-height:.9em}
@@ -419,20 +586,86 @@ body::before{
       accept="video/mp4,video/quicktime,video/webm,video/x-matroska,.mp4,.mov,.webm,.mkv,.m4v,.avi">
   </div>
 
+  <!-- recents — jump back into the freshest work; shown only with enough projects -->
+  <div class="recents" id="recents">
+    <div class="rec-h mono">Jump back in</div>
+    <div class="rec-strip" id="recStrip"></div>
+  </div>
+
   <div class="phead">
     <h1>Your projects</h1>
     <span class="count mono" id="count"></span>
+    <button class="pill" id="selectBtn" style="display:none; margin-left:14px">SELECT</button>
     <button class="btn-primary" id="newBtn">
       <svg class="plus" viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg>
       NEW PROJECT</button>
   </div>
-  <div class="filters" id="filters" style="display:none">
-    <button class="pill on" data-filter="all">ALL</button>
-    <button class="pill" data-filter="processing">PROCESSING</button>
-    <button class="pill" data-filter="ready">READY</button>
-    <button class="pill" data-filter="done">DONE</button>
+  <div class="toolbar" id="toolbar">
+    <div class="filters" id="filters">
+      <button class="pill on" data-filter="all">ALL</button>
+      <button class="pill" data-filter="processing">PROCESSING</button>
+      <button class="pill" data-filter="ready">READY</button>
+      <button class="pill" data-filter="done">DONE</button>
+    </div>
+    <div class="filters" id="folderChips"></div>
+    <div class="tb-right">
+      <label class="search">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4-4"/></svg>
+        <input id="search" type="search" placeholder="Search projects…" autocomplete="off" aria-label="Search projects">
+      </label>
+      <select id="sort" class="sortsel mono" aria-label="Sort projects">
+        <option value="recent">Recently edited</option>
+        <option value="score">Best score</option>
+        <option value="clips">Most clips</option>
+        <option value="duration">Longest</option>
+        <option value="name">Name A–Z</option>
+      </select>
+      <div class="viewtoggle" id="viewtoggle" role="group" aria-label="View">
+        <button data-view="grid" class="on" title="Grid view" aria-label="Grid view">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/></svg>
+        </button>
+        <button data-view="list" title="List view" aria-label="List view">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M8 6h13M8 12h13M8 18h13"/><circle cx="3.5" cy="6" r="1.2" fill="currentColor" stroke="none"/><circle cx="3.5" cy="12" r="1.2" fill="currentColor" stroke="none"/><circle cx="3.5" cy="18" r="1.2" fill="currentColor" stroke="none"/></svg>
+        </button>
+      </div>
+    </div>
   </div>
   <div class="grid" id="grid"></div>
+
+  <!-- hub: connected social accounts + YouTube automation status. Hidden until
+       there's something to show (an account connected, or automation set up). -->
+  <section class="hub" id="hub" style="display:none">
+    <div class="hub-grid">
+      <div class="hub-card" id="accountsCard" style="display:none">
+        <div class="hub-h">
+          <span class="rec-h mono">Connected accounts</span>
+          <a class="hub-link" href="/studio">Manage</a>
+        </div>
+        <div class="acct-row" id="acctRow"></div>
+      </div>
+      <div class="hub-card" id="autoCard" style="display:none">
+        <div class="hub-h">
+          <span class="rec-h mono">YouTube automation</span>
+          <a class="hub-link" href="/settings">Configure</a>
+        </div>
+        <div class="auto-state"><span class="auto-dot" id="autoDot"></span>
+          <span id="autoState">—</span></div>
+        <div class="auto-sub" id="autoSub"></div>
+        <div class="auto-meta" id="autoMeta"></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- publishing panel: scheduled + recently published shares (scheduler surfacing).
+       Hidden unless there are shares (i.e. a social provider is configured + used). -->
+  <section class="publishing" id="publishing" style="display:none">
+    <div class="pub-h">
+      <span class="rec-h mono">Publishing</span>
+      <span class="pub-count mono" id="pubCount"></span>
+    </div>
+    <div class="pub-list" id="pubList"></div>
+  </section>
+
   <div class="empty" id="empty" style="display:none">
     <div class="em-label mono">CREATE YOUR FIRST PROJECT</div>
     <h1 class="em-h1">Turn one long video into a week of shorts.</h1>
@@ -524,6 +757,35 @@ body::before{
       <button class="btn-go" id="mGo" disabled>Create</button>
     </div>
   </div>
+</div>
+
+<!-- move-to-folder modal -->
+<div class="scrim" id="folderScrim">
+  <div class="modal" style="width:min(440px,100%)" role="dialog" aria-modal="true" aria-label="Move to folder">
+    <button class="mclose" id="folderClose" aria-label="Close" type="button">✕</button>
+    <h2>Move to folder</h2>
+    <div class="msub mono" id="folderSub">Group your projects</div>
+    <div class="nameField on" style="margin-top:6px">
+      <label class="mono">Folder name <span class="opt">(blank removes from folder)</span></label>
+      <input type="text" id="folderInput" placeholder="e.g. Podcast · Client A · Drafts" maxlength="60">
+    </div>
+    <div class="filters" id="folderSuggest" style="margin-top:12px"></div>
+    <div class="modal-foot">
+      <button class="btn-cancel" id="folderCancel" type="button">Cancel</button>
+      <button class="btn-go" id="folderGo" type="button">Move</button>
+    </div>
+  </div>
+</div>
+
+<!-- bulk-selection action bar -->
+<div class="selbar" id="selbar">
+  <span class="sel-n"><b id="selCount">0</b> selected</span>
+  <span class="sep"></span>
+  <button id="selAll">Select all</button>
+  <button id="selMove">Move to folder…</button>
+  <button class="danger" id="selDelete">Delete</button>
+  <span class="sep"></span>
+  <button id="selCancel">Done</button>
 </div>
 
 <div class="toast mono" id="toast"></div>

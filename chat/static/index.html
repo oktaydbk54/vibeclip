@@ -56,10 +56,29 @@
 
   <!-- ============ left: library ============ -->
   <aside class="library">
+    <!-- collapsed rail: a thin icon strip shown when the library is folded.
+         Each button expands the panel AND selects its tab. -->
+    <div class="lib-rail" id="libRail" aria-hidden="true">
+      <button class="lib-expand" id="libExpand" title="Expand panel" aria-label="Expand library panel">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 18l6-6-6-6"/></svg>
+      </button>
+      <button class="lib-railbtn" data-page="clips" title="Clips" aria-label="Clips">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linejoin="round"><rect x="6" y="3" width="12" height="18" rx="2"/><path d="M10 9.5l4 2.5-4 2.5z" fill="currentColor" stroke="none"/></svg>
+      </button>
+      <button class="lib-railbtn" data-page="assets" title="Assets" aria-label="Assets">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3l8 4.5-8 4.5-8-4.5z"/><path d="M4 12l8 4.5 8-4.5"/><path d="M4 16.5l8 4.5 8-4.5"/></svg>
+      </button>
+      <button class="lib-railbtn" data-page="history" title="History" aria-label="History">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg>
+      </button>
+    </div>
     <div class="tabs">
       <div class="tab on" data-page="clips">Clips</div>
       <div class="tab" data-page="assets">Assets</div>
       <div class="tab" data-page="history">History</div>
+      <button class="lib-collapse" id="libCollapse" title="Collapse panel" aria-label="Collapse library panel">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 18l-6-6 6-6"/></svg>
+      </button>
     </div>
     <div class="tabpage on" id="page-clips"></div>
     <div class="tabpage" id="page-assets">

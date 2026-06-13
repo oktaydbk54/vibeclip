@@ -290,14 +290,35 @@ make and I'll handle the rest. Before any change, I'll show you an
 }
 
 /* ----------------------------------------------------------------- tabs */
+function selectLibTab(page) {
+  document.querySelectorAll(".tab").forEach(x =>
+    x.classList.toggle("on", x.dataset.page === page));
+  document.querySelectorAll(".tabpage").forEach(x => x.classList.remove("on"));
+  const pg = $("page-" + page);
+  if (pg) pg.classList.add("on");
+  document.querySelectorAll(".lib-railbtn").forEach(x =>
+    x.classList.toggle("on", x.dataset.page === page));
+}
 document.querySelectorAll(".tab").forEach(t => {
-  t.onclick = () => {
-    document.querySelectorAll(".tab").forEach(x => x.classList.remove("on"));
-    document.querySelectorAll(".tabpage").forEach(x => x.classList.remove("on"));
-    t.classList.add("on");
-    $("page-" + t.dataset.page).classList.add("on");
-  };
+  t.onclick = () => selectLibTab(t.dataset.page);
 });
+
+/* ---- collapsible library: fold to a thin icon rail; persist in localStorage */
+const LIB_KEY = "vc_lib_collapsed";
+function setLibCollapsed(on) {
+  document.body.classList.toggle("lib-collapsed", on);
+  try { localStorage.setItem(LIB_KEY, on ? "1" : "0"); } catch (e) {}
+}
+(function wireLibCollapse() {
+  const collapseBtn = document.getElementById("libCollapse");
+  const expandBtn = document.getElementById("libExpand");
+  if (collapseBtn) collapseBtn.onclick = () => setLibCollapsed(true);
+  if (expandBtn) expandBtn.onclick = () => setLibCollapsed(false);
+  // a rail icon expands the panel AND jumps to that tab
+  document.querySelectorAll(".lib-railbtn").forEach(b =>
+    b.onclick = () => { setLibCollapsed(false); selectLibTab(b.dataset.page); });
+  try { if (localStorage.getItem(LIB_KEY) === "1") setLibCollapsed(true); } catch (e) {}
+})();
 
 /* ---------------------------------------------------------------- library */
 /* A3 — letter grade for a 0..100 sub-score. */

@@ -79,6 +79,12 @@ button{font-family:inherit;font-weight:700;font-size:13.5px;border-radius:8px;
 .primary:disabled{opacity:.55;cursor:default}
 .ghost{background:transparent;color:var(--bone-dim);border-color:var(--line)}
 .ghost:hover{border-color:var(--red);color:var(--red)}
+.ghost2{background:transparent;color:var(--bone-dim);border-color:var(--line)}
+.ghost2:hover{border-color:var(--line-hi);color:var(--bone)}
+.ghost2:disabled{opacity:.55;cursor:default}
+.tog{display:flex;align-items:center;gap:10px;font-size:13.5px;color:var(--bone);
+  cursor:pointer;font-weight:600;letter-spacing:0}
+.tog input{width:auto;margin:0;accent-color:var(--accent);width:16px;height:16px;flex:none}
 .msg{font-size:13px;margin-top:14px;min-height:18px}
 .msg.ok{color:var(--green)} .msg.err{color:var(--red)}
 .note{font-size:12.5px;color:var(--bone-faint);line-height:1.6;
@@ -155,6 +161,42 @@ button{font-family:inherit;font-weight:700;font-size:13.5px;border-radius:8px;
       </div>
       <div class="msg" id="msg"></div>
     </form>
+  </div>
+
+  <div class="card">
+    <h2>YouTube automation</h2>
+    <p class="lead">Watch your channel and turn every new upload into edited,
+      publish-ready shorts automatically. VibeClip downloads the video, finds the
+      best moments, applies your style and pre-renders the clips — you just review
+      and hit publish. Nothing is ever posted without you.</p>
+
+    <div class="status" id="autoStatus">
+      <span class="dot" id="autoDot"></span>
+      <span id="autoStatusText">Loading…</span>
+    </div>
+
+    <form id="autoForm" autocomplete="off">
+      <div class="field">
+        <label for="ytHandle">YouTube channel</label>
+        <input id="ytHandle" type="text" spellcheck="false" placeholder="@codewithbod">
+        <div class="hint">Your @handle or channel URL. We poll the public RSS feed — no Google login or API key.</div>
+      </div>
+      <div class="field">
+        <label for="autoStyle">Auto-edit style</label>
+        <select id="autoStyle"></select>
+        <div class="hint">Every auto-ingested clip gets this style applied and pre-rendered.</div>
+      </div>
+      <div class="field">
+        <label class="tog"><input type="checkbox" id="autoEnabled">
+          <span>Watch this channel for new uploads</span></label>
+      </div>
+      <div class="btns">
+        <button type="submit" class="primary" id="autoSaveBtn">Save</button>
+        <button type="button" class="ghost2" id="autoCheckBtn">Check for new videos now</button>
+      </div>
+      <div class="msg" id="autoMsg"></div>
+    </form>
+    <p class="note" id="autoNote" style="margin-top:18px"></p>
   </div>
 
   <div class="card">
@@ -259,10 +301,92 @@ $('removeBtn').addEventListener('click', async () => {
     const r = await fetch('/api/settings/llm', {method:'DELETE'});
     if (r.ok){ $('api_key').value=''; $('model').value=''; $('model_pro').value='';
                $('base_url').value=''; msg.className='msg ok'; msg.textContent='Key removed.'; await load(); }
+    else { let d={}; try{ d = await r.json(); }catch(_){}
+           msg.className='msg err'; msg.textContent = d.error || 'Could not remove key.'; }
   }catch(e){ msg.className='msg err'; msg.textContent='Could not remove key.'; }
 });
 
 load();
+
+// ---------------------------------------------------------------- automation
+let AUTO=null, AUTO_YT_OK=true;
+function esc(s){return (s||'').replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));}
+function fmtTime(iso){try{return new Date(iso).toLocaleString();}catch(_){return iso;}}
+
+function renderAuto(a){
+  const dot=$('autoDot'), txt=$('autoStatusText');
+  dot.className='dot';
+  if(a.enabled && a.channel_id){
+    dot.classList.add('on');
+    txt.innerHTML=`Watching <b>${esc(a.channel_title||a.channel_handle)}</b> — new uploads `+
+      `auto-edit with <b>${esc(a.auto_edit_style)}</b>.`;
+  } else if(a.channel_id){
+    dot.classList.add('env');
+    txt.innerHTML=`Channel set (<b>${esc(a.channel_title||a.channel_handle)}</b>) — watching is off.`;
+  } else {
+    txt.textContent='Not set up yet — add your channel below to start.';
+  }
+  const bits=[];
+  if(!AUTO_YT_OK) bits.push('⚠ yt-dlp is not installed on the server — downloads will fail until it is.');
+  if(a.last_checked) bits.push('Last checked: '+fmtTime(a.last_checked));
+  if(a.last_video_id) bits.push('Latest seen: '+a.last_video_id);
+  if(a.last_error) bits.push('⚠ '+a.last_error);
+  $('autoNote').textContent=bits.join(' · ');
+}
+
+async function loadAuto(){
+  try{
+    const r=await fetch('/api/automation');
+    if(r.status===401){ location.href='/login?next=/settings'; return; }
+    const d=await r.json();
+    AUTO=d.automation; AUTO_YT_OK=d.yt_dlp_available!==false;
+    const sel=$('autoStyle'); sel.innerHTML='';
+    (d.styles||[]).forEach(s=>{const o=document.createElement('option');
+      o.value=s.name; o.textContent=s.label||s.name; sel.appendChild(o);});
+    if(AUTO.channel_handle) $('ytHandle').value=AUTO.channel_handle;
+    sel.value=AUTO.auto_edit_style||'hormozi';
+    $('autoEnabled').checked=!!AUTO.enabled;
+    renderAuto(AUTO);
+  }catch(e){ $('autoMsg').className='msg err'; $('autoMsg').textContent='Could not load automation.'; }
+}
+
+$('autoForm').addEventListener('submit', async e=>{
+  e.preventDefault();
+  const btn=$('autoSaveBtn'), msg=$('autoMsg');
+  msg.className='msg'; msg.textContent='';
+  btn.disabled=true; btn.innerHTML='<span class="spin"></span>Saving…';
+  try{
+    const r=await fetch('/api/automation',{method:'POST',headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({enabled:$('autoEnabled').checked, channel_handle:$('ytHandle').value,
+                           auto_edit_style:$('autoStyle').value})});
+    const d=await r.json();
+    if(!r.ok){ msg.className='msg err'; msg.textContent=d.error||'Save failed.'; }
+    else{ AUTO=d.automation; msg.className='msg ok';
+      msg.textContent=AUTO.enabled?'Saved — watching your channel for new uploads.':'Saved.';
+      if(AUTO.channel_handle) $('ytHandle').value=AUTO.channel_handle;
+      $('autoEnabled').checked=!!AUTO.enabled; renderAuto(AUTO); }
+  }catch(_){ msg.className='msg err'; msg.textContent='Network error.'; }
+  finally{ btn.disabled=false; btn.textContent='Save'; }
+});
+
+$('autoCheckBtn').addEventListener('click', async ()=>{
+  const btn=$('autoCheckBtn'), msg=$('autoMsg'); const old=btn.textContent;
+  msg.className='msg'; msg.textContent='';
+  btn.disabled=true; btn.innerHTML='<span class="spin" style="border-color:var(--bone-dim);border-top-color:transparent"></span>Checking…';
+  try{
+    const r=await fetch('/api/automation/check',{method:'POST'});
+    const d=await r.json();
+    if(!r.ok){ msg.className='msg err'; msg.textContent=d.error||'Check failed.'; }
+    else{ AUTO=d.automation; msg.className='msg ok';
+      msg.textContent=d.queued>0
+        ? `Found ${d.queued} new video${d.queued>1?'s':''} — editing now. Watch the Projects page.`
+        : 'No new videos since the last check.';
+      renderAuto(AUTO); }
+  }catch(_){ msg.className='msg err'; msg.textContent='Network error.'; }
+  finally{ btn.disabled=false; btn.textContent=old; }
+});
+
+loadAuto();
 </script>
 </body>
 </html>

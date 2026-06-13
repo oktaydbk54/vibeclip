@@ -121,11 +121,13 @@ def _auto_edit_clip(
     from pipeline.media import ffprobe_info, run_ffmpeg as _run
 
     vf_parts: list[str] = []
+    reframed = False  # did the tracked-reframe vf to a 9:16 canvas actually run?
     if tracked_reframe and not reframe_done:
         from pipeline.tracking import build_reframe_vf
         vf = _safe("reframe_vf", lambda: build_reframe_vf(path), "")
         if vf:
             vf_parts.append(vf)
+            reframed = True
     elif not tracked_reframe and not reframe_done:
         from pipeline.reframe import reframe_vertical
         path = _safe("reframe", lambda: reframe_vertical(path), path)
@@ -137,14 +139,19 @@ def _auto_edit_clip(
             for e in plan["emphasis"]
         ]
         fps = ffprobe_info(path)["fps"] or 30
-        zvf = build_zoom_vf(windows, 1080, 1920, fps) if vf_parts else \
+        zvf = build_zoom_vf(windows, 1080, 1920, fps) if reframed else \
             build_zoom_vf(windows, *_dims(path), fps)
         if zvf:
             vf_parts.append(zvf)
 
     pre_vf = ",".join(vf_parts)
     if subtitles:
-        canvas = (1080, 1920) if (tracked_reframe and not reframe_done) else None
+        # Only claim the 9:16 canvas if the reframe vf was actually built and
+        # appended — if build_reframe_vf raised (caught by _safe -> ""), the
+        # frame stays at its original size, so captions must use those dims.
+        # (vf_parts can be non-empty from zoom alone, so it's not the right
+        # signal here — track the reframe explicitly.)
+        canvas = (1080, 1920) if reframed else None
         path = _safe("render", lambda: burn_subtitles(
             path, words, clip_start=clip_start, karaoke=True,
             pre_vf=pre_vf, canvas=canvas), path)

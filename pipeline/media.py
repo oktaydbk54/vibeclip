@@ -63,6 +63,13 @@ def run_ffmpeg(args: list[str], cwd: str | Path | None = None) -> None:
     the hash-cache would mistake it for a finished artifact.
     """
     out_path = args[-1] if args else None
+    # Progressive web playback: move the moov atom to the front for mp4/mov
+    # family outputs so a browser can start playing before the whole file is
+    # downloaded. No-op for image / PCM / pipe outputs (not mov-family), and
+    # skipped if the caller already set -movflags.
+    if (out_path and "-movflags" not in args
+            and Path(out_path).suffix.lower() in (".mp4", ".mov", ".m4a")):
+        args = [*args[:-1], "-movflags", "+faststart", out_path]
     atomic = _looks_like_output(out_path) if out_path else False
     tmp = None
     if atomic:

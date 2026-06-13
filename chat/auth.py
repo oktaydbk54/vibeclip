@@ -271,6 +271,46 @@ def verify_password(row: dict, password: str) -> bool:
     return hmac.compare_digest(expect, got)
 
 
+# ---------------------------------------------------------------- profile json
+# The users table stores arbitrary per-user JSON in profile_json. Onboarding,
+# the BYOK "llm" block and the YouTube "automation" block all share it; these
+# helpers do the load→merge→persist dance once so callers never re-implement it.
+def get_profile(uid: int) -> dict:
+    """The user's parsed profile_json ({} if missing/unparseable)."""
+    row = _row_by_id(uid)
+    if not row:
+        return {}
+    try:
+        return json.loads(row["profile_json"] or "{}")
+    except (ValueError, TypeError):
+        return {}
+
+
+def update_profile(uid: int, patch: dict) -> dict:
+    """Shallow-merge `patch` into the user's profile_json and persist. Returns
+    the updated profile. Unrelated top-level keys (onboarding, llm) survive."""
+    profile = get_profile(uid)
+    profile.update(patch)
+    with _connect() as con:
+        con.execute("UPDATE users SET profile_json = ? WHERE id = ?",
+                    (json.dumps(profile), uid))
+    return profile
+
+
+def all_profiles() -> list[tuple[int, str, dict]]:
+    """(id, email, profile) for every user — for feature pollers that must scan
+    all accounts (e.g. the automation watcher). Unparseable profiles read {}."""
+    out: list[tuple[int, str, dict]] = []
+    with _connect() as con:
+        for r in con.execute("SELECT id, email, profile_json FROM users"):
+            try:
+                prof = json.loads(r["profile_json"] or "{}")
+            except (ValueError, TypeError):
+                prof = {}
+            out.append((int(r["id"]), r["email"], prof))
+    return out
+
+
 # ---------------------------------------------------------------- admin queries
 def list_users() -> list[dict]:
     """All users (no password material) for the admin dashboard, newest first."""

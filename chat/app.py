@@ -63,6 +63,8 @@ app = FastAPI(title="shorts-mcp chat editor")
 app.include_router(auth.router)
 from chat import social  # noqa: E402 — after `app` so its lazy import of app works
 app.include_router(social.router)
+from chat import automation  # noqa: E402 — lazy-imports chat.app in its job closures
+app.include_router(automation.router)
 SESSION: Session | None = None
 HISTORY: list[dict] = []
 
@@ -566,12 +568,16 @@ def _clip_counts(clips: list[dict]) -> dict:
 
 
 def _can_see_project(data: dict, user: dict) -> bool:
-    """A user sees their own projects; legacy/unowned ones are admin-only (so a
-    public instance never leaks other people's work)."""
+    """A user sees their own projects. Legacy/unowned (owner_uid=None) projects
+    are visible to admins, and — on a single-tenant self-host box
+    (CLAIM_ORPHAN_PROJECTS, the default) — to any logged-in user, who claims them
+    on open. A public instance sets the flag False so orphans never leak."""
     owner = data.get("owner_uid")
     if owner == user["id"]:
         return True
-    return owner is None and bool(user.get("is_admin"))
+    if owner is None:
+        return bool(user.get("is_admin")) or config.CLAIM_ORPHAN_PROJECTS
+    return False
 
 
 @app.get("/api/projects")
@@ -637,6 +643,10 @@ def _project_row(data: dict, sdir: Path, pfile: Path,
         if mtime else None,
         "duration": src.get("duration"),
         "clips": _clip_counts(clips),
+        "best_score": max((int(c.get("score") or 0) for c in clips), default=0),
+        "folder": data.get("folder") or "",
+        "source": intake.get("source") or "",
+        "youtube_url": intake.get("youtube_url") or "",
         "thumb": f"/api/projects/{sdir.name}/thumb",
         "active": active,
         "error": intake.get("error"),
@@ -675,6 +685,11 @@ def open_project(body: ProjectOpenIn,
             return JSONResponse(
                 {"error": "Another project is rendering."}, status_code=409)
         SESSION = Session.open_existing(name)
+        # Claim a legacy orphan (owner_uid=None) for the opener so ownership is
+        # deterministic from here on (matches _can_see_project's self-host path).
+        if SESSION.data.get("owner_uid") is None:
+            SESSION.data["owner_uid"] = user["id"]
+            SESSION.save()
         HISTORY = []
     return {"ok": True, "name": name, "next": f"/studio?project={quote(name)}"}
 
@@ -833,6 +848,31 @@ def rename_project(name: str, body: ProjectRenameIn,
             data["display_name"] = new_name
             pfile.write_text(json.dumps(data, ensure_ascii=False, indent=1))
     return {"ok": True, "display_name": new_name}
+
+
+class ProjectFolderIn(BaseModel):
+    folder: str = ""
+
+
+@app.post("/api/projects/{name}/folder")
+def set_project_folder(name: str, body: ProjectFolderIn,
+                       _user: dict = Depends(auth.require_user)):
+    """Tag a project with a folder name (blank clears it). Stored in
+    project.json only — like rename, it never touches the dir."""
+    pfile = SESSIONS_DIR / name / "project.json"
+    if not pfile.exists():
+        return JSONResponse({"error": f"No project '{name}'."},
+                            status_code=404)
+    folder = (body.folder or "").strip()[:60]
+    with SESSION_LOCK:
+        if SESSION is not None and SESSION.data["name"] == name:
+            SESSION.data["folder"] = folder
+            SESSION.save()
+        else:
+            data = json.loads(pfile.read_text())
+            data["folder"] = folder
+            pfile.write_text(json.dumps(data, ensure_ascii=False, indent=1))
+    return {"ok": True, "folder": folder}
 
 
 @app.post("/api/projects/{name}/delete")
@@ -1358,7 +1398,10 @@ def restore(index: int, _user: dict = Depends(auth.require_user)) -> dict:
         if not 0 <= index < len(hist):
             return JSONResponse({"error": "no such version"}, status_code=404)
         entry = hist[index]
-        clips = entry["clips"] if isinstance(entry, dict) else entry
+        clips = entry.get("clips") if isinstance(entry, dict) else entry
+        if clips is None:
+            return JSONResponse({"error": "version has no clips to restore"},
+                                status_code=422)
         SESSION.snapshot("before restore")
         SESSION.data["clips"] = copy.deepcopy(clips)
         SESSION.save()
@@ -1516,6 +1559,9 @@ def main() -> None:
             print(f"[gc] {len(r['removed'])} stale artifacts removed")
 
     MANAGER.on_idle = _auto_gc
+
+    # Start the YouTube auto-clip watcher (opt-in per user; no-op if disabled).
+    automation.start_poller()
 
     import uvicorn
     uvicorn.run(app, host=os.getenv("HOST", "127.0.0.1"), port=port, log_level="warning")

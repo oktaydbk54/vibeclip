@@ -126,6 +126,33 @@ body{
   flex-direction:column; gap:8px}
 .tabpage.on{display:flex}
 
+/* ---- collapsible library ---- */
+.lib-collapse{flex:none; width:32px; display:flex; align-items:center;
+  justify-content:center; background:none; border:none; cursor:pointer;
+  color:var(--bone-faint); border-left:1px solid var(--line); transition:color .15s}
+.lib-collapse svg{width:15px; height:15px}
+.lib-collapse:hover{color:var(--accent-hi)}
+.lib-rail{display:none}              /* shown only when collapsed (below) */
+.lib-rail .lib-expand,
+.lib-railbtn{width:36px; height:36px; display:flex; align-items:center;
+  justify-content:center; background:none; border:1px solid transparent;
+  border-radius:8px; color:var(--bone-faint); cursor:pointer; transition:.15s}
+.lib-rail .lib-expand svg{width:16px; height:16px}
+.lib-railbtn svg{width:18px; height:18px}
+.lib-rail .lib-expand:hover,
+.lib-railbtn:hover{color:var(--accent-hi); border-color:var(--line-hi);
+  background:var(--raise)}
+.lib-railbtn.on{color:var(--accent); border-color:var(--accent-dim);
+  background:var(--accent-glow)}
+
+body.lib-collapsed:not(.mode-basit) .shell{
+  grid-template-columns:46px minmax(0,1fr) 392px}
+body.lib-collapsed:not(.mode-basit) .library .tabs,
+body.lib-collapsed:not(.mode-basit) .library .tabpage{display:none}
+body.lib-collapsed:not(.mode-basit) .library{align-items:center}
+body.lib-collapsed:not(.mode-basit) .lib-rail{display:flex;
+  flex-direction:column; align-items:center; gap:6px; padding:10px 4px; width:100%}
+
 .clipcard{
   display:flex; gap:10px; padding:9px; border:1px solid var(--line);
   border-radius:var(--r); background:var(--panel2); cursor:pointer;

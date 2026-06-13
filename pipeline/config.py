@@ -216,3 +216,10 @@ PROXY_ENCODER = os.getenv("PROXY_ENCODER", VIDEO_ENCODER)
 # PUBLIC instance sets these (e.g. 600 / 1) to protect finite server storage.
 MAX_UPLOAD_SECONDS = int(os.getenv("MAX_UPLOAD_SECONDS", "0"))      # 0 = no limit
 MAX_PROJECTS_PER_USER = int(os.getenv("MAX_PROJECTS_PER_USER", "0"))  # 0 = unlimited
+
+# Legacy projects created before per-user ownership carry owner_uid=None. On a
+# single-tenant self-host box any logged-in user should see and claim them (they
+# get backfilled to the opener). Set False on a PUBLIC multi-tenant instance so
+# orphaned projects never leak between accounts.
+CLAIM_ORPHAN_PROJECTS = os.getenv(
+    "CLAIM_ORPHAN_PROJECTS", "true").lower() in ("1", "true", "yes", "on")

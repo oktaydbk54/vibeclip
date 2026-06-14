@@ -2,6 +2,10 @@
 __pycache__/
 *.pyc
 .env
+# Any .env backup/variant (e.g. .env.bak, .env.prod, sed -i'' backups) may hold
+# real secrets — never commit. The tracked template .env.example is re-included.
+.env.*
+!.env.example
 cache/
 outputs/
 assets/user/

@@ -19,6 +19,27 @@ if [ ! -f .env ]; then
   exit 1
 fi
 
+# --- 0) Ownership guard. A past `sudo git`/root docker run can leave .git objects
+#        owned by root, so a later `git fetch` as your normal user dies with
+#        "insufficient permission for adding an object". Detect that and repair it
+#        with PASSWORDLESS sudo only (sudo -n never prompts — no password is ever
+#        typed here). If passwordless sudo isn't set up, stop with the exact fix.
+me="$(id -un)"
+if find .git -not -user "$me" -print -quit 2>/dev/null | grep -q .; then
+  echo "→ Some .git files aren't owned by $me (a previous root/sudo run). Repairing…"
+  if sudo -n chown -R "$me:$me" "$PWD" 2>/dev/null; then
+    echo "  ✓ ownership repaired"
+  else
+    cat >&2 <<EOF
+✗ .git has root-owned files and passwordless sudo isn't available, so this
+  script can't fix it safely. Run this ONCE, then re-run the deploy:
+
+      sudo chown -R $me:$me $PWD
+EOF
+    exit 1
+  fi
+fi
+
 # --- 1) Public-instance hardening flags (idempotent: update in place or append).
 #        These are config, not secrets. See .env.example for what each does.
 ensure_env() {

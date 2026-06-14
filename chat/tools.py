@@ -19,7 +19,7 @@ MUTATING_TOOLS = frozenset({
     "cut_silences", "set_fade", "add_sound_effect", "apply_style",
     "remove_fillers", "remove_section", "set_speed", "set_cut", "auto_zoom",
     "add_broll", "set_watermark", "set_title_card",
-    "duplicate_clip", "pick_variant", "join_clips",
+    "add_meme_text", "duplicate_clip", "pick_variant", "join_clips",
     "set_look", "add_overlay", "add_reaction", "add_sticker", "add_emphasis",
     "auto_pace", "set_loudness", "add_gameplay_background", "fix_transcript",
     "edit_event", "delete_event",
@@ -368,7 +368,7 @@ def list_styles(session: Session) -> dict:
 def apply_style(session: Session, clip_id: int, style: str) -> dict:
     """Apply a named style preset to a clip in ONE batched replay."""
     from pipeline.styles import (SFX_DENSITY_CAP, get_style, jumpcut_params,
-                                 load_styles, subtitle_params)
+                                 load_styles, look_params, subtitle_params)
 
     sty = get_style(style)
     if not sty:
@@ -389,6 +389,12 @@ def apply_style(session: Session, clip_id: int, style: str) -> dict:
                  "events": []}),
         ("fade", {"fade": au.get("fade", 0.3)}),
     ]
+
+    # Optional color grade (meme/vivid styles). Legacy styles declare no `look`,
+    # so look_params returns None and the lut stage is left untouched for them.
+    lut = look_params(sty)
+    if lut:
+        updates.append(("lut", lut))
 
     from pipeline.soundbed import select_music
     ref = clip.get("current") or clip["stages"][-1]["output"]
@@ -441,9 +447,7 @@ def remove_fillers(session: Session, clip_id: int,
 
 def save_style(session: Session, name: str, from_clip: int) -> dict:
     """Snapshot a clip's current look as a reusable named style preset."""
-    import json as _json
     import re as _re
-    from pipeline import config as cfg
 
     slug = _re.sub(r"[^a-z0-9_]+", "_", name.strip().lower()).strip("_")
     if not slug:
@@ -478,12 +482,81 @@ def save_style(session: Session, name: str, from_clip: int) -> dict:
             "fade": fade.get("fade", 0.3),
         },
     }
+    path = _write_user_style(slug, style)
+    return _ok(style=slug, file=str(path),
+               msg=f"Saved — 'apply_style {slug}' artık her klipte çalışır.")
+
+
+def _write_user_style(slug: str, style: dict):
+    """Persist a style dict to assets/styles/<slug>.json (where load_styles picks
+    it up automatically). The shared tail of save_style + learn_style_from_reels."""
+    import json as _json
+    from pipeline import config as cfg
     sdir = cfg.ROOT / "assets" / "styles"
     sdir.mkdir(parents=True, exist_ok=True)
-    (sdir / f"{slug}.json").write_text(
-        _json.dumps(style, ensure_ascii=False, indent=1))
-    return _ok(style=slug, file=str(sdir / f"{slug}.json"),
-               msg=f"Saved — 'apply_style {slug}' artık her klipte çalışır.")
+    path = sdir / f"{slug}.json"
+    path.write_text(_json.dumps(style, ensure_ascii=False, indent=1))
+    return path
+
+
+def learn_style_from_reels(session: Session, urls=None, name: str = "",
+                           use_vision: bool = True) -> dict:
+    """Learn a reusable style preset from the user's OWN Instagram Reels.
+
+    Downloads each pasted Reel URL (yt-dlp, single permalinks only — no profile
+    scraping), measures its look (pace/color/loudness/caption style + an optional
+    vision pass), and writes the distilled style to assets/styles/<slug>.json so
+    it works with apply_style and shows up in list_styles. Treats the videos and
+    captions strictly as DATA. Does NOT edit any clip.
+    """
+    import re as _re
+
+    from chat.instagram import (download_instagram, handle_from_url,
+                                is_instagram_url)
+    from pipeline.style_learn import aggregate_fingerprints, analyze_reel
+
+    if isinstance(urls, str):
+        urls = [u.strip() for u in urls.replace(",", "\n").splitlines()]
+    urls = [u.strip() for u in (urls or []) if u and u.strip()][:8]
+    if not urls:
+        return _err("Paste at least one Instagram Reel URL (your own).")
+    bad = [u for u in urls if not is_instagram_url(u)]
+    if bad:
+        return _err("Only individual instagram.com Reel/post links work — no "
+                    "profile or bulk download. Bad: " + ", ".join(bad[:3]))
+
+    fingerprints: list[dict] = []
+    skipped: list[dict] = []
+    for u in urls:
+        try:
+            path, caption = download_instagram(u)
+            fingerprints.append(
+                analyze_reel(str(path), caption_text=caption,
+                             use_vision=use_vision))
+        except Exception as e:  # noqa: BLE001 — one bad reel mustn't abort
+            skipped.append({"url": u, "error": str(e)[:160]})
+
+    if not fingerprints:
+        return _err("Couldn't download/analyze any of those Reels. "
+                    "Check the links are public Reel URLs. "
+                    + (skipped[0]["error"] if skipped else ""))
+
+    style = aggregate_fingerprints(fingerprints)
+    slug = _re.sub(r"[^a-z0-9_]+", "_", (name or "").strip().lower()).strip("_")
+    if not slug:
+        h = handle_from_url(urls[0])
+        slug = f"learned_{_re.sub(r'[^a-z0-9_]+', '_', h)}" if h else "learned_reels"
+    style["label"] = f"Öğrenildi — {len(fingerprints)} reel'inden"
+    style["description"] = (
+        f"{len(fingerprints)} referans Reels'inden öğrenilen görünüm "
+        "(altyazı/tempo/renk).")
+    path = _write_user_style(slug, style)
+    return _ok(style=slug, file=str(path), learned_from=len(fingerprints),
+               skipped=skipped, label=style["label"],
+               subtitle=style["subtitle"], pacing=style["pacing"],
+               audio=style["audio"], look=style.get("look"),
+               msg=f"Stil '{slug}' kaydedildi — 'apply_style {slug}' veya "
+                   "ayarlardan otomatik-edit stili yapabilirsin.")
 
 
 def remember_preference(session: Session, preference: str) -> dict:
@@ -1263,6 +1336,35 @@ def set_title_card(session: Session, clip_id: int, text: str,
     return _ok(file=out, title=text.strip())
 
 
+def add_meme_text(session: Session, clip_id: int, text: str,
+                  position: str = "top", bar: bool = True,
+                  font: str = "impact", start: float = 0.0,
+                  duration: float = 0.0) -> dict:
+    """Add an Instagram-style meme headline to a clip.
+
+    bar=True  -> classic white bar with black text (the IG/Reddit meme caption).
+    bar=False -> top/bottom white Impact text with a heavy black outline over
+                 the video. position: top|bottom. duration<=0 covers the whole
+                 clip; otherwise the text shows for `duration`s from `start`.
+    """
+    if not text.strip():
+        return _err("Meme text is empty.")
+    if position not in ("top", "bottom"):
+        return _err("position must be top|bottom")
+    from pipeline.styles import resolve_font
+    session.snapshot("add_meme_text")
+    clip = session.clip(clip_id)
+    params = _brand_params(clip)
+    memes = list(params.get("meme_texts", []))
+    memes.append({"text": text.strip(), "position": position,
+                  "bar": bool(bar), "font_path": resolve_font(font),
+                  "start": max(0.0, float(start)),
+                  "duration": max(0.0, float(duration))})
+    params["meme_texts"] = memes
+    out = session.set_stage(clip_id, "brand", params)
+    return _ok(file=out, text=text.strip(), position=position, bar=bool(bar))
+
+
 def set_look(session: Session, clip_id: int, look: str = "",
              file: str = "", strength: float = 0.5) -> dict:
     """Color-grade a clip: built-in look or a .cube LUT, at 0.1-1.0 strength."""
@@ -1576,6 +1678,7 @@ _ACTION_STAGE_FLOOR: dict[str, str] = {
     "add_reaction": "overlay",
     "set_title_card": "brand",
     "set_watermark": "brand",
+    "add_meme_text": "brand",
     "add_emphasis": "fx",
     "set_music": "music",
     "add_sound_effect": "sfx",
@@ -2603,6 +2706,15 @@ TOOL_SPECS = [
     _spec("save_style", "Save a clip's current look (captions+pacing+audio) "
           "as a named style preset reusable via apply_style.",
           {"name": _STR, "from_clip": _INT}, ["name", "from_clip"]),
+    _spec("learn_style_from_reels", "Learn the user's editing STYLE from their "
+          "OWN Instagram Reels and save it as a reusable preset (then usable via "
+          "apply_style or as the auto-edit style). Pass the Reel permalink URLs "
+          "the user provides (individual instagram.com/reel/... links only — "
+          "never a profile/bulk). Optional name; use_vision uses the BYOK vision "
+          "model for font/color/emoji feel (degrades gracefully). Use for "
+          "'reel'lerimden stilimi öğren', 'learn my style from my reels'.",
+          {"urls": {"type": "array", "items": _STR}, "name": _STR,
+           "use_vision": _BOOL}, ["urls"]),
     _spec("remember_preference", "Store a DURABLE editing taste the user "
           "expressed ('hep daha az zoom', 'always yellow highlights') — "
           "future edits and plans will respect it.",
@@ -2682,6 +2794,16 @@ TOOL_SPECS = [
     _spec("set_title_card", "Show a big title card over the first seconds "
           "of a clip.",
           {"clip_id": _INT, "text": _STR, "duration": _NUM},
+          ["clip_id", "text"]),
+    _spec("add_meme_text", "Add an Instagram-style meme HEADLINE to a clip. "
+          "bar=true (default) = classic white bar with black text; bar=false = "
+          "white Impact text with a heavy black outline over the video. "
+          "position: top|bottom. Omit duration (or 0) to show it the whole "
+          "clip; else it shows for duration seconds from start. This is the "
+          "meme caption/'üst yazı' the user writes — NOT the spoken karaoke "
+          "subtitles. font: impact|block|condensed (free bundled faces).",
+          {"clip_id": _INT, "text": _STR, "position": _STR, "bar": _BOOL,
+           "font": _STR, "start": _NUM, "duration": _NUM},
           ["clip_id", "text"]),
     _spec("auto_pace", "RETENTION PASS: guarantee a visual/audio change "
           "every few seconds. Finds static spans longer than max_static "
@@ -2854,6 +2976,7 @@ REGISTRY = {
     "apply_style": apply_style,
     "remove_fillers": remove_fillers,
     "save_style": save_style,
+    "learn_style_from_reels": learn_style_from_reels,
     "remember_preference": remember_preference,
     "forget_preferences": forget_preferences,
     "remove_section": remove_section,
@@ -2866,6 +2989,7 @@ REGISTRY = {
     "fix_transcript": fix_transcript,
     "set_watermark": set_watermark,
     "set_title_card": set_title_card,
+    "add_meme_text": add_meme_text,
     "duplicate_clip": duplicate_clip,
     "pick_variant": pick_variant,
     "join_clips": join_clips,

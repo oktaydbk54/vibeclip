@@ -20,3 +20,6 @@ assets/user/
 /*.mp4
 /*.mov
 /*.mkv
+
+# Local-only remote deploy script (contains server host details; never publish).
+scripts/deploy_remote.sh

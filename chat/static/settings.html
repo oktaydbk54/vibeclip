@@ -200,6 +200,45 @@ button{font-family:inherit;font-weight:700;font-size:13.5px;border-radius:8px;
   </div>
 
   <div class="card">
+    <h2>Learn my style from my Reels</h2>
+    <p class="lead">Paste a few of your own Instagram Reels and VibeClip studies
+      their <b>look</b> — caption style, pacing, color and energy — then saves it
+      as a reusable preset. It re-styles your other videos in that look; it does
+      <b>not</b> copy or regenerate your Reels. Single Reel links only — no
+      profile or bulk download.</p>
+
+    <form id="learnForm" autocomplete="off">
+      <div class="field">
+        <label for="reelUrls">Your Reel links (one per line)</label>
+        <textarea id="reelUrls" rows="4" spellcheck="false"
+          style="width:100%;resize:vertical;font:inherit;padding:10px;border-radius:8px"
+          placeholder="https://www.instagram.com/reel/…&#10;https://www.instagram.com/reel/…"></textarea>
+        <div class="hint">Up to 8. We download each with yt-dlp and analyze it locally.</div>
+      </div>
+      <div class="field">
+        <label for="learnName">Style name</label>
+        <input id="learnName" type="text" spellcheck="false" placeholder="my_style">
+        <div class="hint">Leave blank to auto-name it (e.g. learned_yourhandle).</div>
+      </div>
+      <div class="field">
+        <label class="tog"><input type="checkbox" id="learnVision" checked>
+          <span>Use AI vision for font/color/emoji feel (needs a vision-capable key)</span></label>
+      </div>
+      <div class="field">
+        <label class="tog"><input type="checkbox" id="learnAuto">
+          <span>Make this my auto-edit style</span></label>
+      </div>
+      <div class="btns">
+        <button type="submit" class="primary" id="learnBtn">Learn my style</button>
+      </div>
+      <div class="msg" id="learnMsg"></div>
+    </form>
+    <p class="note" style="margin-top:18px">VibeClip is an editor: it learns a
+      look to apply to your footage. Downloading is limited to the exact Reel
+      links you paste; captions are read only to gauge style.</p>
+  </div>
+
+  <div class="card">
     <h2>How your key is handled</h2>
     <p class="note">
       <b>Encrypted at rest.</b> Your key is encrypted before it touches the
@@ -382,6 +421,29 @@ $('autoCheckBtn').addEventListener('click', async ()=>{
         ? `Found ${d.queued} new video${d.queued>1?'s':''} — editing now. Watch the Projects page.`
         : 'No new videos since the last check.';
       renderAuto(AUTO); }
+  }catch(_){ msg.className='msg err'; msg.textContent='Network error.'; }
+  finally{ btn.disabled=false; btn.textContent=old; }
+});
+
+// ------------------------------------------------------- learn style from reels
+$('learnForm').addEventListener('submit', async e=>{
+  e.preventDefault();
+  const btn=$('learnBtn'), msg=$('learnMsg'); const old=btn.textContent;
+  const urls=$('reelUrls').value.split('\n').map(s=>s.trim()).filter(Boolean);
+  msg.className='msg'; msg.textContent='';
+  if(!urls.length){ msg.className='msg err'; msg.textContent='Paste at least one Reel link.'; return; }
+  btn.disabled=true; btn.innerHTML='<span class="spin" style="border-color:var(--bone-dim);border-top-color:transparent"></span>Learning…';
+  try{
+    const r=await fetch('/api/style/learn',{method:'POST',headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({urls, name:$('learnName').value.trim(),
+        use_vision:$('learnVision').checked, set_as_auto:$('learnAuto').checked})});
+    const d=await r.json();
+    if(!r.ok){ msg.className='msg err'; msg.textContent=d.error||'Could not start.'; }
+    else{ msg.className='msg ok';
+      msg.textContent='Downloading & analyzing your Reels… this runs in the background. '
+        +'Your new style will appear in the style list shortly — refresh to use it.';
+      // Pull the (eventually) new style into the auto-edit picker after a beat.
+      setTimeout(loadAuto, 8000); }
   }catch(_){ msg.className='msg err'; msg.textContent='Network error.'; }
   finally{ btn.disabled=false; btn.textContent=old; }
 });

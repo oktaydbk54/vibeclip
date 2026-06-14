@@ -9,7 +9,8 @@ from pathlib import Path
 
 from chat.tools import list_styles
 from pipeline import subtitle as sub
-from pipeline.styles import load_styles, subtitle_params
+from pipeline.styles import (MEME_FONTS, load_styles, look_params,
+                             resolve_font, subtitle_params)
 
 
 def test_gallery_has_curated_entries():
@@ -72,3 +73,51 @@ def test_seeded_example_json_exists():
     # The user-extensible taste layer keeps working alongside the built-ins.
     assert (Path(__file__).resolve().parents[1]
             / "assets" / "styles" / "boran_v1.json").exists()
+
+
+# ── Meme styles + look + bundled fonts ────────────────────────────────────
+
+def test_meme_styles_present_and_use_bundled_font():
+    styles = load_styles()
+    root = Path(__file__).resolve().parents[1]
+    for name in ("meme_impact", "meme_caption", "deep_fried", "reaction_zoom"):
+        assert name in styles, f"missing meme style {name}"
+        font = styles[name]["subtitle"]["font"]
+        # Meme styles must reference a BUNDLED font (portable to the server),
+        # never a proprietary system path like /System/Library/...Impact.ttf.
+        assert "assets/fonts" in font.replace("\\", "/")
+        assert Path(font).exists(), f"{name} font not bundled: {font}"
+    assert (root / "assets" / "fonts" / "Anton-Regular.ttf").exists()
+
+
+def test_bundled_fonts_load_as_truetype():
+    from PIL import ImageFont
+    for fname in MEME_FONTS.values():
+        p = Path(__file__).resolve().parents[1] / "assets" / "fonts" / fname
+        assert p.exists(), f"bundled font missing: {fname}"
+        # Must be a real TrueType (not the PIL bitmap default).
+        ImageFont.truetype(str(p), 48)
+
+
+def test_resolve_font_maps_keys_and_passes_paths():
+    impact = resolve_font("impact")
+    assert impact.endswith("Anton-Regular.ttf")
+    assert Path(impact).exists()
+    # Unknown key / explicit path is returned unchanged.
+    assert resolve_font("/abs/path/Foo.ttf") == "/abs/path/Foo.ttf"
+    assert resolve_font("") == ""
+
+
+def test_look_params_only_for_styles_with_a_look():
+    styles = load_styles()
+    # deep_fried declares a grade; legacy styles do not.
+    df = look_params(styles["deep_fried"])
+    assert df and df["look"] == "deepfried" and 0.1 <= df["strength"] <= 1.0
+    assert look_params(styles["hormozi"]) is None
+    assert look_params({}) is None
+
+
+def test_deepfried_and_vivid_looks_registered():
+    from pipeline.colorfx import LOOKS
+    assert "deepfried" in LOOKS
+    assert "vivid" in LOOKS

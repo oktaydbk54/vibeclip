@@ -20,6 +20,11 @@ LOOKS: dict[str, str] = {
     "cinematic": ("curves=blue='0/0.05 0.5/0.5 1/0.95':"
                   "red='0/0 0.5/0.52 1/1',eq=saturation=1.06:contrast=1.05"),
     "vintage": "curves=all='0/0.06 1/0.93',eq=saturation=0.85:gamma=1.04",
+    # Meme grades. "vivid" = punchy reaction-video pop; "deepfried" = the
+    # intentionally blown-out crushed-saturation meme look.
+    "vivid": "eq=saturation=1.35:contrast=1.12:gamma=0.97",
+    "deepfried": ("eq=saturation=2.2:contrast=1.45:brightness=0.04,"
+                  "noise=alls=8:allf=t,unsharp=5:5:1.4"),
 }
 
 

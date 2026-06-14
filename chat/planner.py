@@ -71,6 +71,14 @@ PLAN_ACTIONS: dict[str, str] = {
                      '"altta". Captions are always horizontally centered',
     "set_title_card": '{"text": "<short title ≤5 words>", "duration": 1.5-3} — '
                       'a big title card over the first seconds of the clip',
+    "add_meme_text": '{"text": "<the meme headline>", "position": "top|bottom", '
+                     '"bar": true|false, "font": "impact", "duration": 0} — an '
+                     'Instagram-style meme HEADLINE the user writes (NOT the '
+                     'spoken karaoke subtitles). bar=true = classic white bar '
+                     'with black text; bar=false = white Impact text with a '
+                     'thick black outline over the video. duration 0 = whole '
+                     'clip. Use when the user gives literal top/bottom meme text '
+                     '("üste şunu yaz", "meme yazısı: ...", "white bar caption")',
     "set_fade": '{"fade": 0.15-0.6} — fade in/out length',
     "auto_pace": '{"max_static": 3-6} — retention pass: fill static spans '
                  'with jittered interrupts (zoom/sfx/shake)',
@@ -147,10 +155,12 @@ remove_phrase (by what was SAID), set_cut (re-cut bounds).
 - Look/sound: set_look (color grade), set_music, add_sound_effect, set_fade, \
 set_loudness, set_denoise.
 - Captions/titles: set_subtitles (size/position/color/karaoke), \
-set_title_card, fix_transcript (correct ASR text, keep timing).
+set_title_card, add_meme_text (literal top/bottom meme headline the user \
+writes — white bar or Impact outline), fix_transcript (correct ASR text, keep \
+timing).
 - Framing: set_aspect (9:16 / 1:1 / 16:9 reframe).
-- Assets/FX: add_broll, add_overlay, add_reaction, add_sticker, set_watermark, \
-add_gameplay_background (split-screen gameplay).
+- Assets/FX: add_broll (stock/user cover footage), add_overlay, add_reaction, \
+add_sticker, set_watermark, add_gameplay_background (split-screen gameplay).
 - Edit existing events: edit_event / delete_event (use the 0-based indices \
 from CURRENT STATE; deletes go last).
 Canonical examples: "yarı hıza al" -> set_speed factor=0.5; "kare yap" -> \

@@ -15,6 +15,9 @@ from pipeline import config
 from pipeline.media import ffprobe_info, run_ffmpeg
 
 TITLE_FONT = "/System/Library/Fonts/Supplemental/Arial Black.ttf"
+# Bundled free Impact-alike for meme headlines — portable to the Linux server
+# (real Impact is proprietary and never shipped). See assets/fonts/CREDITS.md.
+MEME_FONT = str(config.ROOT / "assets" / "fonts" / "Anton-Regular.ttf")
 # Corner anchors sit inside the platform safe zone (top 11%, bottom 79%,
 # right 87.5%) so the watermark never hides under TikTok/Shorts UI.
 CORNERS = {"tl": (0.06, 0.115), "tr": (0.875, 0.115),
@@ -58,18 +61,86 @@ def _render_title_png(text: str, width: int, height: int, out_path: str,
     img.save(out_path)
 
 
-def apply_brand(clip_path: str, watermark: dict | None = None,
-                title: dict | None = None, out_path: str | None = None) -> str:
-    """One encode adding watermark and/or title-card overlays.
+def _wrap_lines(draw, text: str, font, max_w: float) -> list[str]:
+    """Greedy word-wrap `text` (uppercased) to fit `max_w` pixels per line."""
+    words, lines, cur = text.upper().split(), [], []
+    for word in words:
+        trial = " ".join(cur + [word])
+        if draw.textlength(trial, font=font) <= max_w or not cur:
+            cur.append(word)
+        else:
+            lines.append(" ".join(cur))
+            cur = [word]
+    if cur:
+        lines.append(" ".join(cur))
+    return lines
 
-    watermark: {"path", "corner": tl|tr|bl|br, "opacity": 0..1, "scale": 0..1}
-    title:     {"text", "duration": s}
+
+def _render_meme_text_png(text: str, width: int, height: int, out_path: str,
+                          *, position: str = "top", bar: bool = True,
+                          font_path: str = MEME_FONT) -> None:
+    """Render top/bottom meme text to a full-frame transparent PNG.
+
+    bar=True  -> the classic Instagram "white bar with black text" headline
+                 (an opaque full-width band, black text, no outline).
+    bar=False -> top/bottom Impact-style caption: white text with a heavy black
+                 outline over the video itself (no band).
+    position  -> 'top' anchors near the top; 'bottom' sits just above the
+                 platform safe zone (last ~20% reserved for app UI).
+    """
+    from PIL import Image, ImageDraw, ImageFont
+
+    img = Image.new("RGBA", (width, height), (0, 0, 0, 0))
+    draw = ImageDraw.Draw(img)
+    size = int(height * (0.05 if bar else 0.058))
+    font = ImageFont.truetype(font_path, size)
+
+    lines = _wrap_lines(draw, text, font, width * (0.92 if bar else 0.9))
+    line_h = int(size * 1.18)
+    block_h = line_h * len(lines)
+    pad = int(size * 0.5)
+
+    if position == "bottom":
+        text_top = int(height * 0.78) - block_h
+    else:
+        text_top = int(height * 0.04) + (pad if bar else 0)
+
+    if bar:
+        draw.rectangle(
+            [0, max(0, text_top - pad), width, min(height, text_top + block_h + pad)],
+            fill=(255, 255, 255, 255))
+        fill, stroke_w, stroke_fill = (0, 0, 0, 255), 0, None
+    else:
+        fill = (255, 255, 255, 255)
+        stroke_w = max(2, int(size * 0.08))
+        stroke_fill = (0, 0, 0, 255)
+
+    y = text_top
+    for ln in lines:
+        x = (width - draw.textlength(ln, font=font)) / 2
+        draw.text((x, y), ln, font=font, fill=fill,
+                  stroke_width=stroke_w, stroke_fill=stroke_fill)
+        y += line_h
+    img.save(out_path)
+
+
+def apply_brand(clip_path: str, watermark: dict | None = None,
+                title: dict | None = None, meme_texts: list[dict] | None = None,
+                out_path: str | None = None) -> str:
+    """One encode adding watermark, title-card and/or meme-text overlays.
+
+    watermark:  {"path", "corner": tl|tr|bl|br, "opacity": 0..1, "scale": 0..1}
+    title:      {"text", "duration": s}
+    meme_texts: [{"text", "position": top|bottom, "bar": bool,
+                  "font_path": str, "start": s, "duration": s}] — duration<=0
+                covers the whole clip.
     """
     src = Path(clip_path)
-    if not watermark and not title:
+    meme_texts = meme_texts or []
+    if not watermark and not title and not meme_texts:
         return clip_path
     info = ffprobe_info(clip_path)
-    w, h = info["width"], info["height"]
+    w, h, dur = info["width"], info["height"], info["duration"]
 
     inputs: list[str] = ["-i", str(src.resolve())]
     steps: list[str] = []
@@ -102,6 +173,30 @@ def apply_brand(clip_path: str, watermark: dict | None = None,
             f"[{label}][{idx}:v]overlay=0:0:"
             f"enable='between(t,0,{dur:.2f})'[vt]")
         label = "vt"
+        idx += 1
+
+    for mi, mt in enumerate(meme_texts):
+        if not mt.get("text", "").strip():
+            continue
+        pos = mt.get("position", "top")
+        is_bar = bool(mt.get("bar", True))
+        fpath = mt.get("font_path") or MEME_FONT
+        key = hashlib.sha1(
+            f"{mt['text']}:{pos}:{is_bar}:{fpath}:{w}x{h}".encode()
+        ).hexdigest()[:10]
+        png = str(config.CACHE_DIR / f"meme_{key}.png")
+        _render_meme_text_png(mt["text"], w, h, png, position=pos,
+                              bar=is_bar, font_path=fpath)
+        inputs += ["-i", png]
+        start = max(0.0, float(mt.get("start", 0)))
+        md = float(mt.get("duration", 0) or 0)
+        nxt = f"vm{mi}"
+        if md > 0:
+            en = f":enable='between(t,{start:.2f},{min(dur, start + md):.2f})'"
+        else:
+            en = ""
+        steps.append(f"[{label}][{idx}:v]overlay=0:0{en}[{nxt}]")
+        label = nxt
         idx += 1
 
     out = out_path or str(src.with_name(src.stem + "_brand.mp4"))

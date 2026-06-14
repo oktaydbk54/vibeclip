@@ -1091,10 +1091,13 @@ class Session:
 
         if name == "brand":
             from pipeline.brand import apply_brand
-            if not p.get("watermark") and not p.get("title"):
+            if (not p.get("watermark") and not p.get("title")
+                    and not p.get("meme_texts")):
                 return inp
             return apply_brand(inp, watermark=p.get("watermark"),
-                               title=p.get("title"), out_path=out_path)
+                               title=p.get("title"),
+                               meme_texts=p.get("meme_texts"),
+                               out_path=out_path)
 
         if name == "zoom":
             from pipeline.effects import punch_zoom

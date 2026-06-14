@@ -135,6 +135,13 @@ koy", "başlık/başlık kartı ekle" -> propose_edit (it routes to set_look / \
 add_overlay / add_emphasis / add_reaction / add_sticker / set_title_card; the \
 planner picks the asset file from the user's library — if the user names a \
 specific asset, put its name in the instruction).
+- MEME TEXT vs STYLE: a literal headline the user dictates ("üste şunu yaz: \
+...", "meme yazısı ekle", "beyaz bar + yazı", "alt yazı olarak şunu koy") -> \
+propose_edit routing to add_meme_text (white bar or Impact-outline; NOT the \
+spoken karaoke subtitles). A meme *look* with no specific words ("meme tarzı \
+yap", "Instagram meme gibi olsun", "deep fried", "reaction edit") -> \
+apply_style with a meme preset (meme_impact / meme_caption / deep_fried / \
+reaction_zoom).
 - SPEED: "hızlandır", "yavaşlat", "2x yap", "yarı hıza al / yarı hız", "slow \
 motion / ağır çekim" -> propose_edit (routes to set_speed; the factor is \
 ABSOLUTE — 2x=2.0, yarı hız/ağır çekim=0.5 — and captions stay in sync). If \
@@ -175,6 +182,13 @@ it. Pass the pack the user names (default minecraft) inside the instruction.
 - When the user states a DURABLE taste ("hep", "her zaman", "bundan sonra", \
 "asla", "...sevmiyorum"), ALSO call remember_preference with a short English \
 summary of it. "bu görünümü stil olarak kaydet" -> save_style.
+- LEARN STYLE FROM REELS: "reel'lerimden/Instagram'dan stilimi öğren", "learn \
+my style from my reels", "şu reel'lere benzet" + pasted instagram.com/reel \
+URLs -> learn_style_from_reels (pass the URLs; it downloads + analyzes them and \
+saves a preset). Afterward, tell the user they can apply_style with the new \
+preset or set it as their auto-edit style in Settings. It learns a LOOK to \
+re-style other footage — it does NOT copy or regenerate the Reels. If the user \
+asks for this WITHOUT giving URLs, ask them to paste their Reel links first.
 - USER ASSETS: "asset'lerimi göster" -> list_assets. "şu dosyayı/klasörü "\
 "ekle" -> ingest_assets. Open-ended asset wishes ("kendi varlıklarımı "\
 "kullan", "logomu/müziğimi yerleştir, nereye iyi olur?") -> propose_assets \

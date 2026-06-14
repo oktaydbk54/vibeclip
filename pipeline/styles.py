@@ -17,6 +17,30 @@ from pipeline import config
 
 _FONT_DIR = "/System/Library/Fonts/Supplemental"
 
+# Bundled, OFL-licensed display faces (assets/fonts/) — portable across the dev
+# Mac and the Linux/Docker server, unlike the proprietary system fonts the
+# legacy styles below reference (real Impact/Arial Black are NOT free; those
+# paths degrade gracefully via subtitle._resolve_font). Meme styles and the
+# add_meme_text tool reference these by a stable LOGICAL key instead of a path.
+_BUNDLED_FONT_DIR = config.ROOT / "assets" / "fonts"
+MEME_FONTS = {
+    "impact": "Anton-Regular.ttf",       # free Impact-alike — the meme face
+    "block": "ArchivoBlack-Regular.ttf",  # heavy Arial-Black-alike
+    "condensed": "BebasNeue-Regular.ttf",  # tall all-caps headline
+}
+_ANTON = str(_BUNDLED_FONT_DIR / MEME_FONTS["impact"])
+
+
+def resolve_font(key: str) -> str:
+    """Map a logical meme-font key to an absolute bundled-font path.
+
+    A known key ('impact'/'block'/'condensed') resolves to the OFL font under
+    assets/fonts/; anything else (e.g. an explicit path) is returned unchanged.
+    """
+    fname = MEME_FONTS.get((key or "").strip().lower())
+    return str(_BUNDLED_FONT_DIR / fname) if fname else key
+
+
 SFX_DENSITY_CAP = {"off": 0, "low": 1, "medium": 2, "high": 3}
 
 # Caption-template library — a curated gallery of viral short-form looks.
@@ -348,6 +372,101 @@ STYLES: dict[str, dict] = {
             "sfx_density": "low", "fade": 0.35,
         },
     },
+    # ── Meme / Instagram-style looks ──────────────────────────────────────
+    # These reference the BUNDLED Anton face (free Impact-alike) so they render
+    # the same on the server as on the dev Mac. They are content-agnostic looks
+    # (caption styling + pacing + color + sfx); the actual top/bottom meme
+    # headline text is content, added per-clip with the add_meme_text tool.
+    "meme_impact": {
+        "label": "Meme Impact — top white Impact-caps with heavy black stroke",
+        "description": "Classic Instagram/Reddit meme captions: bold uppercase "
+                       "Anton (free Impact) high in frame, white with a thick "
+                       "black outline, punchy zooms and dense sfx.",
+        "subtitle": {
+            "scale": 1.2, "y_ratio": 0.18, "karaoke": True,
+            "text_color": "#ffffff", "highlight_color": "#ffffff",
+            "font": _ANTON,
+            "stroke": 11, "hilite_pop": 1.12, "uppercase": True,
+            "animation": "pop", "pill": False, "emphasis": "none",
+            "auto_emoji": True,
+        },
+        "pacing": {
+            "max_pause": 0.32, "remove_fillers": True,
+            "zoom_density": 0.28, "zoom_strength": 1.24,
+        },
+        "audio": {
+            "music_mood": "energetic", "music_volume": 0.16,
+            "sfx_density": "high", "fade": 0.18,
+        },
+    },
+    "meme_caption": {
+        "label": "Meme caption — black pill caption bar, IG-reels look",
+        "description": "Uppercase Anton words inside a solid black pill parked "
+                       "just below center — the ubiquitous Instagram Reels / "
+                       "TikTok auto-caption meme bar.",
+        "subtitle": {
+            "scale": 1.05, "y_ratio": 0.6, "karaoke": True,
+            "text_color": "#ffffff", "highlight_color": "#ffe14d",
+            "font": _ANTON,
+            "stroke": 4, "hilite_pop": 1.1, "uppercase": True,
+            "animation": "pop", "pill": "#000000", "emphasis": "none",
+            "auto_emoji": True,
+        },
+        "pacing": {
+            "max_pause": 0.38, "remove_fillers": True,
+            "zoom_density": 0.2, "zoom_strength": 1.18,
+        },
+        "audio": {
+            "music_mood": "neutral", "music_volume": 0.15,
+            "sfx_density": "medium", "fade": 0.2,
+        },
+    },
+    "deep_fried": {
+        "label": "Deep fried — blown-out saturation, loud Impact, max chaos",
+        "description": "The 'deep-fried meme' aesthetic: crushed high-saturation "
+                       "color grade, oversized Anton caps and wall-to-wall sound "
+                       "effects.",
+        "subtitle": {
+            "scale": 1.32, "y_ratio": 0.5, "karaoke": True,
+            "text_color": "#ffffff", "highlight_color": "#ff2d2d",
+            "font": _ANTON,
+            "stroke": 12, "hilite_pop": 1.2, "uppercase": True,
+            "animation": "pop", "pill": False, "emphasis": "none",
+            "auto_emoji": True,
+        },
+        "pacing": {
+            "max_pause": 0.3, "remove_fillers": True,
+            "zoom_density": 0.32, "zoom_strength": 1.28,
+        },
+        "look": {"look": "deepfried", "strength": 0.8},
+        "audio": {
+            "music_mood": "energetic", "music_volume": 0.2,
+            "sfx_density": "high", "fade": 0.12,
+        },
+    },
+    "reaction_zoom": {
+        "label": "Reaction zoom — punch-in heavy, vivid, reaction-video energy",
+        "description": "Aggressive frequent punch-in zooms and a vivid grade with "
+                       "bold Anton caps — the reaction-channel / commentary look "
+                       "built to pair with reaction overlays and flash hits.",
+        "subtitle": {
+            "scale": 1.22, "y_ratio": 0.55, "karaoke": True,
+            "text_color": "#ffffff", "highlight_color": "#39e75f",
+            "font": _ANTON,
+            "stroke": 10, "hilite_pop": 1.18, "uppercase": True,
+            "animation": "pop", "pill": False, "emphasis": "none",
+            "auto_emoji": False,
+        },
+        "pacing": {
+            "max_pause": 0.34, "remove_fillers": True,
+            "zoom_density": 0.4, "zoom_strength": 1.3,
+        },
+        "look": {"look": "vivid", "strength": 0.5},
+        "audio": {
+            "music_mood": "energetic", "music_volume": 0.17,
+            "sfx_density": "high", "fade": 0.15,
+        },
+    },
 }
 
 
@@ -395,3 +514,16 @@ def jumpcut_params(style: dict) -> dict:
         "max_pause": pc.get("max_pause", 0.5),
         "remove_fillers": pc.get("remove_fillers", False),
     }
+
+
+def look_params(style: dict) -> dict | None:
+    """Style's optional color-grade block -> 'lut' stage params.
+
+    Returns None when the style declares no `look` (the common case), so
+    apply_style leaves the lut stage untouched for the legacy caption styles.
+    """
+    lk = style.get("look")
+    if not lk or not lk.get("look"):
+        return None
+    return {"look": str(lk["look"]),
+            "strength": max(0.1, min(1.0, float(lk.get("strength", 0.5))))}

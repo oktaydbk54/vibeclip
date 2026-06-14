@@ -104,34 +104,48 @@ def _llm_override_for(uid: int, profile: dict):
 
 
 # ------------------------------------------------------------------ download
-def download_youtube(url: str, video_id: str) -> Path:
-    """Download a single video to DOWNLOAD_DIR/<video_id>.mp4 (deterministic, so
-    re-ingesting the same id reuses the file + project). Raises on failure."""
+def download_video(url: str, dest_dir: Path, basename: str,
+                   write_info: bool = False) -> Path:
+    """Download ONE video by URL to dest_dir/<basename>.mp4 (deterministic, so a
+    re-download reuses the file). The single yt-dlp invocation, format selection,
+    timeout and error handling for the whole app — wrapped by download_youtube
+    (YouTube auto-ingest) and chat.instagram.download_instagram (style learning).
+    write_info=True also keeps yt-dlp's --write-info-json sidecar (used to
+    recover a Reel's caption text as DATA for style analysis). Raises on failure.
+    """
     if not Path(YT_DLP).exists():
         raise RuntimeError(
             "yt-dlp is not installed. `pip install yt-dlp` (or `uv sync`).")
-    DOWNLOAD_DIR.mkdir(parents=True, exist_ok=True)
-    out = DOWNLOAD_DIR / f"{video_id}.mp4"
+    dest_dir.mkdir(parents=True, exist_ok=True)
+    out = dest_dir / f"{basename}.mp4"
     if out.exists() and out.stat().st_size > 0:
         return out
     cmd = [
         YT_DLP, "--no-playlist", "--no-warnings",
         "-f", "bv*[height<=1080]+ba/b[height<=1080]/bv*+ba/b",
         "--merge-output-format", "mp4",
-        "-o", str(DOWNLOAD_DIR / f"{video_id}.%(ext)s"),
-        url,
+        "-o", str(dest_dir / f"{basename}.%(ext)s"),
     ]
+    if write_info:
+        cmd.append("--write-info-json")
+    cmd.append(url)
     proc = subprocess.run(cmd, capture_output=True, text=True, timeout=3600)
     if proc.returncode != 0:
         tail = (proc.stderr or proc.stdout or "").strip().splitlines()
         raise RuntimeError("yt-dlp failed: " + (tail[-1] if tail else "unknown error"))
     if not out.exists():
-        # merge produced a non-.mp4 container — adopt whatever landed.
-        cands = sorted(DOWNLOAD_DIR.glob(f"{video_id}.*"))
+        # merge produced a non-.mp4 container — adopt whatever video landed.
+        cands = sorted(p for p in dest_dir.glob(f"{basename}.*")
+                       if p.suffix.lower() not in (".json", ".part"))
         if not cands:
             raise RuntimeError("yt-dlp produced no output file.")
         out = cands[0]
     return out
+
+
+def download_youtube(url: str, video_id: str) -> Path:
+    """Download a single YouTube video to DOWNLOAD_DIR/<video_id>.mp4."""
+    return download_video(url, DOWNLOAD_DIR, video_id)
 
 
 # -------------------------------------------------------------- ingest job
@@ -377,3 +391,42 @@ def check_now(request: Request, user: dict = Depends(auth.require_user)):
         return JSONResponse({"error": res["error"]}, status_code=502)
     return {"ok": True, "queued": res.get("new", 0),
             "automation": _public_cfg(get_config(user["id"]))}
+
+
+class LearnStyleIn(BaseModel):
+    urls: list[str] = []
+    name: str = ""
+    use_vision: bool = True
+    set_as_auto: bool = False
+
+
+@router.post("/api/style/learn")
+def learn_style(body: LearnStyleIn, user: dict = Depends(auth.require_user)):
+    """Learn a reusable style from the user's own Reels (download + analyze runs
+    as a background job; publishing/auto-apply stays the user's choice).
+
+    The job closure owns the user id, so when set_as_auto is set it writes the
+    learned slug into THIS user's automation config — keeping the uid-agnostic
+    REGISTRY tool free of auth context (the recommended split)."""
+    urls = [u.strip() for u in (body.urls or []) if u and u.strip()]
+    if not urls:
+        return JSONResponse({"error": "Paste at least one Reel URL."},
+                            status_code=400)
+    uid = user["id"]
+    override = auth.user_llm_override(user)
+    use_vision, name, set_as_auto = body.use_vision, body.name, body.set_as_auto
+
+    def _run(job=None) -> dict:
+        from chat.tools import learn_style_from_reels
+        res = learn_style_from_reels(None, urls=urls, name=name,
+                                     use_vision=use_vision)
+        if res.get("ok") and set_as_auto and res.get("style"):
+            cfg = get_config(uid)
+            cfg["auto_edit_style"] = res["style"]
+            save_config(uid, cfg)
+            res["set_as_auto"] = res["style"]
+        return res
+
+    job = MANAGER.submit("tool", "learn style from reels", _run,
+                         llm_override=override)
+    return {"ok": True, "job_id": getattr(job, "id", None)}

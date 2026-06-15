@@ -155,6 +155,18 @@ with that aspect instead.
 - CAPTION POSITION: "altyazıyı/captionları yukarı al / üstte / yukarıda \
 ortala" (top), "ortala / ekranın ortasına" (middle), "aşağı / altta" (bottom) \
 -> propose_edit (set_subtitles y_ratio: top≈0.15, middle≈0.5, bottom≈0.8).
+- CAPTION LANGUAGE / TRANSLATE: "altyazıyı İspanyolcaya çevir", "captionları \
+İngilizce yap", "translate the captions to Arabic", "İngilizce altyazı ekle" -> \
+propose_edit (routes to set_caption_language with the target language; only the \
+ON-SCREEN captions are translated, the AUDIO is untouched). "altyazıyı orijinal \
+dile/geri al" -> set_caption_language language='original'.
+- DUBBING (re-voice the AUDIO): "İspanyolca dublaj yap", "sesi İngilizce yap", \
+"dub this in Arabic", "voice-over in German" -> propose_edit (routes to set_dub \
+with the target language; it TRANSLATES + RE-SYNTHESIZES the spoken voice and \
+time-fits it back). "orijinal sese dön / dublajı kaldır" -> set_dub \
+language='original'. DISTINGUISH: only the on-screen text translated = \
+set_caption_language; the spoken VOICE replaced = set_dub. When unclear which \
+one, ask_user (e.g. "Sadece altyazı mı, yoksa sesi de mi çevireyim?").
 - TRANSITIONS: "araya geçiş ekle / geçiş efekti koy" on ONE clip WITHOUT a \
 named kind is AMBIGUOUS -> ask_user FIRST (options e.g. "Flash kesim", "Karart-\
 aç (fade)", "Klipler arası crossfade", "Zoom punch"). Once the kind is known: a \

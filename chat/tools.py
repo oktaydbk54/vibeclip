@@ -25,6 +25,8 @@ MUTATING_TOOLS = frozenset({
     "edit_event", "delete_event",
     "set_aspect",  # reframe_aspect_tool: re-reframes the canvas (a render)
     "remove_phrase",  # transcript_timeline: content-described trim (a render)
+    "set_caption_language",  # translated captions (re-renders subtitles)
+    "set_dub",  # translated voice-over (re-renders the dub stage + audio tail)
 })
 
 # Valid export aspect ratios (mirrors pipeline.tracking.ASPECTS keys).
@@ -37,6 +39,15 @@ def _ok(**kw) -> dict:
 
 def _err(msg: str) -> dict:
     return {"ok": False, "error": msg}
+
+
+def _lang_slug(lang: str) -> str:
+    """A filesystem-safe token for a language label, for sidecar filenames
+    (e.g. 'Spanish'->'spanish', 'pt-BR'->'pt-br'). Falls back to 'xx' if the
+    label has no usable alphanumerics."""
+    s = "".join(c if c.isalnum() else "-" for c in (lang or "").lower())
+    s = "-".join(p for p in s.split("-") if p)
+    return s or "xx"
 
 
 # ----------------------------------------------------------------- impls
@@ -1672,6 +1683,7 @@ _ACTION_STAGE_FLOOR: dict[str, str] = {
     "auto_zoom": "zoom",
     "add_gameplay_background": "splitscreen",
     "set_subtitles": "subtitles",
+    "set_caption_language": "subtitles",
     "fix_transcript": "subtitles",
     "add_overlay": "overlay",
     "add_sticker": "overlay",
@@ -1680,6 +1692,7 @@ _ACTION_STAGE_FLOOR: dict[str, str] = {
     "set_watermark": "brand",
     "add_meme_text": "brand",
     "add_emphasis": "fx",
+    "set_dub": "dub",
     "set_music": "music",
     "add_sound_effect": "sfx",
     "set_fade": "fade",
@@ -2413,12 +2426,18 @@ def set_autonomy(session: Session, mode: str) -> dict:
 
 
 def export_captions(session: Session, clip_id: int,
-                    format: str = "srt") -> dict:
+                    format: str = "srt", language: str = "") -> dict:
     """Export a clip's captions as a sidecar subtitle file (SRT or VTT).
 
     Uses the SAME segmenter as the burned-in captions, so the file matches what
     plays on screen. Works even if the clip has no burned subtitle stage — it
     reads the clip's current word timings directly.
+
+    language: target language for a TRANSLATED sidecar ('Spanish', 'es', …).
+    Pass 'original'/'off' to force the spoken language. When omitted, the export
+    DEFAULTS to whatever language the clip's burned captions use (subtitles
+    stage 'lang'), so the file keeps matching the screen. Translated files get a
+    language suffix (clip01.es.srt) so they don't clobber the original.
     """
     from pipeline.captions import build_caption_segments, to_srt, to_vtt
     fmt = (format or "srt").lower().lstrip(".")
@@ -2429,13 +2448,29 @@ def export_captions(session: Session, clip_id: int,
         words = session.words_for(clip)
     except ValueError as e:
         return _err(str(e))
+    # Resolve the target language: explicit param wins; 'original'/'off' forces
+    # the spoken language; an empty param matches the burned captions.
+    raw = (language or "").strip()
+    if raw.lower() in ("original", "off", "source", "none"):
+        lang = ""
+    elif raw:
+        lang = raw
+    else:
+        sub = next((st["params"] for st in clip["stages"]
+                    if st["name"] == "subtitles"), {})
+        lang = (sub.get("lang") or "").strip()
+    if lang:
+        from pipeline.translate import translate_captions
+        words = translate_captions(words, lang)
     segments = build_caption_segments(words, clip_start=0.0)
     if not segments:
         return _err("No transcript words to export for this clip.")
     text = to_vtt(segments) if fmt == "vtt" else to_srt(segments)
-    out = session.workdir / f"clip{clip_id:02d}.{fmt}"
+    suffix = f".{_lang_slug(lang)}" if lang else ""
+    out = session.workdir / f"clip{clip_id:02d}{suffix}.{fmt}"
     out.write_text(text, encoding="utf-8")
     return _ok(path=str(out), format=fmt, segments=len(segments),
+               language=(lang or None),
                url=f"/api/captions/{clip_id}.{fmt}")
 
 
@@ -2506,6 +2541,80 @@ def restore_section(session: Session, clip_id: int,
                                notes=session.last_notes)
             return _err("Cut span found but no matching trim range.")
     return _err("That span is not inside any removed section.")
+
+
+def set_caption_language(session: Session, clip_id: int,
+                         language: str = "") -> dict:
+    """Render a clip's captions in another language (translated, timing kept).
+
+    language: a target language name or code ("Spanish", "es", "İspanyolca",
+    "Arabic"…). Pass "" / "original" / "off" to clear translation and go back
+    to the spoken language. Translation happens at render time through the
+    model-agnostic LLM layer and is disk-cached; on any failure the captions
+    fall back to the original language rather than breaking the render.
+    """
+    lang = (language or "").strip()
+    clip = session.clip(clip_id)
+    if clip.get("locked"):
+        return _err("Clip is picture-locked — unlock it first.")
+    off = lang.lower() in ("", "original", "off", "none", "source")
+    params = dict(next((st["params"] for st in clip["stages"]
+                        if st["name"] == "subtitles"), {}))
+    if off:
+        if not params.get("lang"):
+            return _ok(clip_id=clip_id, language=None,
+                       msg=f"Clip #{clip_id} captions are already in the "
+                           "original language.")
+        params.pop("lang", None)
+    else:
+        params["lang"] = lang
+    params.setdefault("karaoke", True)
+    params.setdefault("scale", 1.0)
+    params.setdefault("y_ratio", 0.68)
+    session.snapshot(f"caption_lang:{lang or 'original'}")
+    out = session.set_stage(clip_id, "subtitles", params)
+    return _ok(file=out, clip_id=clip_id, language=(None if off else lang),
+               msg=(f"Captions back to original language."
+                    if off else f"Captions now in {lang}."),
+               notes=session.last_notes)
+
+
+def set_dub(session: Session, clip_id: int, language: str = "",
+            voice: str = "") -> dict:
+    """Dub a clip — replace the SPOKEN AUDIO with a translated voice.
+
+    language: target language name/code ("Spanish", "es", "Arabic"…). Pass
+    "" / "original" / "off" to remove the dub and restore the original voice.
+    voice: optional provider voice name/id (else the configured default).
+
+    Unlike set_caption_language (which only translates on-screen text), this
+    re-voices the clip: each spoken sentence is translated and synthesized, then
+    time-fitted back onto its original moment. Music/SFX still layer on top.
+    Needs a TTS provider configured (OpenAI key by default); on failure the clip
+    keeps its original audio.
+    """
+    lang = (language or "").strip()
+    clip = session.clip(clip_id)
+    if clip.get("locked"):
+        return _err("Clip is picture-locked — unlock it first.")
+    off = lang.lower() in ("", "original", "off", "none", "source")
+    params = dict(next((st["params"] for st in clip["stages"]
+                        if st["name"] == "dub"), {}))
+    if off:
+        if not params.get("lang"):
+            return _ok(clip_id=clip_id, language=None,
+                       msg=f"Clip #{clip_id} already uses its original voice.")
+        params.pop("lang", None)
+    else:
+        params["lang"] = lang
+        if voice.strip():
+            params["voice"] = voice.strip()
+    session.snapshot(f"dub:{lang or 'original'}")
+    out = session.set_stage(clip_id, "dub", params)
+    return _ok(file=out, clip_id=clip_id, language=(None if off else lang),
+               msg=(f"Restored clip #{clip_id}'s original voice."
+                    if off else f"Dubbed clip #{clip_id} into {lang}."),
+               notes=session.last_notes)
 
 
 def set_aspect(session: Session, clip_id: int, aspect: str = "9:16") -> dict:
@@ -2662,6 +2771,22 @@ TOOL_SPECS = [
           {"clip_id": _INT, "karaoke": _BOOL, "scale": _NUM, "y_ratio": _NUM,
            "text_color": _STR, "highlight_color": _STR},
           ["clip_id"]),
+    _spec("set_caption_language", "Translate a clip's burned-in captions into "
+          "another language while keeping them synced to the speech. language: "
+          "a target language name or code ('Spanish', 'es', 'Arabic', "
+          "'İspanyolca'). Pass 'original' (or 'off') to revert to the spoken "
+          "language. The audio is NOT changed — this only translates the "
+          "on-screen captions.",
+          {"clip_id": _INT, "language": _STR},
+          ["clip_id", "language"]),
+    _spec("set_dub", "DUB a clip: replace the spoken AUDIO with a translated "
+          "voice-over (each sentence translated, synthesized, and time-fitted "
+          "back onto its moment). language: target language name/code. Pass "
+          "'original' (or 'off') to restore the original voice. Use this when "
+          "the user wants the VOICE/audio in another language; use "
+          "set_caption_language when they only want translated SUBTITLES.",
+          {"clip_id": _INT, "language": _STR, "voice": _STR},
+          ["clip_id", "language"]),
     _spec("list_music", "List the available music tracks (by mood bucket) and "
           "ambience files — use to SUGGEST music to the user.", {}, []),
     _spec("add_zoom", "Add an eased punch-in zoom at a moment (seconds, "
@@ -2883,8 +3008,10 @@ TOOL_SPECS = [
           {"checkpoint": _STR, "revert": _BOOL}, []),
     _spec("export_captions", "Export a clip's captions as a downloadable "
           "subtitle sidecar file. format: srt (default) | vtt. Matches the "
-          "on-screen captions exactly.",
-          {"clip_id": _INT, "format": _STR}, ["clip_id"]),
+          "on-screen captions exactly. language: optional target for a "
+          "TRANSLATED sidecar ('Spanish','es'); omit to match the burned "
+          "captions, or 'original' to force the spoken language.",
+          {"clip_id": _INT, "format": _STR, "language": _STR}, ["clip_id"]),
     _spec("nudge_edit", "Move a clip's cut boundary by N frames (frame-exact). "
           "edge: start|end. frames negative = earlier ('kesimi 4 frame geri "
           "al' = frames -4).",
@@ -2966,6 +3093,8 @@ REGISTRY = {
     "preview_clip": preview_clip,
     "set_music": set_music,
     "set_subtitles": set_subtitles,
+    "set_caption_language": set_caption_language,
+    "set_dub": set_dub,
     "add_zoom": add_zoom,
     "cut_silences": cut_silences,
     "set_fade": set_fade,

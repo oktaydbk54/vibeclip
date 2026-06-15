@@ -39,7 +39,7 @@ from pipeline.media import ffprobe_info
 # words, is divided by the factor — see Session.speed_factor / SPED_EVENT_STAGES).
 CANONICAL = ["cut", "jumpcut", "trim", "reframe", "denoise", "speed", "broll",
              "lut", "zoom", "splitscreen", "subtitles", "overlay", "brand",
-             "fx", "music", "ambience", "sfx", "fade"]
+             "fx", "dub", "music", "ambience", "sfx", "fade"]
 
 # Stages that change the clip's timeline by REMOVING content (drive the
 # kept/removed TimeMap). "speed" is deliberately NOT here: it rescales time
@@ -610,6 +610,19 @@ class Session:
         # changing the fixes takes effect immediately without re-transcribing.
         return _apply_word_fixes(cached, clip.get("word_fixes"))
 
+    def segments_for(self, clip: dict) -> list[dict]:
+        """Clip-local transcript SEGMENTS (sentence-level) for the clip's current
+        timing — the dub stage's natural unit. Reads the same TIMING-stage
+        artifact words_for uses; transcribe() is disk-cached so this is cheap."""
+        from pipeline.transcribe import transcribe
+        ref = None
+        for st in clip["stages"]:
+            if st["name"] in TIMING_STAGES:
+                ref = st["output"]
+        if not ref:
+            raise ValueError("Clip has no cut artifact yet.")
+        return transcribe(ref)["segments"]
+
     def speed_factor(self, clip: dict) -> float:
         """The clip's constant-speed factor (1.0 = untouched). Clamped 0.25–4×.
 
@@ -1113,6 +1126,13 @@ class Session:
         if name == "subtitles":
             import pipeline.subtitle as sub
             words = self.words_for(clip)
+            # Optional caption translation: render the captions in another
+            # language while keeping their timing pinned to the original speech.
+            # Done BEFORE the speed remap + emphasis pass so both run on the
+            # translated words. Degrades to source-language captions on failure.
+            if p.get("lang"):
+                from pipeline.translate import translate_captions
+                words = translate_captions(words, p["lang"])
             # words_for is PRE-speed; this stage runs on the sped video, so map
             # each word's timing into the sped timeline (p = u / factor).
             f = self.speed_factor(clip)
@@ -1161,6 +1181,21 @@ class Session:
                 inp, words, clip_start=0.0,
                 karaoke=p.get("karaoke", True),
                 out_path=out_path, style=style)
+
+        if name == "dub":
+            lang = p.get("lang")
+            if not lang:
+                return inp
+            from pipeline.dub import apply_dub
+            try:
+                segments = self.segments_for(clip)
+            except ValueError:
+                return inp
+            # segments_for is PRE-speed; pass the factor so utterances land in
+            # this clip's current (possibly sped) timeline.
+            return apply_dub(inp, segments, target_lang=lang,
+                             speed=self.speed_factor(clip),
+                             voice=p.get("voice") or None, out_path=out_path)
 
         if name == "music":
             from pipeline.audio import add_background_music

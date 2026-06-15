@@ -207,6 +207,27 @@ PEXELS_API_KEY = os.getenv("PEXELS_API_KEY", "")
 ZERNIO_API_KEY = os.getenv("ZERNIO_API_KEY", "")
 ZERNIO_BASE_URL = os.getenv("ZERNIO_BASE_URL", "https://zernio.com/api/v1")
 
+# --- Text-to-speech / dubbing (B1) -----------------------------------------
+# Provider-agnostic, mirroring the LLM layer. Default "openai" reuses the
+# OpenAI(-compatible) key resolved by llm_settings() — zero extra setup for a
+# user who already has an OpenAI key. "elevenlabs" needs ELEVENLABS_API_KEY.
+# "piper" shells out to a LOCAL piper binary (fully offline dubbing — the
+# privacy story cloud-only competitors can't match) and needs a voice .onnx.
+# Any failure degrades GRACEFULLY: the dub stage keeps the original audio.
+TTS_PROVIDER = os.getenv("TTS_PROVIDER", "openai").strip().lower()
+TTS_MODEL = os.getenv("TTS_MODEL", "gpt-4o-mini-tts")
+TTS_VOICE = os.getenv("TTS_VOICE", "alloy")
+# Cap on how much TTS may be sped up (atempo) to fit an utterance into its
+# original time window — beyond this we let it run slightly long rather than
+# turn the voice into a chipmunk.
+TTS_MAX_SPEEDUP = float(os.getenv("TTS_MAX_SPEEDUP", "1.6"))
+ELEVENLABS_API_KEY = os.getenv("ELEVENLABS_API_KEY", "")
+ELEVENLABS_BASE_URL = os.getenv("ELEVENLABS_BASE_URL", "https://api.elevenlabs.io")
+ELEVENLABS_MODEL = os.getenv("ELEVENLABS_MODEL", "eleven_multilingual_v2")
+ELEVENLABS_VOICE = os.getenv("ELEVENLABS_VOICE", "")  # voice id
+PIPER_BIN = os.getenv("PIPER_BIN", "piper")
+PIPER_MODEL = os.getenv("PIPER_MODEL", "")  # path to a piper voice .onnx
+
 # --- Encode (Faz 3/4) ------------------------------------------------------
 # Apple Silicon hardware encoder; falls back to libx264 if unavailable.
 VIDEO_ENCODER = os.getenv("VIDEO_ENCODER", "h264_videotoolbox")

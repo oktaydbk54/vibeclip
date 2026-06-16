@@ -623,6 +623,26 @@ class Session:
             raise ValueError("Clip has no cut artifact yet.")
         return transcribe(ref)["segments"]
 
+    def dub_units_for(self, clip: dict) -> list[dict]:
+        """Fine, rhythm-true dub units (from word timings) for the dub stage —
+        short breath groups anchored to real word starts, so the dubbed voice
+        tracks the speaker's cadence instead of one long line per segment.
+        Falls back to raw segments when words are unavailable or fine
+        segmentation is disabled. PRE-speed seconds; {start,end,text} shape."""
+        if not config.DUB_FINE_SEGMENTS:
+            return self.segments_for(clip)
+        try:
+            words = self.words_for(clip)
+        except ValueError:
+            return self.segments_for(clip)
+        if not words:
+            return self.segments_for(clip)
+        from pipeline.dub import refine_units
+        units = refine_units(words, gap=config.DUB_SPLIT_GAP_SEC,
+                             max_sec=config.DUB_MAX_UNIT_SEC,
+                             min_sec=config.DUB_MIN_UNIT_SEC)
+        return units or self.segments_for(clip)
+
     def speed_factor(self, clip: dict) -> float:
         """The clip's constant-speed factor (1.0 = untouched). Clamped 0.25–4×.
 
@@ -1188,14 +1208,18 @@ class Session:
                 return inp
             from pipeline.dub import apply_dub
             try:
-                segments = self.segments_for(clip)
-            except ValueError:
+                units = self.dub_units_for(clip)
+            except (ValueError, KeyError):
                 return inp
-            # segments_for is PRE-speed; pass the factor so utterances land in
-            # this clip's current (possibly sped) timeline.
-            return apply_dub(inp, segments, target_lang=lang,
-                             speed=self.speed_factor(clip),
-                             voice=p.get("voice") or None, out_path=out_path)
+            # units are PRE-speed; pass the factor so utterances land in this
+            # clip's current (possibly sped) timeline. Belt-and-suspenders: dub
+            # must never crash a render — any failure keeps the original audio.
+            try:
+                return apply_dub(inp, units, target_lang=lang,
+                                 speed=self.speed_factor(clip),
+                                 voice=p.get("voice") or None, out_path=out_path)
+            except Exception:  # noqa: BLE001
+                return inp
 
         if name == "music":
             from pipeline.audio import add_background_music

@@ -221,6 +221,26 @@ TTS_VOICE = os.getenv("TTS_VOICE", "alloy")
 # original time window — beyond this we let it run slightly long rather than
 # turn the voice into a chipmunk.
 TTS_MAX_SPEEDUP = float(os.getenv("TTS_MAX_SPEEDUP", "1.6"))
+
+# --- Dubbing prosody/timing (B1.1) -----------------------------------------
+# Quality knobs for the dub stage. All env-overridable; the defaults turn the
+# improvements ON but every path degrades gracefully, so a clip with no dub is
+# byte-stable. TTS_TARGET_CPS = the speaking-rate budget (chars/sec) used to
+# size translations so a line stays speakable inside its window (~14 suits
+# Turkish; tune per language). DUB_* re-segment one long Whisper segment into
+# short, rhythm-true dub units anchored to real word timestamps.
+TTS_TARGET_CPS = float(os.getenv("TTS_TARGET_CPS", "14"))
+DUB_FINE_SEGMENTS = os.getenv("DUB_FINE_SEGMENTS", "true").lower() in (
+    "1", "true", "yes", "on")
+DUB_MAX_UNIT_SEC = float(os.getenv("DUB_MAX_UNIT_SEC", "3.5"))    # hard split cap
+DUB_MIN_UNIT_SEC = float(os.getenv("DUB_MIN_UNIT_SEC", "0.6"))    # merge below this
+DUB_SPLIT_GAP_SEC = float(os.getenv("DUB_SPLIT_GAP_SEC", "0.35"))  # pause = boundary
+# Steer gpt-4o-mini-tts delivery via its `instructions` field (tonlama).
+TTS_USE_INSTRUCTIONS = os.getenv("TTS_USE_INSTRUCTIONS", "true").lower() in (
+    "1", "true", "yes", "on")
+# Use ffmpeg rubberband (pitch-preserving) for residual stretch when available.
+TTS_PITCH_PRESERVE = os.getenv("TTS_PITCH_PRESERVE", "true").lower() in (
+    "1", "true", "yes", "on")
 ELEVENLABS_API_KEY = os.getenv("ELEVENLABS_API_KEY", "")
 ELEVENLABS_BASE_URL = os.getenv("ELEVENLABS_BASE_URL", "https://api.elevenlabs.io")
 ELEVENLABS_MODEL = os.getenv("ELEVENLABS_MODEL", "eleven_multilingual_v2")

@@ -23,42 +23,71 @@ from pathlib import Path
 from pipeline import config
 
 
-def synthesize(text: str, out_path: str, voice: str | None = None) -> str | None:
+def synthesize(text: str, out_path: str, voice: str | None = None, *,
+               instructions: str | None = None,
+               speed: float | None = None) -> str | None:
     """Render `text` to speech at `out_path`. Returns the path, or None on any
-    failure (missing key, network error, provider unavailable, empty text)."""
+    failure (missing key, network error, provider unavailable, empty text).
+
+    instructions: delivery/tone steering for gpt-4o-mini-tts (ignored by other
+    models/providers). speed: native rate control for tts-1/tts-1-hd. Both are
+    best-effort — a model/SDK that rejects them retries without them."""
     text = (text or "").strip()
     if not text:
         return None
     provider = config.TTS_PROVIDER or "openai"
     try:
         if provider == "elevenlabs":
-            return _elevenlabs(text, out_path, voice)
+            return _elevenlabs(text, out_path, voice)  # new args N/A
         if provider == "piper":
-            return _piper(text, out_path)
-        return _openai(text, out_path, voice)
+            return _piper(text, out_path)              # new args N/A
+        return _openai(text, out_path, voice,
+                       instructions=instructions, speed=speed)
     except Exception:  # noqa: BLE001 — TTS never crashes a render
         return None
 
 
-def _openai(text: str, out_path: str, voice: str | None) -> str | None:
+def _openai(text: str, out_path: str, voice: str | None, *,
+            instructions: str | None = None,
+            speed: float | None = None) -> str | None:
     # Reuse whatever OpenAI-compatible key/base the rest of the pipeline uses.
     api_key, base_url, _ = config.llm_settings()
     from openai import OpenAI
     client = OpenAI(api_key=api_key, base_url=base_url) if base_url \
         else OpenAI(api_key=api_key)
     voice = voice or config.TTS_VOICE
-    # Prefer the streaming-response API (current SDK); fall back to the legacy
-    # create().write_to_file for older clients.
+    model = config.TTS_MODEL
+    # Per-model extras: instructions only for gpt-4o-mini-tts, speed only for
+    # the classic tts-1 family. Anything else gets neither.
+    extra: dict = {}
+    if instructions and config.TTS_USE_INSTRUCTIONS and model == "gpt-4o-mini-tts":
+        extra["instructions"] = instructions
+    elif speed is not None and model in ("tts-1", "tts-1-hd"):
+        extra["speed"] = max(0.25, min(4.0, float(speed)))
+
+    def _run(kw: dict) -> None:
+        # Prefer the streaming-response API (current SDK); fall back to the
+        # legacy create().write_to_file for older clients.
+        try:
+            with client.audio.speech.with_streaming_response.create(
+                    model=model, voice=voice, input=text,
+                    response_format="wav", **kw) as resp:
+                resp.stream_to_file(out_path)
+        except AttributeError:
+            resp = client.audio.speech.create(
+                model=model, voice=voice, input=text,
+                response_format="wav", **kw)
+            resp.write_to_file(out_path)
+
     try:
-        with client.audio.speech.with_streaming_response.create(
-                model=config.TTS_MODEL, voice=voice, input=text,
-                response_format="wav") as resp:
-            resp.stream_to_file(out_path)
-    except AttributeError:
-        resp = client.audio.speech.create(
-            model=config.TTS_MODEL, voice=voice, input=text,
-            response_format="wav")
-        resp.write_to_file(out_path)
+        _run(extra)
+    except TypeError:      # SDK signature rejects instructions/speed
+        _run({})
+    except Exception:      # noqa: BLE001
+        if extra:          # API rejected the field -> retry plain
+            _run({})
+        else:
+            raise
     return out_path if Path(out_path).exists() else None
 
 

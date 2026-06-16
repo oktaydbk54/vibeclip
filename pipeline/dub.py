@@ -1,18 +1,21 @@
 """Voice dubbing — replace a clip's spoken audio with a translated voice (B1).
 
 Pipeline per clip:
-  1. Translate each transcript SEGMENT (a spoken sentence) into the target
-     language — segment granularity gives the TTS natural prosody, unlike the
-     4-word caption chunks used for subtitles.
-  2. Synthesize each translated sentence with the provider-agnostic
-     `pipeline.tts.synthesize` (OpenAI / ElevenLabs / local piper).
-  3. TIME-FIT: a translated sentence rarely matches the original's duration, so
-     if the synthesized clip overruns its [start, end] window we speed it up
-     (atempo, capped at config.TTS_MAX_SPEEDUP) rather than let dub drift out of
-     sync. Shorter utterances simply sit at their start with trailing silence.
-  4. Lay every fitted utterance onto a silent bed at its original start time and
-     mux that voice track in place of the clip's audio — so the downstream
-     music/ambience/sfx/fade stages still layer on top of the dubbed voice.
+  1. Work in short, rhythm-true UNITS (refine_units splits one long Whisper
+     segment on pauses + clause punctuation), so each utterance lands on the
+     speaker's real cadence instead of one long line per segment.
+  2. Translate each unit BUDGET-AWARE (translate_lines_fitted): the line must be
+     speakable inside its time window, with a tighter alt_short fallback — so the
+     voice rarely needs stretching (stretching is what flattens prosody).
+  3. Synthesize via the provider-agnostic `pipeline.tts.synthesize` with per-unit
+     delivery `instructions` (intonation/emphasis from punctuation + rate).
+  4. TWO-SIDED FIT: an overflowing utterance first retries alt_short, then is
+     pitch-preservingly stretched (rubberband, else atempo, capped at
+     config.TTS_MAX_SPEEDUP); a short one sits at its real start and the original
+     pause is preserved (NOT padded with dead air).
+  5. Anchor every utterance by ABSOLUTE start (adelay) on a silent bed and mux it
+     in place of the clip's audio — so music/ambience/sfx/fade still layer on top
+     and a long unit can never push later units out of sync (zero drift).
 
 Everything degrades GRACEFULLY: a translation or TTS failure returns the
 ORIGINAL clip untouched (original-language audio) instead of breaking a render.
@@ -20,11 +23,19 @@ ORIGINAL clip untouched (original-language audio) instead of breaking a render.
 
 from __future__ import annotations
 
+import functools
+import subprocess
 from pathlib import Path
 
 from pipeline import config, tts
 from pipeline.media import ffprobe_info, run_ffmpeg
-from pipeline.translate import translate_lines
+from pipeline.translate import translate_lines, translate_lines_fitted
+
+# Sentence-final vs soft (clause) punctuation — both end a dub unit, so each
+# synthesized utterance is a short, natural breath group that lands on the
+# speaker's real rhythm instead of one long line per Whisper segment.
+_BREAK = (".", "!", "?", "…")
+_SOFT = (",", ";", ":", "—")
 
 
 def _audio_dur(path: str) -> float:
@@ -34,9 +45,112 @@ def _audio_dur(path: str) -> float:
         return 0.0
 
 
+def refine_units(words: list[dict], gap: float = 0.35, max_sec: float = 3.5,
+                 min_sec: float = 0.6) -> list[dict]:
+    """Split word timings into short, rhythm-true dub units.
+
+    A unit breaks on: an inter-word silence >= `gap`, OR a word ending in
+    sentence/clause punctuation, OR exceeding `max_sec`. Units shorter than
+    `min_sec` are merged forward into the previous one (keeping the real bounds).
+    Pure + deterministic; each unit is {start, end, text} (PRE-speed seconds).
+    """
+    units: list[dict] = []
+    cur: list[dict] = []
+
+    def flush() -> None:
+        if cur:
+            units.append({"start": cur[0]["start"], "end": cur[-1]["end"],
+                          "text": " ".join(w["word"] for w in cur).strip()})
+            cur.clear()
+
+    for w in words:
+        if cur:
+            span = w["end"] - cur[0]["start"]
+            if (w["start"] - cur[-1]["end"] >= gap) or span > max_sec:
+                flush()
+        cur.append(w)
+        t = (w.get("word") or "").rstrip()
+        if t.endswith(_BREAK) or t.endswith(_SOFT):
+            flush()
+    flush()
+
+    # Absorb sub-min units (rhythm-breaking fragments): a normal-then-tiny pair
+    # merges the tiny into the PREVIOUS unit; a LEADING tiny (no previous yet)
+    # is held in `pending` and merged forward into the NEXT unit instead.
+    out: list[dict] = []
+    pending: dict | None = None
+    for u in units:
+        if (u["end"] - u["start"]) < min_sec:
+            if out:
+                out[-1]["end"] = u["end"]
+                out[-1]["text"] = (out[-1]["text"] + " " + u["text"]).strip()
+            elif pending is None:
+                pending = dict(u)
+            else:  # consecutive leading fragments accumulate
+                pending["end"] = u["end"]
+                pending["text"] = (pending["text"] + " " + u["text"]).strip()
+            continue
+        if pending is not None:  # attach held leading fragment to this unit
+            u = {"start": pending["start"], "end": u["end"],
+                 "text": (pending["text"] + " " + u["text"]).strip()}
+            pending = None
+        out.append(dict(u))
+    if pending is not None:  # everything was sub-min -> keep the lone fragment
+        out.append(pending)
+    return [u for u in out if u["text"]]
+
+
+@functools.lru_cache(maxsize=1)
+def _ffmpeg_filters() -> str:
+    """Cached `ffmpeg -filters` output (empty string if it can't be queried)."""
+    try:
+        r = subprocess.run(["ffmpeg", "-hide_banner", "-filters"],
+                           capture_output=True, text=True, timeout=10)
+        return (r.stdout or "") + (r.stderr or "")
+    except Exception:  # noqa: BLE001
+        return ""
+
+
+def _has_filter(name: str) -> bool:
+    """True if this ffmpeg build exposes `name` (e.g. 'rubberband')."""
+    return f" {name} " in _ffmpeg_filters()
+
+
+def _instructions_for(text: str, window: float) -> str:
+    """Derive gpt-4o-mini-tts delivery cues from punctuation + speaking rate —
+    no extra model call. Gives the voice real intonation instead of flat TTS."""
+    tone = "Match a natural, engaging conversational delivery."
+    stripped = text.strip()
+    if stripped.endswith("!") or (stripped and stripped.isupper()):
+        tone = "Speak energetically, with emphasis."
+    elif stripped.endswith("?"):
+        tone = "Use a rising, inquisitive intonation."
+    elif stripped.endswith(("…", ",")):
+        tone = "Speak in a measured, natural cadence."
+    rate = (len(stripped) / window) if window > 0 else 0.0
+    if rate and rate > config.TTS_TARGET_CPS * 1.15:
+        tone += " Speak briskly to keep pace."
+    return tone
+
+
+def _atempo_chain(factor: float) -> str:
+    """ffmpeg atempo accepts 0.5–2.0 per instance, so a factor above 2.0 must be
+    CHAINED (e.g. 2.4 -> 'atempo=2.0,atempo=1.2'). Without this a tuned-up
+    TTS_MAX_SPEEDUP would emit a single out-of-range atempo ffmpeg rejects."""
+    parts: list[str] = []
+    f = factor
+    while f > 2.0:
+        parts.append("atempo=2.0")
+        f /= 2.0
+    parts.append(f"atempo={f:.4f}")
+    return ",".join(parts)
+
+
 def _fit(seg_path: str, window: float, stem: str, idx: int) -> str:
-    """Speed a synthesized utterance up to fit `window` seconds (capped). A clip
-    that already fits — or a window we can't measure — is returned unchanged."""
+    """Time-stretch a synthesized utterance to fit `window` seconds (capped).
+    Uses pitch-preserving rubberband when available (no chipmunk), else a chained
+    atempo. A clip that already fits — or a window we can't measure — is returned
+    as-is; a stretch FAILURE returns the unstretched unit (never crashes)."""
     d = _audio_dur(seg_path)
     if window <= 0 or d <= window + 0.05:
         return seg_path
@@ -44,7 +158,14 @@ def _fit(seg_path: str, window: float, stem: str, idx: int) -> str:
     if factor <= 1.01:
         return seg_path
     out = str(config.CACHE_DIR / f"{stem}_dubfit{idx:03d}.wav")
-    run_ffmpeg(["-i", seg_path, "-filter:a", f"atempo={factor:.4f}", out])
+    if config.TTS_PITCH_PRESERVE and _has_filter("rubberband"):
+        filt = f"rubberband=tempo={factor:.4f}"
+    else:
+        filt = _atempo_chain(factor)
+    try:
+        run_ffmpeg(["-i", seg_path, "-filter:a", filt, out])
+    except Exception:  # noqa: BLE001 — stretch glitch -> use the raw utterance
+        return seg_path
     return out
 
 
@@ -61,21 +182,45 @@ def apply_dub(clip_path: str, segments: list[dict], target_lang: str,
     if not target_lang or not segs:
         return clip_path
 
-    translations = translate_lines([s["text"].strip() for s in segs], target_lang)
-    if translations is None:
-        return clip_path  # graceful: keep the original-language audio
+    f = speed if speed > 1e-6 else 1.0  # guard 0/negative -> no rescale
+    # Each unit's window (in the clip's current timeline) and a char budget that
+    # keeps the translation speakable inside it — so the voice rarely has to be
+    # sped up (which is what flattens prosody).
+    windows = [max(0.0, (float(s["end"]) - float(s["start"])) / f) for s in segs]
+    budgets = [max(8, int(w * config.TTS_TARGET_CPS)) for w in windows]
 
-    f = speed if abs(speed) > 1e-6 else 1.0
+    texts = [s["text"].strip() for s in segs]
+    fitted = translate_lines_fitted(texts, target_lang, budgets)
+    if fitted is None:
+        plain = translate_lines(texts, target_lang)
+        if plain is None:
+            return clip_path  # graceful: keep the original-language audio
+        fitted = [{"text": t, "alt_short": t} for t in plain]
+
     total_dur = _audio_dur(clip_path)
+    if total_dur <= 0:
+        return clip_path  # can't measure the clip -> don't risk a broken mux
     stem = src.stem
 
     placed: list[tuple[str, float]] = []  # (audio_path, start_in_current_timeline)
-    for i, (seg, text) in enumerate(zip(segs, translations)):
+    for i, (seg, tr) in enumerate(zip(segs, fitted)):
         start = max(0.0, float(seg["start"]) / f)
-        window = max(0.0, (float(seg["end"]) - float(seg["start"])) / f)
+        window = windows[i]
+        instr = (_instructions_for(tr["text"], window)
+                 if config.TTS_USE_INSTRUCTIONS else None)
         raw = str(config.CACHE_DIR / f"{stem}_dub{i:03d}.wav")
-        if not tts.synthesize(text, raw, voice=voice):
+        if not tts.synthesize(tr["text"], raw, voice=voice, instructions=instr):
             continue
+        # Overflow: try the tighter alt_short rewrite BEFORE crushing with a
+        # time-stretch — a shorter line spoken naturally beats a sped-up one.
+        if (window > 0 and _audio_dur(raw) > window * 1.15
+                and tr.get("alt_short") and tr["alt_short"] != tr["text"]):
+            raw2 = str(config.CACHE_DIR / f"{stem}_dub{i:03d}s.wav")
+            if tts.synthesize(tr["alt_short"], raw2, voice=voice,
+                              instructions=instr):
+                raw = raw2
+        # Two-sided fit: a short utterance stays at its real start (the original
+        # pause is preserved, NOT filled with dead air); a long one is stretched.
         placed.append((_fit(raw, window, stem, i), round(start, 3)))
 
     if not placed:
@@ -99,13 +244,16 @@ def apply_dub(clip_path: str, segments: list[dict], target_lang: str,
     filtergraph = ";".join(parts)
 
     out = out_path or str(src.with_name(src.stem + "_dub.mp4"))
-    run_ffmpeg([
-        *inputs,
-        "-filter_complex", filtergraph,
-        "-map", "0:v", "-map", "[mix]",
-        "-t", f"{total_dur:.3f}",
-        "-c:v", "copy",
-        "-c:a", "aac", "-b:a", "192k",
-        str(Path(out).resolve()),
-    ])
+    try:
+        run_ffmpeg([
+            *inputs,
+            "-filter_complex", filtergraph,
+            "-map", "0:v", "-map", "[mix]",
+            "-t", f"{total_dur:.3f}",
+            "-c:v", "copy",
+            "-c:a", "aac", "-b:a", "192k",
+            str(Path(out).resolve()),
+        ])
+    except Exception:  # noqa: BLE001 — mux glitch must NOT crash the render
+        return clip_path  # HARD CONTRACT: any ffmpeg failure -> original clip
     return out

@@ -119,6 +119,79 @@ def translate_lines(texts: list[str], target_lang: str) -> list[str] | None:
     return out
 
 
+_SYSTEM_DUB = """You translate spoken lines for DUBBING into {target}. Each
+numbered line has a CHAR BUDGET — the line must be naturally speakable within
+that many characters at a normal pace. Prefer the SHORTEST faithful phrasing;
+never pad, never add notes. Also give alt_short: an even tighter rewrite that
+keeps the meaning. Preserve order and the exact count.
+
+Return ONLY JSON: {{"lines": [{{"text": "..", "alt_short": ".."}}, ...]}}
+with EXACTLY the same number of entries as the input, in the same order."""
+
+
+def _cache_path_fitted(texts: list[str], target_lang: str,
+                       budgets: list[int]):
+    raw = (target_lang.strip().lower() + " " + " ".join(texts)
+           + " b:" + ",".join(str(b) for b in budgets))
+    digest = hashlib.sha1(raw.encode("utf-8")).hexdigest()[:16]
+    return config.CACHE_DIR / f"dubtrans_{digest}.json"
+
+
+def _coerce_fitted(items) -> list[dict]:
+    out = []
+    for x in items:
+        if isinstance(x, dict):
+            text = str(x.get("text", "") or "")
+            out.append({"text": text,
+                        "alt_short": str(x.get("alt_short") or text)})
+        else:  # a bare string -> no tighter variant
+            out.append({"text": str(x), "alt_short": str(x)})
+    return out
+
+
+def translate_lines_fitted(texts: list[str], target_lang: str,
+                           budgets: list[int]) -> list[dict] | None:
+    """Translate spoken lines for dubbing, budget-aware. Returns
+    [{text, alt_short}] aligned to `texts`, or None on failure (caller falls
+    back to plain translate_lines). Cached by (texts, language, budgets) so
+    different time windows never collide."""
+    target_lang = (target_lang or "").strip()
+    if not target_lang or not texts:
+        return None
+    cache_file = _cache_path_fitted(texts, target_lang, budgets)
+    if cache_file.exists():
+        try:
+            cached = json.loads(cache_file.read_text())
+            if isinstance(cached, list) and len(cached) == len(texts):
+                return _coerce_fitted(cached)
+        except (ValueError, OSError):
+            pass
+    numbered = "\n".join(f"{i}. ({b} chars) {t}"
+                         for i, (t, b) in enumerate(zip(texts, budgets), 1))
+    try:
+        api_key, base_url, model = config.llm_settings()
+        from openai import OpenAI
+        client = OpenAI(api_key=api_key, base_url=base_url) if base_url \
+            else OpenAI(api_key=api_key)
+        resp = client.chat.completions.create(
+            model=model,
+            messages=[{"role": "system",
+                       "content": _SYSTEM_DUB.format(target=target_lang)},
+                      {"role": "user", "content": numbered}],
+            temperature=0.2, **config.json_response_format(base_url))
+        lines = config.extract_json(resp.choices[0].message.content).get("lines")
+    except Exception:  # noqa: BLE001 — dubbing never crashes a render
+        return None
+    if not isinstance(lines, list) or len(lines) != len(texts):
+        return None
+    out = _coerce_fitted(lines)
+    try:
+        cache_file.write_text(json.dumps(out, ensure_ascii=False))
+    except OSError:
+        pass
+    return out
+
+
 def translate_captions(words: list[dict], target_lang: str,
                        clip_start: float = 0.0) -> list[dict]:
     """Return clip-local word dicts whose TEXT is `target_lang` but whose timing

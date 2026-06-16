@@ -93,6 +93,78 @@ def test_translate_captions_uses_disk_cache(monkeypatch, tmp_path):
     assert n["calls"] == 1
 
 
+def _install_fake_chat(monkeypatch, content, calls=None):
+    """Fake openai.OpenAI whose chat.completions.create returns `content`."""
+    import sys
+    import types
+
+    def create(**kw):
+        if calls is not None:
+            calls.append(kw)
+        msg = types.SimpleNamespace(content=content)
+        return types.SimpleNamespace(choices=[types.SimpleNamespace(message=msg)])
+    client = types.SimpleNamespace(
+        chat=types.SimpleNamespace(
+            completions=types.SimpleNamespace(create=create)))
+    fake = types.ModuleType("openai")
+    fake.OpenAI = lambda *a, **k: client
+    monkeypatch.setitem(sys.modules, "openai", fake)
+    monkeypatch.setattr(tr.config, "llm_settings",
+                        lambda tier="fast": ("k", None, "m"))
+
+
+def test_translate_lines_fitted_happy(monkeypatch, tmp_path):
+    monkeypatch.setattr(tr, "_cache_path_fitted",
+                        lambda texts, lang, budgets: tmp_path / "f.json")
+    _install_fake_chat(monkeypatch,
+                       '{"lines":[{"text":"hola","alt_short":"hi"},'
+                       '{"text":"adios","alt_short":"chau"}]}')
+    out = tr.translate_lines_fitted(["hello", "bye"], "es", [20, 20])
+    assert out == [{"text": "hola", "alt_short": "hi"},
+                   {"text": "adios", "alt_short": "chau"}]
+
+
+def test_translate_lines_fitted_count_mismatch_returns_none(monkeypatch, tmp_path):
+    monkeypatch.setattr(tr, "_cache_path_fitted",
+                        lambda texts, lang, budgets: tmp_path / "f.json")
+    _install_fake_chat(monkeypatch, '{"lines":[{"text":"hola"}]}')
+    assert tr.translate_lines_fitted(["a", "b"], "es", [10, 10]) is None
+
+
+def test_translate_lines_fitted_client_error_returns_none(monkeypatch, tmp_path):
+    monkeypatch.setattr(tr, "_cache_path_fitted",
+                        lambda texts, lang, budgets: tmp_path / "f.json")
+    import sys
+    import types
+    fake = types.ModuleType("openai")
+
+    def boom(*a, **k):
+        raise RuntimeError("network")
+    fake.OpenAI = boom
+    monkeypatch.setitem(sys.modules, "openai", fake)
+    monkeypatch.setattr(tr.config, "llm_settings", lambda tier="fast": ("k", None, "m"))
+    assert tr.translate_lines_fitted(["a"], "es", [10]) is None
+
+
+def test_translate_lines_fitted_cache_key_depends_on_budgets():
+    p1 = tr._cache_path_fitted(["hello"], "es", [10])
+    p2 = tr._cache_path_fitted(["hello"], "es", [20])
+    assert p1 != p2  # same text, different window -> no cache collision
+
+
+def test_translate_lines_fitted_uses_cache(monkeypatch, tmp_path):
+    import json
+    cache = tmp_path / "f.json"
+    cache.write_text(json.dumps([{"text": "cached", "alt_short": "c"}]))
+    monkeypatch.setattr(tr, "_cache_path_fitted",
+                        lambda texts, lang, budgets: cache)
+    calls = []
+    _install_fake_chat(monkeypatch, "{}", calls=calls)
+    out = tr.translate_lines_fitted(["x"], "es", [10])
+    assert out == [{"text": "cached", "alt_short": "c"}]
+    assert calls == []  # served from disk, client never called
+
+
 def test_lang_slug():
     import chat.tools as tools
     assert tools._lang_slug("Spanish") == "spanish"

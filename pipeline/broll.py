@@ -15,9 +15,7 @@ totals at most ~30% of the clip.
 from __future__ import annotations
 
 import hashlib
-import json
 import urllib.parse
-import urllib.request
 from pathlib import Path
 
 from pipeline import config
@@ -84,10 +82,10 @@ def plan_broll(words: list[dict], max_events: int = 3) -> list[dict]:
 
 
 def _http_json(url: str) -> dict:
-    req = urllib.request.Request(url, headers={
-        "Authorization": config.PEXELS_API_KEY, "User-Agent": "shorts-mcp"})
-    with urllib.request.urlopen(req, timeout=30) as r:
-        return json.loads(r.read().decode())
+    from pipeline import nethttp
+    return nethttp.request_json(url, headers={
+        "Authorization": config.PEXELS_API_KEY, "User-Agent": "shorts-mcp"},
+        timeout=30)
 
 
 def search_broll(query: str, width: int = 1080, height: int = 1920,
@@ -126,9 +124,9 @@ def search_broll(query: str, width: int = 1080, height: int = 1920,
         return None
 
     raw = BROLL_DIR / f"{key}_raw.mp4"
-    req = urllib.request.Request(best[1], headers={"User-Agent": "shorts-mcp"})
-    with urllib.request.urlopen(req, timeout=120) as r, open(raw, "wb") as fh:
-        fh.write(r.read())
+    from pipeline import nethttp
+    nethttp.download(best[1], raw, headers={"User-Agent": "shorts-mcp"},
+                     timeout=120)
 
     run_ffmpeg([
         "-i", str(raw),

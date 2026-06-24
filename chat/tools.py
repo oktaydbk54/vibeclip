@@ -22,7 +22,7 @@ MUTATING_TOOLS = frozenset({
     "add_meme_text", "duplicate_clip", "pick_variant", "join_clips",
     "set_look", "add_overlay", "add_reaction", "add_sticker", "add_emphasis",
     "auto_pace", "set_loudness", "add_gameplay_background", "fix_transcript",
-    "edit_event", "delete_event",
+    "edit_event", "delete_event", "generate_storyboard", "assemble_reel",
     "set_aspect",  # reframe_aspect_tool: re-reframes the canvas (a render)
     "remove_phrase",  # transcript_timeline: content-described trim (a render)
     "set_caption_language",  # translated captions (re-renders subtitles)
@@ -991,14 +991,63 @@ def _frame_of(clip: dict) -> tuple[int, int, float]:
 
 def add_broll(session: Session, clip_id: int, auto: bool = True,
               query: str = "", start: float = -1, end: float = -1,
-              file: str = "") -> dict:
-    """Overlay cover footage: a user/local file, or Pexels stock by query."""
+              file: str = "", generate: bool = False, seed: int = -1,
+              source_ref: int = -1) -> dict:
+    """Overlay cover footage: a user/local file, Pexels stock by query, AI-
+    GENERATED footage from a prompt (generate=True), or ANOTHER CLIP's footage
+    (source_ref=<clip id> — multicam/reaction overlay).
+
+    generate=True routes each query through the generative-media provider
+    (text-to-video) instead of Pexels stock — the prompt/model/seed are stored on
+    the event so the look is reproducible and re-tunable. Needs GENMEDIA_API_KEY;
+    without it the call reports that generation is unavailable. seed (>=0) locks
+    the generation; -1 leaves it to the model. source_ref (>=0) overlays clip
+    #source_ref's rendered footage over [start,end] — needs start/end.
+    """
     from pipeline.broll import (HOOK_GUARD_S, normalize_media, plan_broll,
                                 search_broll)
 
     clip = session.clip(clip_id)
     words = session.words_for(clip)
     w, h, fps = _frame_of(clip)
+    gseed = seed if seed is not None and seed >= 0 else None
+    ref_id = source_ref if source_ref is not None and source_ref >= 0 else None
+
+    # Multicam: use another clip's rendered footage as the b-roll source. Resolve
+    # it to a file and fall through to the file-overlay path (recording the ref).
+    if ref_id is not None and not file:
+        if ref_id == clip_id:
+            return _err("source_ref must be a DIFFERENT clip.")
+        try:
+            rclip = session.clip(ref_id)
+        except ValueError as e:
+            return _err(str(e))
+        rfile = rclip.get("current")
+        if not rfile or not Path(rfile).exists():
+            return _err(f"Clip #{ref_id} has no rendered footage to overlay.")
+        file = rfile
+
+    if generate:
+        from pipeline import config, genmedia
+        if not genmedia.available():
+            return _err("Generative media is not configured. Set "
+                        "GENMEDIA_API_KEY in .env to generate b-roll.")
+
+    def _resolve(qry: str, still: float) -> "tuple[str | None, dict]":
+        """Return (normalized_path | None, event_extra) for one query, via the
+        generative provider or Pexels stock."""
+        if generate:
+            from pipeline import config, genmedia
+            raw = genmedia.generate_video(qry, width=w, height=h, seed=gseed)
+            if not raw:
+                return None, {}
+            norm = normalize_media(raw, width=w, height=h, fps=fps,
+                                   still_duration=still)
+            return norm, {"gen": {"prompt": qry,
+                                  "model": config.GENMEDIA_VIDEO_MODEL,
+                                  "provider": config.GENMEDIA_PROVIDER,
+                                  "seed": gseed}}
+        return search_broll(qry, width=w, height=h, fps=fps), {}
 
     if file:
         if not Path(file).exists():
@@ -1009,11 +1058,11 @@ def add_broll(session: Session, clip_id: int, auto: bool = True,
             return _err(f"B-roll can't cover the hook (first {HOOK_GUARD_S}s).")
         norm = normalize_media(file, width=w, height=h, fps=fps,
                                still_duration=end - start)
-        # source_ref: future multicam — an event can point at an alternate
-        # camera/source id; None = this footage file itself (Faz 6 insurance).
+        # source_ref: multicam — when set, this event points at clip #ref_id's
+        # footage (recorded for provenance); None = this footage file itself.
+        label = f"clip{ref_id}" if ref_id is not None else Path(file).name
         events = [{"start": float(start), "end": float(end),
-                   "query": Path(file).name, "path": norm,
-                   "source_ref": None}]
+                   "query": label, "path": norm, "source_ref": ref_id}]
         misses: list[str] = []
     else:
         if auto and not query:
@@ -1037,15 +1086,16 @@ def add_broll(session: Session, clip_id: int, auto: bool = True,
         events, misses = [], []
         for e in planned:
             try:
-                path = search_broll(e["query"], width=w, height=h, fps=fps)
+                path, extra = _resolve(e["query"], still=e["end"] - e["start"])
             except RuntimeError as err:
                 return _err(str(err))
             if path:
-                events.append({**e, "path": path, "source_ref": None})
+                events.append({**e, "path": path, "source_ref": None, **extra})
             else:
                 misses.append(e["query"])
         if not events:
-            return _err(f"No stock footage found for: {misses}")
+            kind = "generate footage" if generate else "find stock footage"
+            return _err(f"Could not {kind} for: {misses}")
 
     session.snapshot("add_broll")
     existing = next((st["params"].get("events", []) for st in clip["stages"]
@@ -1636,6 +1686,128 @@ def join_clips(session: Session, clip_ids: list[int],
                msg="Compilation rendered (loudness-normalized once at the end).")
 
 
+def _add_silent_audio(src: str, out_path: str) -> str:
+    """Give a (silent) AAC track to a generated, audio-less segment so it can
+    xfade/concat uniformly with real clips (which all carry audio)."""
+    from pipeline.media import run_ffmpeg
+    run_ffmpeg([
+        "-i", str(Path(src).resolve()),
+        "-f", "lavfi", "-i",
+        "anullsrc=channel_layout=stereo:sample_rate=44100",
+        "-c:v", "copy", "-c:a", "aac", "-shortest",
+        str(Path(out_path).resolve()),
+    ])
+    return out_path
+
+
+def assemble_reel(session: Session, segments: list, transition: str = "fade",
+                  duration: float = 0.5) -> dict:
+    """Build ONE reel from an ORDERED mix of real clips and AI-GENERATED footage
+    — generated footage slots BETWEEN clips (the AI-native timeline workflow).
+
+    segments: ordered list; each item is one of:
+      {"clip": <id>}                                use that clip's rendered file
+      {"generate": "<prompt>", "seconds": <n>,      AI-generate a footage segment
+       "caption": "<text>", "seed": <n>}            (caption/seed optional)
+    The result is saved as a compilation. Generated segments adopt the first
+    clip's frame size/fps (or 1080x1920@30 if the reel opens on generated
+    footage). Needs GENMEDIA_API_KEY when any segment generates.
+    """
+    from pipeline.broll import normalize_media
+    from pipeline.effects import fade_in_out
+    from pipeline.effects import transition as xfade
+    from pipeline.media import ffprobe_info
+
+    if not isinstance(segments, list) or len(segments) < 2:
+        return _err("Provide an ordered list of at least 2 segments "
+                    "(clips and/or generated footage).")
+
+    # Reference frame: the first real clip's, else default vertical.
+    w = h = fps = None
+    for s in segments:
+        if isinstance(s, dict) and "clip" in s:
+            try:
+                w, h, fps = _frame_of(session.clip(int(s["clip"])))
+                break
+            except (ValueError, KeyError, TypeError):
+                continue
+    if not w:
+        w, h, fps = 1080, 1920, 30.0
+
+    if any(isinstance(s, dict) and s.get("generate") for s in segments):
+        from pipeline import genmedia
+        if not genmedia.available():
+            return _err("Generative media is not configured. Set "
+                        "GENMEDIA_API_KEY in .env to generate footage.")
+
+    session.snapshot("assemble_reel")
+    pieces: list[str] = []
+    labels: list[str] = []
+    for i, s in enumerate(segments):
+        if not isinstance(s, dict):
+            return _err(f"Segment {i} must be an object with 'clip' or 'generate'.")
+        if "clip" in s:
+            try:
+                cid = int(s["clip"])
+            except (TypeError, ValueError):
+                return _err(f"Segment {i}: 'clip' must be a clip id "
+                            f"(got {s['clip']!r}).")
+            try:
+                clip = session.clip(cid)
+            except ValueError:
+                return _err(f"Segment {i}: no clip #{cid} in this project.")
+            f = clip.get("current")
+            if not f or not Path(f).exists():
+                return _err(f"Clip #{cid} has no rendered file — render it first.")
+            pieces.append(f)
+            labels.append(clip.get("title") or f"clip{cid}")
+        elif s.get("generate"):
+            from pipeline import config, genmedia
+            from pipeline.storyboard import _scene_words
+            from pipeline.subtitle import burn_subtitles
+            prompt = str(s["generate"]).strip()
+            secs = float(s.get("seconds") or config.GENMEDIA_VIDEO_SECONDS)
+            seed = s.get("seed")
+            gseed = int(seed) if isinstance(seed, (int, float)) and seed >= 0 \
+                else None
+            raw = genmedia.generate_video(prompt, width=w, height=h,
+                                          seconds=secs, seed=gseed)
+            if not raw:
+                return _err(f"Segment {i}: could not generate '{prompt}'.")
+            norm = normalize_media(raw, width=w, height=h, fps=fps,
+                                   still_duration=secs)
+            cap = str(s.get("caption", "")).strip()
+            if cap:
+                words = _scene_words(cap, secs)
+                if words:
+                    norm = burn_subtitles(
+                        norm, words, karaoke=False,
+                        out_path=str(session.workdir / f"_reel_gen{i}_cap.mp4"))
+            pieces.append(_add_silent_audio(
+                norm, str(session.workdir / f"_reel_gen{i}.mp4")))
+            labels.append(f"gen:{prompt[:20]}")
+        else:
+            return _err(f"Segment {i} needs a 'clip' id or a 'generate' prompt.")
+
+    duration = max(0.2, min(1.5, float(duration)))
+    cur = pieces[0]
+    for i, nxt in enumerate(pieces[1:], 1):
+        cur = xfade(cur, nxt, kind=transition, duration=duration,
+                    out_path=str(session.workdir / f"_reel_step{i}.mp4"))
+    comps = session.data.setdefault("compilations", [])
+    cid = max((c["id"] for c in comps), default=0) + 1
+    final = fade_in_out(cur, fade=0.3, normalize=True,
+                        out_path=str(session.workdir / f"reel{cid:02d}.mp4"))
+    comp = {"id": cid, "title": " → ".join(labels)[:80], "clips": [],
+            "file": final, "duration": round(ffprobe_info(final)["duration"], 1)}
+    comps.append(comp)
+    session.save()
+    n_gen = sum(1 for s in segments if isinstance(s, dict) and s.get("generate"))
+    return _ok(compilation=comp, segments=labels,
+               msg=f"Reel assembled from {len(pieces)} segments "
+                   f"({n_gen} AI-generated, woven between your clips).")
+
+
 def list_assets(session: Session) -> dict:
     """Show the user's asset library (auto-analyzed catalog)."""
     from pipeline import assets as alib
@@ -1656,6 +1828,98 @@ def ingest_assets(session: Session, path: str) -> dict:
     return _ok(ingested=[{"id": r["id"], "kind": r["kind"],
                           "description": r["description"]} for r in rows],
                errors=errors or None)
+
+
+def generate_asset(session: Session, prompt: str, kind: str = "image",
+                   seed: int = -1, width: int = 1080,
+                   height: int = 1920) -> dict:
+    """AI-generate an image or short video from a text prompt into the asset
+    library. The generated file is cataloged like any uploaded asset, so it can
+    then be used as a watermark/overlay/sticker/title background or b-roll by id
+    or path. Needs GENMEDIA_API_KEY. kind: 'image' | 'video'. seed>=0 locks it."""
+    prompt = (prompt or "").strip()
+    if not prompt:
+        return _err("Prompt is empty.")
+    kind = (kind or "image").lower()
+    if kind not in ("image", "video"):
+        return _err("kind must be 'image' or 'video'.")
+    from pipeline import genmedia
+    if not genmedia.available():
+        return _err("Generative media is not configured. Set GENMEDIA_API_KEY "
+                    "in .env to generate assets.")
+    gseed = seed if seed is not None and seed >= 0 else None
+    if kind == "video":
+        path = genmedia.generate_video(prompt, width=width, height=height,
+                                       seed=gseed)
+    else:
+        path = genmedia.generate_image(prompt, width=width, height=height,
+                                       seed=gseed)
+    if not path:
+        return _err(f"Could not generate {kind} for: {prompt!r}")
+    from pipeline import assets as alib
+    slug = _lang_slug(prompt)[:32] or kind
+    try:
+        row = alib.ingest_file(path, original_name=f"gen_{slug}{Path(path).suffix}")
+    except Exception as e:  # noqa: BLE001
+        # Generation worked; cataloging didn't — still hand back the raw path.
+        return _ok(path=path, kind=kind, cataloged=False,
+                   msg=f"Generated {kind} (catalog failed: {e}).")
+    return _ok(path=path, kind=kind, cataloged=True,
+               asset_id=row["id"], description=row.get("description", ""),
+               msg=f"Generated {kind} and added it to your asset library "
+                   f"(id {row['id']}). Use it as a watermark/overlay/sticker, "
+                   f"title background, or b-roll.")
+
+
+def generate_storyboard(session: Session, script: str, max_scenes: int = 6,
+                        seconds_per_scene: float = 5.0, aspect: str = "9:16",
+                        style: str = "", seed: int = -1) -> dict:
+    """Storyboard-first: turn a SCRIPT or topic into a short made entirely of
+    AI-generated footage. The LLM breaks the script into ordered scenes (each a
+    narration line + a visual prompt), each scene is generated and captioned,
+    then they're concatenated into one vertical short saved as a compilation.
+    Needs GENMEDIA_API_KEY. style is appended to every scene prompt for a
+    consistent look; seed>=0 shares one seed across scenes. aspect: 9:16/1:1/16:9."""
+    script = (script or "").strip()
+    if not script:
+        return _err("Script/topic is empty.")
+    from pipeline import genmedia
+    if not genmedia.available():
+        return _err("Generative media is not configured. Set GENMEDIA_API_KEY "
+                    "in .env to generate a storyboard.")
+    if aspect not in ASPECT_CHOICES:
+        return _err(f"aspect must be one of {list(ASPECT_CHOICES)}.")
+    from pipeline.tracking import ASPECTS
+    spec = ASPECTS[aspect]
+    w, h = int(spec[1]), int(spec[2])
+    fps = float(session.data["source"].get("fps", 30) or 30)
+    from pipeline.storyboard import assemble_storyboard, plan_storyboard
+    scenes = plan_storyboard(script, max_scenes=max_scenes)
+    if not scenes:
+        return _err("Could not derive any scenes from the script.")
+    comps = session.data.setdefault("compilations", [])
+    cid = max((c["id"] for c in comps), default=0) + 1
+    out = str(session.workdir / f"storyboard{cid:02d}.mp4")
+    gseed = seed if seed is not None and seed >= 0 else None
+    session.snapshot("generate_storyboard")
+    result = assemble_storyboard(scenes, out, width=w, height=h, fps=fps,
+                                 seconds_per_scene=seconds_per_scene,
+                                 style=style, seed=gseed,
+                                 workdir=session.workdir)
+    if not result:
+        return _err("No scenes could be generated (check the GENMEDIA model / "
+                    "quota). Nothing was added.")
+    from pipeline.media import ffprobe_info
+    title = (script[:40] + "…") if len(script) > 40 else script
+    comp = {"id": cid, "title": title, "clips": [], "file": result["path"],
+            "duration": round(ffprobe_info(result["path"])["duration"], 1),
+            "storyboard": result["scenes"]}
+    comps.append(comp)
+    session.save()
+    made = sum(1 for s in result["scenes"] if s["ok"])
+    return _ok(compilation=comp, scenes=result["scenes"],
+               msg=f"Storyboard generated: {made}/{len(scenes)} scenes rendered "
+                   f"into one short.")
 
 
 # incremental_preview: which CANONICAL stage each plan action's edit lands on.
@@ -2701,10 +2965,15 @@ def export_timeline(session: Session, clip_id: int,
     except ValueError as e:
         return _err(str(e))
     fmt = out.suffix.lstrip(".")
+    srt = session.workdir / f"clip{clip_id:02d}.srt"
+    captions = str(srt) if srt.exists() else None
+    msg = ("Timeline exported. It references the original source file; import "
+           "into Resolve via File → Import → Timeline.")
+    if captions:
+        msg += " A matching .srt caption sidecar was written alongside it."
     return _ok(path=str(out), format=fmt,
                url=f"/api/export/{clip_id}.{fmt}",
-               msg="Timeline exported. It references the original source "
-                   "file; import into Resolve via File → Import → Timeline.")
+               captions=captions, msg=msg)
 
 
 def undo(session: Session) -> dict:
@@ -2875,12 +3144,19 @@ TOOL_SPECS = [
           "emphatic phrases. density: zooms per second (0.25 = one per ~4s). "
           "strength: zoom factor 1.1-1.3.",
           {"clip_id": _INT, "density": _NUM, "strength": _NUM}, ["clip_id"]),
-    _spec("add_broll", "Overlay cover footage on parts of a clip. Three "
-          "modes: auto=true (LLM picks moments + Pexels stock); query+"
-          "start/end (manual stock search); file+start/end (a LOCAL/user "
-          "asset video or image path). Never covers the first 3s.",
+    _spec("add_broll", "Overlay cover footage on parts of a clip. Modes: "
+          "auto=true (LLM picks moments + Pexels stock); query+start/end "
+          "(manual stock search); file+start/end (a LOCAL/user asset video or "
+          "image path); generate=true (AI-GENERATE the footage from the query "
+          "as a text-to-video prompt instead of stock — needs GENMEDIA_API_KEY; "
+          "prompt/model/seed are saved on the event so the look is reproducible; "
+          "seed>=0 locks it). Never covers the first 3s. Use generate=true for "
+          "'yapay zeka ile b-roll üret', 'generate footage', 'AI b-roll'. "
+          "source_ref=<clip id> overlays ANOTHER clip's footage (multicam/"
+          "reaction) over start/end.",
           {"clip_id": _INT, "auto": _BOOL, "query": _STR,
-           "start": _NUM, "end": _NUM, "file": _STR}, ["clip_id"]),
+           "start": _NUM, "end": _NUM, "file": _STR,
+           "generate": _BOOL, "seed": _INT, "source_ref": _INT}, ["clip_id"]),
     _spec("add_gameplay_background", "Split-screen 'brainrot'/doom-scroll "
           "format: put the clip in the TOP of the frame and a looping, muted "
           "gameplay/satisfying background in the BOTTOM — the secondary motion "
@@ -2905,6 +3181,35 @@ TOOL_SPECS = [
     _spec("list_assets", "Show the user's asset library (their uploaded "
           "logos, b-roll, music, SFX...) with AI descriptions and ids.",
           {}, []),
+    _spec("generate_asset", "AI-GENERATE an image or short video from a text "
+          "prompt and add it to the asset library (needs GENMEDIA_API_KEY). The "
+          "result can then be used as a watermark/overlay/sticker, title "
+          "background, or b-roll. kind: 'image' (default) | 'video'. seed>=0 "
+          "locks the look for reproducibility. Use for 'logo üret', 'AI görsel "
+          "oluştur', 'generate an image/video for...'.",
+          {"prompt": _STR, "kind": _STR, "seed": _INT,
+           "width": _INT, "height": _INT}, ["prompt"]),
+    _spec("assemble_reel", "Build ONE reel from an ORDERED mix of real clips and "
+          "AI-GENERATED footage — generated footage slots BETWEEN clips (the "
+          "AI-native timeline workflow). segments is an ordered array; each item "
+          "is {\"clip\": <id>} for an existing clip, or {\"generate\": "
+          "\"<prompt>\", \"seconds\": <n>, \"caption\": \"<text>\", \"seed\": "
+          "<n>} to generate a footage segment (caption/seed optional). Saved as a "
+          "compilation. Needs GENMEDIA_API_KEY when generating. Use for 'klipler "
+          "arasına AI footage koy', 'generate footage between clips', 'araya "
+          "geçiş videosu üret'.",
+          {"segments": {"type": "array", "items": {"type": "object"}},
+           "transition": _STR, "duration": _NUM}, ["segments"]),
+    _spec("generate_storyboard", "STORYBOARD-FIRST: turn a SCRIPT or topic into "
+          "a short made entirely of AI-generated footage. The LLM splits the "
+          "script into ordered scenes (narration + visual prompt), each scene is "
+          "generated, captioned, and concatenated into one vertical short (saved "
+          "as a compilation). Needs GENMEDIA_API_KEY. style = a look appended to "
+          "every scene for consistency; seed>=0 shares one seed. aspect: "
+          "9:16/1:1/16:9. Use for 'şu senaryodan video üret', 'script to video', "
+          "'storyboard oluştur'.",
+          {"script": _STR, "max_scenes": _INT, "seconds_per_scene": _NUM,
+           "aspect": _ASPECT_ENUM, "style": _STR, "seed": _INT}, ["script"]),
     _spec("ingest_assets", "Add user assets to the library from a file or "
           "folder path — auto-analyzes (vision tags, colors, loudness).",
           {"path": _STR}, ["path"]),
@@ -3122,6 +3427,7 @@ REGISTRY = {
     "duplicate_clip": duplicate_clip,
     "pick_variant": pick_variant,
     "join_clips": join_clips,
+    "assemble_reel": assemble_reel,
     "auto_pace": auto_pace,
     "set_loudness": set_loudness,
     "set_look": set_look,
@@ -3131,6 +3437,8 @@ REGISTRY = {
     "add_emphasis": add_emphasis,
     "list_assets": list_assets,
     "ingest_assets": ingest_assets,
+    "generate_asset": generate_asset,
+    "generate_storyboard": generate_storyboard,
     "propose_assets": propose_assets,
     "propose_edit": propose_edit,
     "propose_project": propose_project,  # multiclip_plans

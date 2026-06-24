@@ -248,6 +248,30 @@ ELEVENLABS_VOICE = os.getenv("ELEVENLABS_VOICE", "")  # voice id
 PIPER_BIN = os.getenv("PIPER_BIN", "piper")
 PIPER_MODEL = os.getenv("PIPER_MODEL", "")  # path to a piper voice .onnx
 
+# --- Generative media (Faz 1) ----------------------------------------------
+# Text-to-video / text-to-image as GENERATED b-roll, mirroring the BYOK +
+# provider-agnostic shape of the TTS/LLM layers. Default provider "fal" routes
+# to a hosted aggregator (fal.ai-style) that fronts SOTA models (Veo, Kling,
+# Seedance for video; image models too) behind one queue API. "replicate" is an
+# alternate aggregator. Both need only an API key; no model weights ship here.
+# Empty key => the feature is simply unavailable and degrades gracefully.
+GENMEDIA_PROVIDER = os.getenv("GENMEDIA_PROVIDER", "fal").strip().lower()
+GENMEDIA_API_KEY = os.getenv("GENMEDIA_API_KEY", "")
+GENMEDIA_BASE_URL = os.getenv("GENMEDIA_BASE_URL", "https://fal.run")
+# Model ids are isolated here so a SOTA swap is a one-line .env change.
+GENMEDIA_VIDEO_MODEL = os.getenv("GENMEDIA_VIDEO_MODEL", "fal-ai/bytedance/seedance/v1/lite/text-to-video")
+GENMEDIA_IMAGE_MODEL = os.getenv("GENMEDIA_IMAGE_MODEL", "fal-ai/flux/schnell")
+GENMEDIA_VIDEO_SECONDS = float(os.getenv("GENMEDIA_VIDEO_SECONDS", "5"))
+GENMEDIA_TIMEOUT = int(os.getenv("GENMEDIA_TIMEOUT", "300"))  # gen can be slow
+
+# --- Captions engine (Faz 2.3) ---------------------------------------------
+# "png" (default): rasterize captions to PNGs and composite — works on ANY
+# ffmpeg (the shipped build has no libass). "libass": burn an .ass document for
+# true per-frame hero-caption motion, but ONLY on a libass-enabled ffmpeg.
+# "auto": use libass when the active ffmpeg supports it, else PNG. Both libass
+# modes fall back to PNG on any failure, so they never break a render.
+CAPTIONS_ENGINE = os.getenv("CAPTIONS_ENGINE", "png").strip().lower()
+
 # --- Encode (Faz 3/4) ------------------------------------------------------
 # Apple Silicon hardware encoder; falls back to libx264 if unavailable.
 VIDEO_ENCODER = os.getenv("VIDEO_ENCODER", "h264_videotoolbox")

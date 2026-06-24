@@ -93,7 +93,8 @@ def _openai(text: str, out_path: str, voice: str | None, *,
 
 def _elevenlabs(text: str, out_path: str, voice: str | None) -> str | None:
     import json
-    import urllib.request
+
+    from pipeline import nethttp
 
     key = config.ELEVENLABS_API_KEY
     voice_id = voice or config.ELEVENLABS_VOICE
@@ -102,11 +103,9 @@ def _elevenlabs(text: str, out_path: str, voice: str | None) -> str | None:
     url = f"{config.ELEVENLABS_BASE_URL}/v1/text-to-speech/{voice_id}"
     body = json.dumps({"text": text,
                        "model_id": config.ELEVENLABS_MODEL}).encode("utf-8")
-    req = urllib.request.Request(url, data=body, method="POST", headers={
+    audio = nethttp.request_bytes(url, data=body, method="POST", headers={
         "xi-api-key": key, "Content-Type": "application/json",
-        "Accept": "audio/mpeg"})
-    with urllib.request.urlopen(req, timeout=60) as r:
-        audio = r.read()
+        "Accept": "audio/mpeg"}, timeout=60)
     if not audio:
         return None
     Path(out_path).write_bytes(audio)

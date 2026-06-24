@@ -137,6 +137,31 @@ python -m chat.app            # → http://127.0.0.1:8765
 
 First run downloads the Whisper model. Prefer the terminal? `python -m chat.cli <video.mp4>`.
 
+### 🤖 Connect an AI agent (MCP)
+
+VibeClip is also an **MCP server**: an external agent (Claude Code, Cursor, Codex)
+can drive a whole project — open a source video, generate clips, edit the timeline,
+and export — using the **same 60+ tools** the web UI and built-in chat agent use.
+
+```bash
+# Claude Code
+claude mcp add vibeclip -- python /path/to/shorts-mcp/server.py
+```
+
+The agent gets `list_projects`, `open_project`, `project_state`, plus the full
+editing surface (`generate_clips`, `set_cut`, `add_zoom`, `set_subtitles`,
+`add_broll`, `set_dub`, `export_clip`, `undo`, …). Each editing tool takes a
+`project` id (from `list_projects` / `open_project`) followed by its own args.
+Typical flow: `open_project(video_path)` → `generate_clips(project)` →
+edit tools → `export_clip(project, clip_id)`. Edits load the project fresh from
+disk per call and roll back on error, so they interleave safely with the web app.
+
+Quick check the server is wired up:
+
+```bash
+python server.py --selftest <video.mp4>   # prints the registered tool count
+```
+
 ---
 
 ## 📦 Bundled assets & licensing

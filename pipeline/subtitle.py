@@ -42,12 +42,36 @@ COLOR_HILITE = (255, 214, 10, 255)  # warm yellow
 HILITE_SCALE = 1.14  # spoken word "pops" slightly larger than its neighbors
 UPPERCASE = True
 
-# Caption-engine entrance tuning. The K-step approximation is intentionally tiny
-# so we never re-introduce the per-frame PNG explosion: a word's entrance is
-# split into ANIM_STEPS sub-PNGs shown across ANIM_DURATION seconds, then the
-# settled PNG holds for the rest of the word.
-ANIM_STEPS = 4
+# Caption-engine entrance tuning. The K-step approximation stays bounded so we
+# never re-introduce the per-frame PNG explosion: a word's entrance is split into
+# up to ANIM_STEPS sub-PNGs shown across ANIM_DURATION seconds, then the settled
+# PNG holds for the rest of the word. The step COUNT is adaptive — long enough
+# entrances get more sub-PNGs (smoother motion), short ones fewer (less work) —
+# capped at ANIM_STEPS so the worst case is bounded.
+ANIM_STEPS = 6        # max sub-PNGs per entrance (was a flat 4)
+ANIM_STEPS_MIN = 3    # floor so even a brief entrance still eases, not jumps
+ANIM_STEP_DT = 0.03   # target seconds per sub-PNG (~1 frame at 33fps)
 ANIM_DURATION = 0.18  # seconds for the entrance to settle
+
+
+def _adaptive_steps(dur: float) -> int:
+    """How many entrance sub-PNGs to render for an entrance of `dur` seconds:
+    one per ~ANIM_STEP_DT, clamped to [ANIM_STEPS_MIN, ANIM_STEPS]. More steps on
+    longer entrances = smoother motion; bounded so the PNG count never explodes."""
+    return max(ANIM_STEPS_MIN, min(ANIM_STEPS, round(dur / ANIM_STEP_DT)))
+
+
+def _ease_out_cubic(t: float) -> float:
+    """Decelerating ease — fast then settling. ease(0)=0, ease(1)=1."""
+    return 1.0 - (1.0 - t) ** 3
+
+
+def _ease_out_back(t: float, overshoot: float = 1.70158) -> float:
+    """Ease that overshoots past 1.0 then settles back to it (bounce). At t==1
+    returns exactly 1.0, so an animation built on it ends perfectly settled."""
+    c1 = overshoot
+    c3 = c1 + 1.0
+    return 1.0 + c3 * (t - 1.0) ** 3 + c1 * (t - 1.0) ** 2
 
 
 @functools.lru_cache(maxsize=64)
@@ -277,23 +301,27 @@ def _ease_steps(animation: str, steps: int) -> list[tuple[float, float, float]]:
     """Per-step (scale, dy_ratio, alpha) for an entrance, ending settled at
     (1.0, 0.0, 1.0). dy_ratio is a fraction of the caption block height.
 
-    pop    : grows from small to full size.
-    spring : overshoots past full size then settles (bouncy).
-    slide  : enters from below, no scale change.
+    Curves are properly eased (not linear) so entrances decelerate into place
+    the way pro motion captions do, instead of marching in at constant speed:
+
+    pop    : grows from small to full size on an ease-out (fast, then settle).
+    spring : overshoots past full size then settles back (ease-out-back bounce).
+    slide  : rises from below on an ease-out, fading in; no scale change.
     """
     if steps < 1:
         steps = 1
     out: list[tuple[float, float, float]] = []
     for k in range(steps):
         t = (k + 1) / steps  # 0<t<=1, t==1 is settled
+        e = _ease_out_cubic(t)
         if animation == "pop":
-            out.append((0.6 + 0.4 * t, 0.0, min(1.0, 0.4 + 0.6 * t)))
+            out.append((0.55 + 0.45 * e, 0.0, min(1.0, 0.2 + 0.8 * e)))
         elif animation == "spring":
-            # ease-out-back style overshoot, converging to 1.0 at t==1.
-            scale = 1.0 + (0.18 * (1 - t)) if t > 0.5 else 0.55 + 0.9 * t
-            out.append((scale, 0.0, min(1.0, 0.4 + 0.6 * t)))
+            # Scale overshoots above 1.0 mid-entrance, converging to 1.0 at t==1.
+            scale = 0.5 + 0.5 * _ease_out_back(t, overshoot=2.0)
+            out.append((scale, 0.0, min(1.0, 0.3 + 0.7 * e)))
         elif animation == "slide":
-            out.append((1.0, 0.5 * (1 - t), min(1.0, 0.5 + 0.5 * t)))
+            out.append((1.0, 0.55 * (1.0 - e), min(1.0, 0.3 + 0.7 * e)))
         else:  # none / unknown — single settled frame
             out.append((1.0, 0.0, 1.0))
     return out
@@ -354,6 +382,19 @@ def burn_subtitles(clip_path: str, words: list[dict], clip_start: float = 0.0,
         return clip_path
 
     st = style or SubStyle()
+    # Optional libass hero-caption path (Faz 2.3): true per-frame motion on a
+    # libass-enabled ffmpeg. Gated by CAPTIONS_ENGINE; only fires when the burn
+    # is a simple caption pass (no pre_vf fused crop/zoom — that stays PNG so the
+    # single-encode fusion is preserved). Any miss falls through to PNG below.
+    engine = config.CAPTIONS_ENGINE
+    if engine in ("libass", "auto") and not pre_vf:
+        from pipeline.captions_ass import burn_ass, libass_available
+        if engine == "libass" or libass_available():
+            res = burn_ass(clip_path, words, clip_start, style=st,
+                           out_path=out_path, canvas=canvas)
+            if res:
+                return res
+
     if canvas:
         w, h = canvas
     else:
@@ -388,7 +429,7 @@ def burn_subtitles(clip_path: str, words: list[dict], clip_start: float = 0.0,
                     # settled PNG holds the remainder. Bounded K — no per-frame
                     # explosion (ANIM_STEPS sub-PNGs per word, capped).
                     dur = min(ANIM_DURATION, (we - ws) * 0.6)
-                    frames = _ease_steps(st.animation, ANIM_STEPS)
+                    frames = _ease_steps(st.animation, _adaptive_steps(dur))
                     step_dt = dur / len(frames)
                     # Slide offset is a fraction of one caption line's height.
                     block_h = int(st.font_size * 1.18)

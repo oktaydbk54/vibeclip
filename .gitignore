@@ -25,5 +25,6 @@ assets/user/
 /*.mov
 /*.mkv
 
-# Local-only remote deploy script (contains server host details; never publish).
+# Local-only ops scripts (contain server host details; never publish).
 scripts/deploy_remote.sh
+scripts/rotate_keys.sh

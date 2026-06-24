@@ -55,6 +55,8 @@ TOOL_WHITELIST = {"export_captions", "undo", "redo", "remove_section",
                   "set_denoise", "set_music", "add_sound_effect", "add_zoom",
                   "set_clip_status", "render_clip", "export_clip",
                   "generate_metadata", "find_moment",
+                  "add_broll", "assemble_reel", "generate_storyboard",
+                  "generate_asset", "apply_style", "set_subtitles",
                   "revert_plan", "regenerate_plan"}
 
 STATIC = Path(__file__).parent / "static"

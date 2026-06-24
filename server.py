@@ -25,8 +25,15 @@ from pipeline.effects import punch_zoom as _punch_zoom, transition as _transitio
 from pipeline.sfx import add_sfx as _add_sfx
 from pipeline.structure import analyze_structure as _analyze_structure
 from pipeline.tracking import reframe_vertical_tracked as _reframe_tracked
+from chat.mcp_bridge import register_session_tools
 
 mcp = FastMCP("shorts")
+
+# Expose the full session-aware editing toolset (chat.tools REGISTRY) so an
+# external agent can open a project, generate clips, edit the timeline, and
+# export — the same toolset the web UI and chat agent drive. The stateless
+# pipeline primitives below remain for one-shot, project-less calls.
+_SESSION_TOOLS = register_session_tools(mcp)
 
 
 @mcp.tool()
@@ -204,6 +211,7 @@ def reframe_vertical_tracked(clip_path: str) -> str:
 
 def _selftest(video_path: str) -> None:
     print("[selftest] ping ->", ping())
+    print(f"[selftest] session-aware editing tools registered -> {_SESSION_TOOLS}")
     print(f"[selftest] media_info({video_path}) ->")
     info = media_info(video_path)
     for k, v in info.items():

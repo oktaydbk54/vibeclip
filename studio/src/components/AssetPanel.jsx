@@ -8,7 +8,9 @@ import {
 // generative timeline editor needs that a plain NLE doesn't. Everything routes
 // through existing backend (/api/assets, /api/v2/tool → generate_asset /
 // generate_video_from_asset / add_broll).
-export default function AssetPanel({ project, clip, videoRef, onMutated }) {
+export default function AssetPanel({
+  project, clip, videoRef, onMutated, onRendering,
+}) {
   const [tab, setTab] = useState('generate')
   const [assets, setAssets] = useState([])
   const [models, setModels] = useState(null)
@@ -88,6 +90,7 @@ export default function AssetPanel({ project, clip, videoRef, onMutated }) {
     if (!clip || busy) return
     const t = videoRef?.current?.currentTime || 0
     setBusy('Placing on timeline…')
+    onRendering?.(true)
     try {
       const res = await addBrollFromAsset(
         project, { clip_id: clip, file: asset.path || '', start: +t.toFixed(2),
@@ -96,7 +99,7 @@ export default function AssetPanel({ project, clip, videoRef, onMutated }) {
       if (r?.ok === false) alert(r.error || 'Could not place on timeline')
       else onMutated?.(res)
     } catch (e) { alert(String(e.message || e)) }
-    finally { setBusy('') }
+    finally { setBusy(''); onRendering?.(false) }
   }
 
   return (

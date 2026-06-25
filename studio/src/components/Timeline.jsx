@@ -16,7 +16,7 @@ function pct(x, dur) {
 
 export default function Timeline({
   project, clip, timeline, videoRef, busy, setBusy, onMutated,
-  selected, onSelectEvent,
+  selected, onSelectEvent, onRendering,
 }) {
   const dur = timeline?.duration || 0
   const laneWrapRef = useRef(null)
@@ -46,6 +46,13 @@ export default function Timeline({
       if (!wrap) return
       const r = wrap.getBoundingClientRect()
       const t = Math.max(0, Math.min(dur, ((e.clientX - r.left) / r.width) * dur))
+      // Live preview: scrub the <video> to the handle's frame as you drag, so a
+      // trim shows instantly with NO server render — the commit happens only on
+      // "Apply trim". This is the fast-preview path for the most common edit.
+      const v = videoRef?.current
+      if (v && v.readyState >= 1) {
+        try { v.pause(); v.currentTime = t } catch { /* mid-load */ }
+      }
       setTrim((cur) => {
         const base = cur || { head: 0, tail: dur }
         if (dragRef.current === 'head') {
@@ -62,6 +69,20 @@ export default function Timeline({
       window.removeEventListener('pointerup', onUp)
     }
   }, [dur])
+
+  // While a trim is staged, keep playback inside [head, tail] so pressing Play
+  // previews the trimmed result live — again with no render until commit.
+  useEffect(() => {
+    const v = videoRef?.current
+    if (!v || !trim) return
+    const onTime = () => {
+      if (v.currentTime > trim.tail + 0.05 || v.currentTime < trim.head - 0.05) {
+        v.currentTime = trim.head
+      }
+    }
+    v.addEventListener('timeupdate', onTime)
+    return () => v.removeEventListener('timeupdate', onTime)
+  }, [trim, videoRef])
 
   if (!timeline) {
     return <section className="timeline empty">Loading timeline…</section>
@@ -106,6 +127,7 @@ export default function Timeline({
     const ns = cut.start + (head / dur) * span
     const ne = cut.start + (tail / dur) * span
     setBusy(true)
+    onRendering?.(true)
     try {
       const res = await runTool(
         project, 'set_cut',
@@ -122,6 +144,7 @@ export default function Timeline({
       alert(String(e.message || e))
     } finally {
       setBusy(false)
+      onRendering?.(false)
     }
   }
 

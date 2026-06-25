@@ -13,7 +13,9 @@ function cleanPrompt(item) {
   return q
 }
 
-export default function Inspector({ project, clip, track, item, onClose, onMutated }) {
+export default function Inspector({
+  project, clip, track, item, onClose, onMutated, onRendering,
+}) {
   const [prompt, setPrompt] = useState('')
   const [busy, setBusy] = useState(false)
 
@@ -26,6 +28,7 @@ export default function Inspector({ project, clip, track, item, onClose, onMutat
   async function rerun(newSeed) {
     if (busy) return
     setBusy(true)
+    onRendering?.(true)
     try {
       const res = await rerunBroll(
         project, { clip_id: clip, idx: item.idx, prompt, seed: newSeed }, clip)
@@ -33,7 +36,7 @@ export default function Inspector({ project, clip, track, item, onClose, onMutat
       if (r?.ok === false) alert(r.error || 'Rerun failed')
       else { onMutated?.(res); onClose?.() }
     } catch (e) { alert(String(e.message || e)) }
-    finally { setBusy(false) }
+    finally { setBusy(false); onRendering?.(false) }
   }
 
   return (

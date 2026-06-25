@@ -17,6 +17,7 @@ export default function App() {
   const [timeline, setTimeline] = useState(null)
   const [error, setError] = useState(null)
   const [busy, setBusy] = useState(false)
+  const [rendering, setRendering] = useState(false)  // any server render/gen
   const [selected, setSelected] = useState(null)  // { track, item } | null
   const videoRef = useRef(null)
 
@@ -107,6 +108,7 @@ export default function App() {
             clip={clipId}
             timeline={timeline}
             rendered={activeClip?.rendered}
+            rendering={rendering}
           />
           {selected && (
             <Inspector
@@ -116,6 +118,7 @@ export default function App() {
               item={selected.item}
               onClose={() => setSelected(null)}
               onMutated={onMutated}
+              onRendering={setRendering}
             />
           )}
           <Timeline
@@ -129,6 +132,7 @@ export default function App() {
             onReload={reloadTimeline}
             selected={selected}
             onSelectEvent={(track, item) => setSelected({ track, item })}
+            onRendering={setRendering}
           />
         </main>
 
@@ -137,6 +141,7 @@ export default function App() {
           clip={clipId}
           videoRef={videoRef}
           onMutated={onMutated}
+          onRendering={setRendering}
         />
       </div>
     </div>

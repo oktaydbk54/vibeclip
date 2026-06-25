@@ -70,12 +70,25 @@ def serialize(clip: dict, words: list[dict], duration: float,
                                      "label": f"{pack} · {int(top*100)}/"
                                               f"{int(round((1-top)*100))}"}])
 
-    # broll — range items, label = query (editable)
+    # broll — range items, label = query (editable). Generated events also carry
+    # their generation metadata (prompt/model/seed) so the timeline inspector can
+    # show it and offer a rerun. `gen` is normalized to a dict: the stored dict
+    # when present, else {"provider": <tag>} for older string-tagged events.
     b = _stage(clip, "broll")
     if b:
+        def _gen(e: dict) -> dict | None:
+            g = e.get("gen")
+            if isinstance(g, dict):
+                return g
+            if g:
+                return {"provider": str(g)}
+            return None
         add("broll", "range", [
             {"start": e["start"], "end": e["end"],
-             "label": e.get("query", "b-roll")}
+             "label": e.get("query", "b-roll"),
+             "query": e.get("query", ""),
+             "generated": bool(e.get("gen")),
+             "gen": _gen(e)}
             for e in b["params"].get("events", [])], editable=True)
 
     # overlay — range items, label = type (editable)

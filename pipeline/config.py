@@ -261,6 +261,8 @@ GENMEDIA_BASE_URL = os.getenv("GENMEDIA_BASE_URL", "https://fal.run")
 # Model ids are isolated here so a SOTA swap is a one-line .env change.
 GENMEDIA_VIDEO_MODEL = os.getenv("GENMEDIA_VIDEO_MODEL", "fal-ai/bytedance/seedance/v1/lite/text-to-video")
 GENMEDIA_IMAGE_MODEL = os.getenv("GENMEDIA_IMAGE_MODEL", "fal-ai/flux/schnell")
+# Image-to-video: animate a still (uploaded or generated) into a clip.
+GENMEDIA_I2V_MODEL = os.getenv("GENMEDIA_I2V_MODEL", "fal-ai/bytedance/seedance/v1/lite/image-to-video")
 GENMEDIA_VIDEO_SECONDS = float(os.getenv("GENMEDIA_VIDEO_SECONDS", "5"))
 GENMEDIA_TIMEOUT = int(os.getenv("GENMEDIA_TIMEOUT", "300"))  # gen can be slow
 

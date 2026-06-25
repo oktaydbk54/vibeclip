@@ -18,7 +18,7 @@ MUTATING_TOOLS = frozenset({
     "generate_clips", "set_music", "set_subtitles", "add_zoom",
     "cut_silences", "set_fade", "add_sound_effect", "apply_style",
     "remove_fillers", "remove_section", "set_speed", "set_cut", "auto_zoom",
-    "add_broll", "set_watermark", "set_title_card",
+    "add_broll", "rerun_broll", "set_watermark", "set_title_card",
     "add_meme_text", "duplicate_clip", "pick_variant", "join_clips",
     "set_look", "add_overlay", "add_reaction", "add_sticker", "add_emphasis",
     "auto_pace", "set_loudness", "add_gameplay_background", "fix_transcript",
@@ -1106,6 +1106,57 @@ def add_broll(session: Session, clip_id: int, auto: bool = True,
                not_found=misses or None, notes=session.last_notes)
 
 
+def rerun_broll(session: Session, clip_id: int, idx: int,
+                prompt: str = "", seed: int = -1) -> dict:
+    """Regenerate ONE generated b-roll event in place — a fresh take of the same
+    slot, keeping its [start,end] window. Reuses the event's own prompt unless
+    `prompt` overrides it; seed<0 picks a new random seed (a different take),
+    seed>=0 locks it. This is the timeline-inspector 'rerun' action. Needs
+    GENMEDIA_API_KEY."""
+    from pipeline import config, genmedia
+    from pipeline.broll import normalize_media
+
+    clip = session.clip(clip_id)
+    b = next((st for st in clip["stages"] if st["name"] == "broll"), None)
+    if not b:
+        return _err("This clip has no b-roll to rerun.")
+    events = list(b["params"].get("events", []))
+    try:
+        ev = dict(events[int(idx)])
+    except (IndexError, ValueError, TypeError):
+        return _err(f"No b-roll event #{idx} on clip #{clip_id}.")
+    if not genmedia.available():
+        return _err("Generative media is not configured. Set GENMEDIA_API_KEY "
+                    "in .env to regenerate b-roll.")
+    g = ev.get("gen") if isinstance(ev.get("gen"), dict) else {}
+    q = (ev.get("query") or "").strip()
+    if q.lower().startswith("ai:"):
+        q = q[3:].strip()
+    use_prompt = (prompt or "").strip() or g.get("prompt") or q
+    if not use_prompt:
+        return _err("No prompt to regenerate this b-roll from.")
+    # seed<0 means "a different take" — pick a fresh RANDOM seed rather than None,
+    # otherwise genmedia's prompt+model+seed cache returns the identical clip.
+    import random
+    gseed = int(seed) if seed is not None and int(seed) >= 0 \
+        else random.randint(1, 2_000_000_000)
+    w, h, fps = _frame_of(clip)
+    raw = genmedia.generate_video(use_prompt, width=w, height=h, seed=gseed)
+    if not raw:
+        return _err(f"Could not regenerate b-roll for: {use_prompt!r}")
+    norm = normalize_media(raw, width=w, height=h, fps=fps,
+                           still_duration=ev.get("end", 0.0) - ev.get("start", 0.0))
+    ev["path"] = norm
+    ev["query"] = f"AI: {use_prompt}"
+    ev["gen"] = {"prompt": use_prompt, "model": config.GENMEDIA_VIDEO_MODEL,
+                 "provider": config.GENMEDIA_PROVIDER, "seed": gseed}
+    events[int(idx)] = ev
+    session.snapshot("rerun_broll")
+    out = session.set_stage(clip_id, "broll", {"events": events})
+    return _ok(file=out, idx=int(idx), prompt=use_prompt, seed=gseed,
+               notes=session.last_notes)
+
+
 def add_gameplay_background(session: Session, clip_id: int,
                             pack: str = "minecraft",
                             layout: float = 0.6,
@@ -1832,11 +1883,13 @@ def ingest_assets(session: Session, path: str) -> dict:
 
 def generate_asset(session: Session, prompt: str, kind: str = "image",
                    seed: int = -1, width: int = 1080,
-                   height: int = 1920) -> dict:
+                   height: int = 1920, model: str = "") -> dict:
     """AI-generate an image or short video from a text prompt into the asset
     library. The generated file is cataloged like any uploaded asset, so it can
     then be used as a watermark/overlay/sticker/title background or b-roll by id
-    or path. Needs GENMEDIA_API_KEY. kind: 'image' | 'video'. seed>=0 locks it."""
+    or path. Needs GENMEDIA_API_KEY. kind: 'image' | 'video'. seed>=0 locks it.
+    model: a specific id from genmedia.models(kind) (blank = configured
+    default)."""
     prompt = (prompt or "").strip()
     if not prompt:
         return _err("Prompt is empty.")
@@ -1848,12 +1901,13 @@ def generate_asset(session: Session, prompt: str, kind: str = "image",
         return _err("Generative media is not configured. Set GENMEDIA_API_KEY "
                     "in .env to generate assets.")
     gseed = seed if seed is not None and seed >= 0 else None
+    gmodel = (model or "").strip() or None
     if kind == "video":
-        path = genmedia.generate_video(prompt, width=width, height=height,
-                                       seed=gseed)
+        path = genmedia.generate_video(prompt, model=gmodel, width=width,
+                                       height=height, seed=gseed)
     else:
-        path = genmedia.generate_image(prompt, width=width, height=height,
-                                       seed=gseed)
+        path = genmedia.generate_image(prompt, model=gmodel, width=width,
+                                       height=height, seed=gseed)
     if not path:
         return _err(f"Could not generate {kind} for: {prompt!r}")
     from pipeline import assets as alib
@@ -1869,6 +1923,48 @@ def generate_asset(session: Session, prompt: str, kind: str = "image",
                msg=f"Generated {kind} and added it to your asset library "
                    f"(id {row['id']}). Use it as a watermark/overlay/sticker, "
                    f"title background, or b-roll.")
+
+
+def generate_video_from_asset(session: Session, asset_id: str, prompt: str = "",
+                              seed: int = -1, width: int = 1080,
+                              height: int = 1920, model: str = "") -> dict:
+    """Image-to-video: animate an existing library IMAGE (an uploaded photo or a
+    previously generated still) into a short video, then catalog the result as a
+    new video asset. Needs GENMEDIA_API_KEY. `prompt` is optional motion guidance
+    ('slow push in, gentle parallax'). model: an id from genmedia.models('i2v').
+    This is the upload-an-image → image-to-video path."""
+    from pipeline import assets as alib
+    from pipeline import genmedia
+    if not genmedia.available():
+        return _err("Generative media is not configured. Set GENMEDIA_API_KEY "
+                    "in .env to generate video.")
+    row = alib.get_asset(str(asset_id))
+    if not row:
+        return _err(f"No asset '{asset_id}' in the library.")
+    if row.get("kind") != "image":
+        return _err(f"Asset '{asset_id}' is a {row.get('kind')}, not an image. "
+                    f"Image-to-video needs an image source.")
+    src = row.get("path")
+    if not src or not Path(src).exists():
+        return _err(f"Asset '{asset_id}' file is missing on disk.")
+    gseed = seed if seed is not None and seed >= 0 else None
+    gmodel = (model or "").strip() or None
+    path = genmedia.generate_video_from_image(
+        src, prompt, model=gmodel, width=width, height=height, seed=gseed)
+    if not path:
+        return _err(f"Could not animate asset '{asset_id}' "
+                    f"(prompt={prompt!r}).")
+    slug = _lang_slug(prompt)[:24] or "i2v"
+    try:
+        out = alib.ingest_file(path, original_name=f"i2v_{slug}.mp4")
+    except Exception as e:  # noqa: BLE001
+        return _ok(path=path, kind="video", cataloged=False,
+                   msg=f"Animated image (catalog failed: {e}).")
+    return _ok(path=path, kind="video", cataloged=True,
+               asset_id=out["id"], source_asset=str(asset_id),
+               description=out.get("description", ""),
+               msg=f"Animated image #{asset_id} into a video "
+                   f"(asset {out['id']}). Use it as b-roll or on the timeline.")
 
 
 def generate_storyboard(session: Session, script: str, max_scenes: int = 6,
@@ -3157,6 +3253,14 @@ TOOL_SPECS = [
           {"clip_id": _INT, "auto": _BOOL, "query": _STR,
            "start": _NUM, "end": _NUM, "file": _STR,
            "generate": _BOOL, "seed": _INT, "source_ref": _INT}, ["clip_id"]),
+    _spec("rerun_broll", "Regenerate ONE generated b-roll event in place — a "
+          "fresh take of the same slot, keeping its window. idx is the event "
+          "index on the b-roll track. Reuses the event's prompt unless `prompt` "
+          "overrides it; seed<0 = a new random take, seed>=0 locks it. Needs "
+          "GENMEDIA_API_KEY. Use for 'bu b-roll'u yeniden üret', 'rerun', "
+          "'another take', 'farklı bir versiyon üret'.",
+          {"clip_id": _INT, "idx": _INT, "prompt": _STR, "seed": _INT},
+          ["clip_id", "idx"]),
     _spec("add_gameplay_background", "Split-screen 'brainrot'/doom-scroll "
           "format: put the clip in the TOP of the frame and a looping, muted "
           "gameplay/satisfying background in the BOTTOM — the secondary motion "
@@ -3188,7 +3292,15 @@ TOOL_SPECS = [
           "locks the look for reproducibility. Use for 'logo üret', 'AI görsel "
           "oluştur', 'generate an image/video for...'.",
           {"prompt": _STR, "kind": _STR, "seed": _INT,
-           "width": _INT, "height": _INT}, ["prompt"]),
+           "width": _INT, "height": _INT, "model": _STR}, ["prompt"]),
+    _spec("generate_video_from_asset", "IMAGE-TO-VIDEO: animate an existing "
+          "library IMAGE (uploaded photo or generated still) into a short video "
+          "and catalog it as a new video asset (needs GENMEDIA_API_KEY). prompt "
+          "is optional motion guidance; model is an id from the i2v catalog. Use "
+          "for 'bu görseli videoya çevir', 'image to video', 'animate this "
+          "image'.",
+          {"asset_id": _STR, "prompt": _STR, "seed": _INT,
+           "width": _INT, "height": _INT, "model": _STR}, ["asset_id"]),
     _spec("assemble_reel", "Build ONE reel from an ORDERED mix of real clips and "
           "AI-GENERATED footage — generated footage slots BETWEEN clips (the "
           "AI-native timeline workflow). segments is an ordered array; each item "
@@ -3419,6 +3531,7 @@ REGISTRY = {
     "set_cut": set_cut,
     "auto_zoom": auto_zoom,
     "add_broll": add_broll,
+    "rerun_broll": rerun_broll,
     "add_gameplay_background": add_gameplay_background,
     "fix_transcript": fix_transcript,
     "set_watermark": set_watermark,
@@ -3438,6 +3551,7 @@ REGISTRY = {
     "list_assets": list_assets,
     "ingest_assets": ingest_assets,
     "generate_asset": generate_asset,
+    "generate_video_from_asset": generate_video_from_asset,
     "generate_storyboard": generate_storyboard,
     "propose_assets": propose_assets,
     "propose_edit": propose_edit,

@@ -25,6 +25,12 @@ assets/user/
 /*.mov
 /*.mkv
 
+# studio2 (React/Vite) build inputs. node_modules is never committed; the built
+# bundle under chat/static/studio2/ IS committed so the Python deploy serves it
+# without a Node toolchain (same as the rest of chat/static).
+studio/node_modules/
+studio/dist/
+
 # Local-only ops scripts (contain server host details; never publish).
 scripts/deploy_remote.sh
 scripts/rotate_keys.sh

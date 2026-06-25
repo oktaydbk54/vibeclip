@@ -55,8 +55,10 @@ TOOL_WHITELIST = {"export_captions", "undo", "redo", "remove_section",
                   "set_denoise", "set_music", "add_sound_effect", "add_zoom",
                   "set_clip_status", "render_clip", "export_clip",
                   "generate_metadata", "find_moment",
-                  "add_broll", "assemble_reel", "generate_storyboard",
-                  "generate_asset", "apply_style", "set_subtitles",
+                  "add_broll", "rerun_broll", "assemble_reel",
+                  "generate_storyboard",
+                  "generate_asset", "generate_video_from_asset",
+                  "apply_style", "set_subtitles",
                   "revert_plan", "regenerate_plan"}
 
 STATIC = Path(__file__).parent / "static"
@@ -1531,6 +1533,158 @@ def media(clip_id: int):
     if not path or not Path(path).exists():
         return JSONResponse({"error": "not rendered"}, status_code=404)
     return FileResponse(path, media_type="video/mp4")
+
+
+# ---------------------------------------------------------------------------
+# studio2 — the greenfield React studio (Faz C, first PR). A project-keyed,
+# disk-backed API that mirrors chat/mcp_bridge.py: each call loads the project
+# fresh from disk (Session.open_existing) instead of touching the single global
+# SESSION the legacy /studio uses. So studio2 is multi-project from day one, and
+# the backend truth (session.py + pipeline/) is unchanged — every mutation still
+# routes through one REGISTRY tool via mcp_bridge.run_tool.
+# ---------------------------------------------------------------------------
+STUDIO2 = STATIC / "studio2"
+
+
+def _v2_state_payload(sess: Session) -> dict:
+    from chat import mcp_bridge
+    src = sess.data.get("source", {})
+    return {
+        "project": sess.data.get("name"),
+        "display_name": sess.data.get("display_name") or sess.data.get("name"),
+        "source": {"width": src.get("width"), "height": src.get("height"),
+                   "fps": src.get("fps"), "duration": src.get("duration")},
+        "clips": mcp_bridge._clip_rows(sess),
+        "active_clip": sess.active_clip_id(),
+    }
+
+
+def _v2_timeline_payload(sess: Session, clip_id: int) -> dict:
+    """Same multi-track payload the MCP bridge serves, plus the main-track
+    fields studio2 needs (proxy media URL + the source-time cut for trim)."""
+    from chat import mcp_bridge
+    clip = sess.clip(clip_id)                       # raises ValueError
+    payload = mcp_bridge._timeline(sess, clip) or {}
+    # Version the media URL by the current artifact (path + mtime) so the <video>
+    # reloads after any re-render (trim, rerun) instead of showing a stale cache.
+    name = quote(sess.data.get("name", ""))
+    cur = clip.get("current")
+    ver = ""
+    if cur and Path(cur).exists():
+        import hashlib
+        p = Path(cur)
+        ver = hashlib.sha1(f"{p}:{p.stat().st_mtime}".encode()).hexdigest()[:12]
+    payload["media_url"] = (f"/api/v2/media?project={name}&clip={clip_id}"
+                            + (f"&v={ver}" if ver else ""))
+    cut = next((st["params"] for st in clip["stages"]
+                if st["name"] == "cut"), None)
+    if cut:
+        payload["cut"] = {"start": round(float(cut["start"]), 3),
+                          "end": round(float(cut["end"]), 3)}
+    return payload
+
+
+def _v2_session(project: str) -> Session:
+    from chat import mcp_bridge
+    return mcp_bridge._resolve(project)             # raises FileNotFoundError
+
+
+@app.get("/studio2", response_class=HTMLResponse)
+def studio2_page() -> HTMLResponse:
+    index = STUDIO2 / "index.html"
+    if not index.exists():
+        return HTMLResponse(
+            "<h1>studio2 isn’t built yet</h1><p>Run "
+            "<code>cd studio &amp;&amp; npm install &amp;&amp; npm run build</code> "
+            "to produce <code>chat/static/studio2/</code>, then reload.</p>",
+            status_code=503)
+    return HTMLResponse(index.read_text(encoding="utf-8"))
+
+
+@app.get("/api/v2/state")
+def v2_state(project: str, _user: dict = Depends(auth.require_user)):
+    try:
+        sess = _v2_session(project)
+    except FileNotFoundError as e:
+        return JSONResponse({"error": str(e)}, status_code=404)
+    return _v2_state_payload(sess)
+
+
+@app.get("/api/v2/timeline")
+def v2_timeline(project: str, clip: int,
+                _user: dict = Depends(auth.require_user)):
+    try:
+        sess = _v2_session(project)
+    except FileNotFoundError as e:
+        return JSONResponse({"error": str(e)}, status_code=404)
+    try:
+        return _v2_timeline_payload(sess, clip)
+    except ValueError as e:
+        return JSONResponse({"error": str(e)}, status_code=404)
+
+
+@app.get("/api/v2/genmedia/models")
+def v2_genmedia_models(_user: dict = Depends(auth.require_user)):
+    """Selectable generation models for the studio Generate panel, per kind,
+    plus whether generation is configured at all (GENMEDIA_API_KEY present)."""
+    from pipeline import genmedia
+    return {
+        "available": genmedia.available(),
+        "video": genmedia.models("video"),
+        "image": genmedia.models("image"),
+        "i2v": genmedia.models("i2v"),
+    }
+
+
+@app.get("/api/v2/media")
+def v2_media(project: str, clip: int):
+    try:
+        sess = _v2_session(project)
+    except FileNotFoundError as e:
+        return JSONResponse({"error": str(e)}, status_code=404)
+    try:
+        c = sess.clip(clip)
+    except ValueError:
+        return JSONResponse({"error": "no such clip"}, status_code=404)
+    path = c.get("current")
+    if not path or not Path(path).exists():
+        return JSONResponse({"error": "not rendered"}, status_code=404)
+    return FileResponse(path, media_type="video/mp4")
+
+
+class V2ToolIn(BaseModel):
+    project: str
+    name: str
+    args: dict = {}
+    clip: int | None = None
+
+
+@app.post("/api/v2/tool")
+def v2_tool(body: V2ToolIn, user: dict = Depends(auth.require_user)):
+    """One mutation channel for studio2: run a whitelisted REGISTRY tool against
+    the project on disk (mcp_bridge.run_tool snapshots + restores on error), then
+    return fresh state + the active clip's timeline so the UI reconciles in one
+    round-trip. Synchronous for now; SSE-streamed jobs land in a later phase."""
+    from chat import mcp_bridge
+    if body.name not in TOOL_WHITELIST:
+        return JSONResponse({"error": f"tool '{body.name}' not allowed"},
+                            status_code=403)
+    ov = auth.user_llm_override(user)
+    token = config.set_llm_override(ov)
+    try:
+        result = mcp_bridge.run_tool(body.project, body.name, body.args or {})
+    finally:
+        config.reset_llm_override(token)
+    state = timeline = None
+    try:
+        sess = _v2_session(body.project)
+        state = _v2_state_payload(sess)
+        clip_id = body.clip or sess.active_clip_id()
+        if clip_id:
+            timeline = _v2_timeline_payload(sess, clip_id)
+    except (FileNotFoundError, ValueError):
+        pass
+    return {"result": result, "state": state, "timeline": timeline}
 
 
 @app.get("/favicon.ico", include_in_schema=False)

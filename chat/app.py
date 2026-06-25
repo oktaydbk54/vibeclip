@@ -23,7 +23,7 @@ import threading
 from pathlib import Path
 from urllib.parse import quote
 
-from fastapi import (Depends, FastAPI, File, Form, Request, UploadFile,
+from fastapi import (Depends, FastAPI, File, Form, Query, Request, UploadFile,
                      HTTPException)
 from fastapi.responses import (FileResponse, HTMLResponse, JSONResponse,
                                PlainTextResponse, RedirectResponse, Response,
@@ -57,7 +57,9 @@ TOOL_WHITELIST = {"export_captions", "undo", "redo", "remove_section",
                   "generate_metadata", "find_moment",
                   "add_broll", "rerun_broll", "assemble_reel",
                   "generate_storyboard",
-                  "generate_asset", "generate_video_from_asset",
+                  "generate_asset", "generate_variations",
+                  "generate_video_from_asset",
+                  "move_asset_to_folder", "organize_assets",
                   "apply_style", "set_subtitles",
                   "revert_plan", "regenerate_plan"}
 
@@ -71,6 +73,11 @@ from chat import automation  # noqa: E402 — lazy-imports chat.app in its job c
 app.include_router(automation.router)
 SESSION: Session | None = None
 HISTORY: list[dict] = []
+# studio2 is project-keyed, so chat history can't live in the single global
+# HISTORY (which belongs to the legacy global SESSION). Keep one rolling history
+# per project id, in memory only (the edits themselves persist to project.json
+# via the tools). Capped per turn so a long session can't bloat memory.
+_V2_HISTORY: dict[str, list[dict]] = {}
 
 
 class ChatIn(BaseModel):
@@ -370,6 +377,8 @@ def assets_list() -> dict:
                      "description": r.get("description", ""),
                      "tags": r.get("tags", []),
                      "name": r.get("filename_original", ""),
+                     "path": r.get("path", ""),
+                     "folder": (r.get("folder") or "").strip(),
                      "thumb": f"/asset_thumb/{r['id']}"
                               if thumb.exists() else None})
     return {"assets": rows}
@@ -1172,22 +1181,17 @@ def get_job(jid: str):
     return job.public(with_result=True)
 
 
-@app.get("/api/transcript/{clip_id}")
-def transcript(clip_id: int, cuts: bool = False):
-    """Clip-local word timings for the text-based editor. Times match the
-    player exactly (words_for reads the clip's current cut artifact).
-    ?cuts=1 adds the removed spans (source seconds + their words + the output
-    time where each gap sits) so the UI can show/restore them."""
-    assert SESSION is not None
+def _transcript_impl(sess: Session, clip_id: int, cuts: bool):
+    """Session-keyed body shared by the legacy /api/transcript (global SESSION)
+    and the project-keyed /api/v2/transcript (a freshly-resolved Session)."""
     from pipeline.captions import build_caption_segments
     from pipeline.jumpcut import FILLER_WORDS, _norm_word
-    with SESSION_LOCK:
-        try:
-            clip = SESSION.clip(clip_id)
-            words = SESSION.words_for(clip)
-        except ValueError as e:
-            return JSONResponse({"error": str(e)}, status_code=404)
-        cut_spans = _cut_spans(clip) if cuts else None
+    try:
+        clip = sess.clip(clip_id)
+        words = sess.words_for(clip)
+    except ValueError as e:
+        return JSONResponse({"error": str(e)}, status_code=404)
+    cut_spans = _cut_spans(sess, clip) if cuts else None
     out_words = [{
         "i": i,
         "start": round(w["start"], 3),
@@ -1201,25 +1205,35 @@ def transcript(clip_id: int, cuts: bool = False):
         "words": out_words,
         "segments": [{"start": round(s["start"], 3), "end": round(s["end"], 3)}
                      for s in segs],
-        "fps": SESSION.data["source"].get("fps") or 30,
+        "fps": sess.data["source"].get("fps") or 30,
     }
     if cut_spans is not None:
         resp["cuts"] = cut_spans
     return resp
 
 
-def _cut_spans(clip: dict) -> list[dict]:
+@app.get("/api/transcript/{clip_id}")
+def transcript(clip_id: int, cuts: bool = False):
+    """Clip-local word timings for the text-based editor. Times match the
+    player exactly (words_for reads the clip's current cut artifact).
+    ?cuts=1 adds the removed spans (source seconds + their words + the output
+    time where each gap sits) so the UI can show/restore them."""
+    assert SESSION is not None
+    with SESSION_LOCK:
+        return _transcript_impl(SESSION, clip_id, cuts)
+
+
+def _cut_spans(sess: Session, clip: dict) -> list[dict]:
     """Removed spans from the timing chain, with source words + out anchor."""
     from pipeline.transcribe import transcribe
-    assert SESSION is not None
     try:
-        tmap = SESSION.timemap_for(clip)
+        tmap = sess.timemap_for(clip)
     except ValueError:
         return []
     # Own-clips: transcribe the clip's OWN footage, not the nominal shared
     # source. Legacy/long-video clips have no source_path -> shared source.
     src_words = transcribe(
-        clip.get("source_path") or SESSION.data["source"]["path"])["words"]
+        clip.get("source_path") or sess.data["source"]["path"])["words"]
     spans = []
     for gs, ge in tmap.removed_spans():
         inside = [w["word"] for w in src_words
@@ -1439,18 +1453,15 @@ def thumb(clip_id: int):
     return FileResponse(str(out), media_type="image/jpeg")
 
 
-@app.get("/api/filmstrip/{clip_id}")
-def filmstrip(clip_id: int, n: int = 80, h: int = 54):
-    """Horizontal thumbnail sprite (n tiles in one row) for the main video
-    track. Cached by source path+mtime+n+h; never goes through the render
-    worker (same precedent as /thumb), so it can't block edits."""
-    _require_session()
+def _filmstrip_impl(sess: Session, clip_id: int, n: int, h: int):
+    """Session-keyed body shared by the legacy /api/filmstrip (global SESSION)
+    and the project-keyed /api/v2/filmstrip (a freshly-resolved Session)."""
     import hashlib
     import subprocess
     from pipeline import config as cfg
     from pipeline.media import ffprobe_info
     try:
-        clip = SESSION.clip(clip_id)
+        clip = sess.clip(clip_id)
     except ValueError:
         return JSONResponse({"error": "no such clip"}, status_code=404)
     src = clip.get("current")
@@ -1482,6 +1493,15 @@ def filmstrip(clip_id: int, n: int = 80, h: int = 54):
         return JSONResponse({"error": "filmstrip failed"}, status_code=500)
     return FileResponse(str(out), media_type="image/jpeg",
                         headers={"Cache-Control": "max-age=31536000, immutable"})
+
+
+@app.get("/api/filmstrip/{clip_id}")
+def filmstrip(clip_id: int, n: int = 80, h: int = 54):
+    """Horizontal thumbnail sprite (n tiles in one row) for the main video
+    track. Cached by source path+mtime+n+h; never goes through the render
+    worker (same precedent as /thumb), so it can't block edits."""
+    _require_session()
+    return _filmstrip_impl(SESSION, clip_id, n, h)
 
 
 @app.get("/media/comp/{comp_id}")
@@ -1576,6 +1596,7 @@ def _v2_timeline_payload(sess: Session, clip_id: int) -> dict:
         ver = hashlib.sha1(f"{p}:{p.stat().st_mtime}".encode()).hexdigest()[:12]
     payload["media_url"] = (f"/api/v2/media?project={name}&clip={clip_id}"
                             + (f"&v={ver}" if ver else ""))
+    payload["clip"] = clip_id   # so async results reconcile only onto this clip
     cut = next((st["params"] for st in clip["stages"]
                 if st["name"] == "cut"), None)
     if cut:
@@ -1652,6 +1673,28 @@ def v2_media(project: str, clip: int):
     return FileResponse(path, media_type="video/mp4")
 
 
+@app.get("/api/v2/filmstrip")
+def v2_filmstrip(project: str, clip: int, n: int = 80, h: int = 54):
+    """Project-keyed filmstrip sprite for the studio2 main video track. Loaded
+    by an <img>/CSS background, so (like /api/v2/media) it carries no auth dep
+    and relies on the session cookie."""
+    try:
+        sess = _v2_session(project)
+    except FileNotFoundError as e:
+        return JSONResponse({"error": str(e)}, status_code=404)
+    return _filmstrip_impl(sess, clip, n, h)
+
+
+@app.get("/api/v2/transcript")
+def v2_transcript(project: str, clip: int, cuts: bool = False):
+    """Project-keyed word timings for the studio2 caption track."""
+    try:
+        sess = _v2_session(project)
+    except FileNotFoundError as e:
+        return JSONResponse({"error": str(e)}, status_code=404)
+    return _transcript_impl(sess, clip, cuts)
+
+
 class V2ToolIn(BaseModel):
     project: str
     name: str
@@ -1659,32 +1702,146 @@ class V2ToolIn(BaseModel):
     clip: int | None = None
 
 
-@app.post("/api/v2/tool")
-def v2_tool(body: V2ToolIn, user: dict = Depends(auth.require_user)):
-    """One mutation channel for studio2: run a whitelisted REGISTRY tool against
-    the project on disk (mcp_bridge.run_tool snapshots + restores on error), then
-    return fresh state + the active clip's timeline so the UI reconciles in one
-    round-trip. Synchronous for now; SSE-streamed jobs land in a later phase."""
+def _run_v2_tool(project: str, name: str, args: dict, clip: int | None,
+                 job=None) -> dict:
+    """Run one whitelisted REGISTRY tool against a project on disk and return
+    {result, state, timeline}. Shared by the sync and async (job) paths. The
+    LLM override is set by the caller (request handler / job closure)."""
     from chat import mcp_bridge
-    if body.name not in TOOL_WHITELIST:
-        return JSONResponse({"error": f"tool '{body.name}' not allowed"},
-                            status_code=403)
-    ov = auth.user_llm_override(user)
-    token = config.set_llm_override(ov)
-    try:
-        result = mcp_bridge.run_tool(body.project, body.name, body.args or {})
-    finally:
-        config.reset_llm_override(token)
+    result = mcp_bridge.run_tool(project, name, args or {})
     state = timeline = None
     try:
-        sess = _v2_session(body.project)
+        sess = _v2_session(project)
         state = _v2_state_payload(sess)
-        clip_id = body.clip or sess.active_clip_id()
+        clip_id = clip or sess.active_clip_id()
         if clip_id:
             timeline = _v2_timeline_payload(sess, clip_id)
     except (FileNotFoundError, ValueError):
         pass
     return {"result": result, "state": state, "timeline": timeline}
+
+
+@app.post("/api/v2/tool")
+def v2_tool(body: V2ToolIn, async_: bool = Query(False, alias="async"),
+            user: dict = Depends(auth.require_user)):
+    """One mutation channel for studio2: run a whitelisted REGISTRY tool against
+    the project on disk (mcp_bridge.run_tool snapshots + restores on error), then
+    return fresh state + the active clip's timeline so the UI reconciles in one
+    round-trip. Default is synchronous; ?async=1 submits to MANAGER and returns
+    {job_id} (stream progress on /api/events, fetch result via /api/jobs/{id})
+    so long generations don't block the request — the lane shows a pending
+    'Generating…' block meanwhile."""
+    if body.name not in TOOL_WHITELIST:
+        return JSONResponse({"error": f"tool '{body.name}' not allowed"},
+                            status_code=403)
+    ov = auth.user_llm_override(user)
+    if async_:
+        job = MANAGER.submit(
+            "tool", body.name,
+            lambda j: _run_v2_tool(body.project, body.name, body.args or {},
+                                   body.clip, j),
+            llm_override=ov)
+        return {"job_id": job.id}
+    token = config.set_llm_override(ov)
+    try:
+        return _run_v2_tool(body.project, body.name, body.args or {}, body.clip)
+    finally:
+        config.reset_llm_override(token)
+
+
+def _run_v2_chat(project: str, message: str, job=None, *,
+                 profile_prompt: str = "", tier: str = "fast",
+                 mode: str = "pro") -> dict:
+    """Run one agent turn against a project-keyed session (studio2's chat panel),
+    mirroring the legacy _run_chat but resolving the session fresh from disk and
+    keeping a per-project in-memory history. Tool calls are narrated live via
+    pg.note → /api/events (the same SSE the chat chips read). Snapshots/restores
+    the session on cancel/crash so a failed turn never leaves disk half-edited."""
+    from chat import mcp_bridge
+    hist = _V2_HISTORY.setdefault(project, [])
+    tools_used: list[str] = []
+
+    def on_tool(name: str, args: dict) -> None:
+        pretty = ", ".join(f"{k}={v}" for k, v in (args or {}).items())
+        tools_used.append(name)
+        pg.note(f"{name}|{pretty}" if pretty else name)
+
+    # mcp_bridge._LOCK serializes against /api/v2/tool's run_tool so disk state
+    # never tears. run_turn dispatches REGISTRY tools DIRECTLY (not via run_tool),
+    # so there's no re-entrancy on this non-reentrant lock.
+    sess = None
+    with mcp_bridge._LOCK:
+        try:
+            sess = mcp_bridge._resolve(project)
+        except FileNotFoundError as e:
+            return {"reply": f"Error: {e}", "tools": [], "clarify": None,
+                    "pending_plan": None, "state": None, "timeline": None}
+        backup = copy.deepcopy(sess.data)
+        try:
+            reply = run_turn(sess, hist, message, on_tool=on_tool,
+                             mode=mode, profile_prompt=profile_prompt, tier=tier)
+        except pg.CancelledError:
+            sess.data = backup
+            sess.save()
+            raise
+        except Exception as e:  # noqa: BLE001 — surface as a chat error
+            sess.data = backup
+            sess.save()
+            reply = f"Error: {type(e).__name__}: {e}"
+        if job is not None and job.cancel_event.is_set():
+            sess.data = backup
+            sess.save()
+            reply = "Cancelled."
+        hist[:] = hist[-40:]              # cap rolling history
+        state = _v2_state_payload(sess)
+        clip_id = sess.active_clip_id()
+        timeline = None
+        if clip_id:
+            try:
+                timeline = _v2_timeline_payload(sess, clip_id)
+            except ValueError:
+                timeline = None
+    return {"reply": reply, "tools": tools_used,
+            "clarify": getattr(sess, "last_clarify", None),
+            "pending_plan": sess.data.get("pending_plan"),
+            "state": state, "timeline": timeline}
+
+
+class V2ChatIn(BaseModel):
+    project: str
+    message: str
+    mode: str = "pro"
+    tier: str = "fast"
+
+
+@app.post("/api/v2/chat")
+def v2_chat(body: V2ChatIn, request: Request, sync: bool = False,
+            _user: dict = Depends(auth.require_user)):
+    """studio2's agentic chat: NL → real edits via the same run_turn agent the
+    legacy UI uses, but project-keyed. Returns {job_id} (stream tool-call chips
+    on /api/events, fetch the reply+state+timeline via /api/jobs/{id}); ?sync=1
+    runs inline. BYOK + profile personalization mirror /api/chat exactly."""
+    profile_prompt = ""
+    user = auth.get_user(request)
+    if user is not None:
+        profile = json.loads(user["profile_json"] or "{}")
+        profile_prompt = auth.build_profile_prompt(profile,
+                                                   user["display_name"])
+    ov = auth.user_llm_override(user)
+    if sync:
+        token = config.set_llm_override(ov)
+        try:
+            return _run_v2_chat(body.project, body.message,
+                                profile_prompt=profile_prompt,
+                                tier=body.tier, mode=body.mode)
+        finally:
+            config.reset_llm_override(token)
+    job = MANAGER.submit("chat", body.message[:60] or "chat",
+                         lambda j: _run_v2_chat(body.project, body.message, j,
+                                                profile_prompt=profile_prompt,
+                                                tier=body.tier, mode=body.mode),
+                         llm_override=ov)
+    return {"job_id": job.id}
 
 
 @app.get("/favicon.ico", include_in_schema=False)

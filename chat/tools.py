@@ -1881,15 +1881,103 @@ def ingest_assets(session: Session, path: str) -> dict:
                errors=errors or None)
 
 
+def move_asset_to_folder(session: Session, asset_id: str,
+                         folder: str = "") -> dict:
+    """File a library asset into a (virtual) folder/collection. Folders are
+    labels — the file never moves on disk — so it's instant and reversible. Pass
+    folder="" to un-file. Use for 'put this in Brand Assets', 'klasöre taşı'."""
+    from pipeline import assets as alib
+    if not alib.set_folder(str(asset_id), folder or ""):
+        return _err(f"No asset '{asset_id}' in the library.")
+    where = f"'{folder}'" if folder else "no folder"
+    return _ok(asset_id=str(asset_id), folder=(folder or "").strip(),
+               msg=f"Moved asset {asset_id} to {where}.")
+
+
+_ORGANIZE_SYSTEM = (
+    "You are a media librarian. Given a list of assets (id, kind, description, "
+    "tags), sort EVERY asset into a small set of clear, human-readable folders "
+    "(e.g. 'Camera Footage', 'Brand Assets', 'Stills', 'Generated', 'Audio'). "
+    "Prefer 3-6 folders. Reply ONLY as JSON: {\"folders\": {\"Folder Name\": "
+    "[\"asset_id\", ...], ...}}. Use ONLY ids from the input; assign each id to "
+    "exactly one folder.")
+
+
+def organize_assets(session: Session, folders: dict | None = None) -> dict:
+    """Organize the asset library into folders in one pass (Palmier's 'organize
+    my media'). With no argument, the LLM buckets every asset into a few clear
+    folders; pass an explicit {folder: [asset_id,...]} mapping to skip the LLM.
+    Folders are virtual labels (files never move). Use for 'organize my media',
+    'medyamı klasörlere ayır', 'sort my assets'."""
+    from pipeline import assets as alib
+    catalog = alib.catalog_for_llm()
+    if not catalog:
+        return _err("Asset library is empty — nothing to organize.")
+    valid_ids = {r["id"] for r in catalog}
+
+    mapping = folders if isinstance(folders, dict) and folders else None
+    if mapping is None:
+        import json as _json
+        from pipeline import config
+        api_key, base_url, model = config.llm_settings()
+        from openai import OpenAI
+        client = OpenAI(api_key=api_key, base_url=base_url) if base_url \
+            else OpenAI(api_key=api_key)
+        compact = [{"id": r["id"], "kind": r["kind"],
+                    "description": (r.get("description") or "")[:120],
+                    "tags": (r.get("tags") or [])[:6]} for r in catalog]
+        try:
+            resp = client.chat.completions.create(
+                model=model,
+                messages=[{"role": "system", "content": _ORGANIZE_SYSTEM},
+                          {"role": "user", "content": _json.dumps(
+                              {"assets": compact}, ensure_ascii=False)}],
+                temperature=0.1, **config.json_response_format(base_url))
+            data = config.extract_json(resp.choices[0].message.content)
+            mapping = data.get("folders") if isinstance(data, dict) else None
+        except Exception as e:  # noqa: BLE001
+            return _err(f"Could not plan folders: {type(e).__name__}: {e}")
+    if not isinstance(mapping, dict) or not mapping:
+        return _err("No folder plan was produced.")
+
+    placed: dict[str, list[str]] = {}
+    seen: set[str] = set()
+    for folder, ids in mapping.items():
+        name = str(folder).strip()
+        if not name or not isinstance(ids, list):
+            continue
+        for aid in ids:
+            aid = str(aid)
+            if aid not in valid_ids or aid in seen:   # reject hallucinated/dupes
+                continue
+            if alib.set_folder(aid, name):
+                seen.add(aid)
+                placed.setdefault(name, []).append(aid)
+    if not placed:
+        return _err("No assets could be filed (the plan referenced unknown ids).")
+    total = sum(len(v) for v in placed.values())
+    return _ok(folders={k: len(v) for k, v in placed.items()},
+               filed=total, created=sorted(placed),
+               msg=f"Organized {total} asset(s) into {len(placed)} folder(s): "
+                   + ", ".join(sorted(placed)) + ".")
+
+
 def generate_asset(session: Session, prompt: str, kind: str = "image",
                    seed: int = -1, width: int = 1080,
-                   height: int = 1920, model: str = "") -> dict:
+                   height: int = 1920, model: str = "",
+                   reference: str = "", negative: str = "",
+                   strength: float = -1.0) -> dict:
     """AI-generate an image or short video from a text prompt into the asset
     library. The generated file is cataloged like any uploaded asset, so it can
     then be used as a watermark/overlay/sticker/title background or b-roll by id
     or path. Needs GENMEDIA_API_KEY. kind: 'image' | 'video'. seed>=0 locks it.
     model: a specific id from genmedia.models(kind) (blank = configured
-    default)."""
+    default).
+
+    reference: an optional library IMAGE asset id to use as a visual reference /
+    init image (image kind only — "generate from @this-photo"). negative: things
+    to avoid. strength (0..1): how far to move from the reference (higher = more
+    creative). This is the @-mention-a-photo → generate flow."""
     prompt = (prompt or "").strip()
     if not prompt:
         return _err("Prompt is empty.")
@@ -1902,12 +1990,34 @@ def generate_asset(session: Session, prompt: str, kind: str = "image",
                     "in .env to generate assets.")
     gseed = seed if seed is not None and seed >= 0 else None
     gmodel = (model or "").strip() or None
+
+    # Resolve an optional reference image (image kind only).
+    ref_path = None
+    ref_id = (reference or "").strip()
+    if ref_id:
+        if kind != "image":
+            return _err("A reference image only applies to image generation; "
+                        "to animate an image use generate_video_from_asset.")
+        from pipeline import assets as alib
+        rrow = alib.get_asset(ref_id)
+        if not rrow:
+            return _err(f"No reference asset '{ref_id}' in the library.")
+        if rrow.get("kind") != "image":
+            return _err(f"Reference '{ref_id}' is a {rrow.get('kind')}, not an "
+                        f"image.")
+        ref_path = rrow.get("path")
+        if not ref_path or not Path(ref_path).exists():
+            return _err(f"Reference '{ref_id}' file is missing on disk.")
+
+    gstrength = strength if strength is not None and strength >= 0 else None
     if kind == "video":
         path = genmedia.generate_video(prompt, model=gmodel, width=width,
                                        height=height, seed=gseed)
     else:
-        path = genmedia.generate_image(prompt, model=gmodel, width=width,
-                                       height=height, seed=gseed)
+        path = genmedia.generate_image(
+            prompt, model=gmodel, width=width, height=height, seed=gseed,
+            reference_path=ref_path, negative_prompt=(negative or "").strip(),
+            strength=gstrength)
     if not path:
         return _err(f"Could not generate {kind} for: {prompt!r}")
     from pipeline import assets as alib
@@ -1918,11 +2028,49 @@ def generate_asset(session: Session, prompt: str, kind: str = "image",
         # Generation worked; cataloging didn't — still hand back the raw path.
         return _ok(path=path, kind=kind, cataloged=False,
                    msg=f"Generated {kind} (catalog failed: {e}).")
-    return _ok(path=path, kind=kind, cataloged=True,
+    ref_note = f" using #{ref_id} as reference" if ref_id else ""
+    return _ok(path=path, kind=kind, cataloged=True, reference=ref_id or None,
                asset_id=row["id"], description=row.get("description", ""),
-               msg=f"Generated {kind} and added it to your asset library "
-                   f"(id {row['id']}). Use it as a watermark/overlay/sticker, "
-                   f"title background, or b-roll.")
+               msg=f"Generated {kind}{ref_note} and added it to your asset "
+                   f"library (id {row['id']}). Use it as a watermark/overlay/"
+                   f"sticker, title background, or b-roll.")
+
+
+def generate_variations(session: Session, prompt: str, kind: str = "image",
+                        count: int = 4, model: str = "", reference: str = "",
+                        negative: str = "", hints: str = "") -> dict:
+    """Generate COUNT variations of one prompt into the asset library in a single
+    call (Palmier's "fire all four in parallel"). Each variation gets a distinct
+    seed; an optional comma-separated `hints` list appends a per-variation twist
+    ("shock, fear, tense, horror"). Supports the same `reference`/`negative` as
+    generate_asset (image kind), so "@a-photo → four close-ups" is one call.
+    Returns the list of created asset ids (and any that failed)."""
+    prompt = (prompt or "").strip()
+    if not prompt:
+        return _err("Prompt is empty.")
+    try:
+        n = max(1, min(8, int(count)))
+    except (TypeError, ValueError):
+        n = 4
+    hint_list = [h.strip() for h in (hints or "").split(",") if h.strip()]
+    made: list[dict] = []
+    failed: list[str] = []
+    for i in range(n):
+        hint = hint_list[i] if i < len(hint_list) else ""
+        vprompt = f"{prompt}, {hint}" if hint else prompt
+        res = generate_asset(session, vprompt, kind=kind, seed=1000 + i * 7,
+                             model=model, reference=reference, negative=negative)
+        if res.get("ok") and res.get("asset_id"):
+            made.append({"asset_id": res["asset_id"], "hint": hint or None,
+                         "description": res.get("description", "")})
+        else:
+            failed.append(res.get("error", f"variation {i + 1} failed"))
+    if not made:
+        return _err("No variations could be generated. "
+                    + (failed[0] if failed else ""))
+    return _ok(variations=made, made=len(made), failed=failed,
+               msg=f"Generated {len(made)} variation(s) into your asset library"
+                   + (f" ({len(failed)} failed)" if failed else "") + ".")
 
 
 def generate_video_from_asset(session: Session, asset_id: str, prompt: str = "",
@@ -3289,10 +3437,33 @@ TOOL_SPECS = [
           "prompt and add it to the asset library (needs GENMEDIA_API_KEY). The "
           "result can then be used as a watermark/overlay/sticker, title "
           "background, or b-roll. kind: 'image' (default) | 'video'. seed>=0 "
-          "locks the look for reproducibility. Use for 'logo üret', 'AI görsel "
-          "oluştur', 'generate an image/video for...'.",
+          "locks the look for reproducibility. reference is a library IMAGE asset "
+          "id to generate FROM (the @-mention-a-photo flow, image kind only); "
+          "negative lists things to avoid; strength (0..1) sets how far from the "
+          "reference. Use for 'logo üret', 'AI görsel oluştur', 'generate an "
+          "image from @this photo', 'bu fotoğraftan üret'.",
           {"prompt": _STR, "kind": _STR, "seed": _INT,
-           "width": _INT, "height": _INT, "model": _STR}, ["prompt"]),
+           "width": _INT, "height": _INT, "model": _STR,
+           "reference": _STR, "negative": _STR, "strength": _NUM}, ["prompt"]),
+    _spec("generate_variations", "Generate COUNT variations of one prompt into "
+          "the asset library in a SINGLE call (fire several at once). Each gets a "
+          "distinct seed; hints is a comma-separated list that appends a "
+          "per-variation twist ('shock, fear, tense, horror'). Supports the same "
+          "reference/negative as generate_asset (image kind), so '@a-photo → four "
+          "close-ups' is one call. Use for 'dört varyasyon üret', 'generate 4 "
+          "variations', 'birkaç farklı versiyon yap'.",
+          {"prompt": _STR, "kind": _STR, "count": _INT, "model": _STR,
+           "reference": _STR, "negative": _STR, "hints": _STR}, ["prompt"]),
+    _spec("move_asset_to_folder", "File a library asset into a (virtual) folder/"
+          "collection (the file never moves on disk). folder=\"\" un-files it. "
+          "Use for 'put this in Brand Assets', 'bu varlığı klasöre taşı'.",
+          {"asset_id": _STR, "folder": _STR}, ["asset_id"]),
+    _spec("organize_assets", "Organize the WHOLE asset library into a few clear "
+          "folders in one pass (the LLM buckets every asset). Optionally pass an "
+          "explicit folders map {\"Folder\": [\"asset_id\", ...]} to skip the "
+          "LLM. Folders are virtual labels. Use for 'organize my media', "
+          "'medyamı klasörlere ayır', 'sort everything into folders'.",
+          {"folders": {"type": "object"}}, []),
     _spec("generate_video_from_asset", "IMAGE-TO-VIDEO: animate an existing "
           "library IMAGE (uploaded photo or generated still) into a short video "
           "and catalog it as a new video asset (needs GENMEDIA_API_KEY). prompt "
@@ -3551,6 +3722,9 @@ REGISTRY = {
     "list_assets": list_assets,
     "ingest_assets": ingest_assets,
     "generate_asset": generate_asset,
+    "generate_variations": generate_variations,
+    "move_asset_to_folder": move_asset_to_folder,
+    "organize_assets": organize_assets,
     "generate_video_from_asset": generate_video_from_asset,
     "generate_storyboard": generate_storyboard,
     "propose_assets": propose_assets,

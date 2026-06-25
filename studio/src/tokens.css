@@ -1,0 +1,79 @@
+/* studio2 design-token contract (UI redesign, Phase 1).
+ * Single source of truth — components reference these vars, never raw hex/px.
+ * Adapted from Palmier's AppTheme + the CapCut/DaVinci research. The legacy
+ * aliases at the bottom keep the existing rules in styles.css working while the
+ * codebase migrates onto the new ramp. */
+:root {
+  /* Background elevation ramp (4-step charcoal) */
+  --bg-0: #0A0A0F;   /* window base            */
+  --bg-1: #121219;   /* panels (rail/library)  */
+  --bg-2: #1A1B24;   /* raised cards, headers  */
+  --bg-3: #24262F;   /* inputs, control wells, hover */
+
+  /* Text — white-with-alpha (consistent on any elevation) */
+  --tx-1: rgba(255,255,255,0.92);
+  --tx-2: rgba(255,255,255,0.62);
+  --tx-3: rgba(255,255,255,0.40);
+  --tx-4: rgba(255,255,255,0.24);
+
+  /* Borders — white-alpha hairlines (separation by value, not lines) */
+  --bd-1: rgba(255,255,255,0.08);
+  --bd-2: rgba(255,255,255,0.14);
+  --bd-strong: rgba(255,255,255,0.44);
+
+  /* Accents */
+  --accent:    #7C5CFF;  /* brand purple — selection, primary CTA, active tab */
+  --accent-hi: #A78BFA;  /* hover / glow                                      */
+  --accent-2:  #5AD1C4;  /* teal — generation / "rendered" ok                 */
+  --timecode:  #F39933;  /* orange — ruler labels + timecode readouts         */
+  --playhead:  #FF4444;  /* red — the one warm UI color                       */
+  --ok:        #4FB85F;
+  --err:       #E54F4F;
+
+  /* Track colors — semantic, one hue per lane key (legend-bound) */
+  --trk-zoom:        #F6C453;
+  --trk-splitscreen: #8B9CFF;
+  --trk-broll:       #5AD1C4;
+  --trk-overlay:     #C08BFF;
+  --trk-brand:       #FF9F6E;
+  --trk-subtitles:   #7C5CFF;
+  --trk-fx:          #FF6EA9;
+  --trk-sfx:         #FFCE5A;
+  --trk-music:       #69D27A;
+  --trk-ambience:    #5AA9FF;
+  --trk-fade:        #9AA3B2;
+
+  /* Spacing (half-steps for fine density control) */
+  --sp-1: 2px;  --sp-2: 4px;  --sp-3: 6px;  --sp-4: 8px;  --sp-5: 10px;
+  --sp-6: 12px; --sp-7: 14px; --sp-8: 16px; --sp-9: 20px; --sp-10: 24px;
+
+  /* Radii */
+  --r-xs: 3px; --r-sm: 6px; --r-md: 10px; --r-lg: 14px;
+
+  /* Type scale */
+  --fs-micro: 9px; --fs-xs: 10px; --fs-sm: 11px; --fs-md: 12px;
+  --fs-lg: 13px; --fs-xl: 15px; --fs-h: 18px;
+
+  /* Elevation */
+  --sh-sm: 0 0.5px 1px rgba(0,0,0,0.30);
+  --sh-md: 0 2px 4px rgba(0,0,0,0.30);
+  --sh-lg: 0 8px 24px rgba(0,0,0,0.45);
+
+  /* Timeline metrics (Phase 1) */
+  --track-header-w: 128px;
+  --ruler-h: 26px;
+  --th-video: 64px;   /* tall — filmstrip      */
+  --th-row: 30px;     /* derived lanes         */
+
+  /* ===== legacy aliases — keep existing styles.css rules working ===== */
+  --bg: var(--bg-0);
+  --panel: var(--bg-1);
+  --panel-2: var(--bg-2);
+  --line: var(--bd-1);
+  --text: var(--tx-1);
+  --muted: var(--tx-2);
+  --radius: var(--r-md);
+
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto,
+    Helvetica, Arial, sans-serif;
+}

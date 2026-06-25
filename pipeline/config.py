@@ -261,6 +261,12 @@ GENMEDIA_BASE_URL = os.getenv("GENMEDIA_BASE_URL", "https://fal.run")
 # Model ids are isolated here so a SOTA swap is a one-line .env change.
 GENMEDIA_VIDEO_MODEL = os.getenv("GENMEDIA_VIDEO_MODEL", "fal-ai/bytedance/seedance/v1/lite/text-to-video")
 GENMEDIA_IMAGE_MODEL = os.getenv("GENMEDIA_IMAGE_MODEL", "fal-ai/flux/schnell")
+# Reference-guided image generation (Palmier's "@-mention a photo → generate
+# variations"): when a reference/init image is supplied, the text-only default
+# (FLUX schnell) can't honor it, so generation routes to an image-EDIT model
+# that accepts an input image. nano-banana/edit takes image_urls + a prompt.
+GENMEDIA_IMAGE_EDIT_MODEL = os.getenv("GENMEDIA_IMAGE_EDIT_MODEL",
+                                      "fal-ai/nano-banana/edit")
 # Image-to-video: animate a still (uploaded or generated) into a clip.
 GENMEDIA_I2V_MODEL = os.getenv("GENMEDIA_I2V_MODEL", "fal-ai/bytedance/seedance/v1/lite/image-to-video")
 GENMEDIA_VIDEO_SECONDS = float(os.getenv("GENMEDIA_VIDEO_SECONDS", "5"))

@@ -62,6 +62,29 @@ def get_asset(asset_id: str) -> dict | None:
     return next((r for r in load_catalog() if r["id"] == asset_id), None)
 
 
+def set_folder(asset_id: str, folder: str) -> bool:
+    """Assign an asset to a (virtual) folder/collection. Folders are labels on
+    the catalog row — the file on disk never moves — so this is cheap and fully
+    reversible. Returns True if the asset existed. Pass "" to un-file it."""
+    rows = load_catalog()
+    hit = False
+    for r in rows:
+        if r["id"] == asset_id:
+            r["folder"] = (folder or "").strip()
+            hit = True
+            break
+    if hit:
+        save_catalog(rows)
+    return hit
+
+
+def list_folders() -> list[str]:
+    """Distinct, sorted folder labels currently in use across the catalog."""
+    seen = {(r.get("folder") or "").strip() for r in load_catalog()}
+    seen.discard("")
+    return sorted(seen)
+
+
 def catalog_for_llm(kinds: tuple[str, ...] | None = None) -> list[dict]:
     """Compact catalog rows for prompts (~100 tokens each)."""
     out = []

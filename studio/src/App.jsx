@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
-import { getState, getTimeline } from './api.js'
+import { getState, getTimeline, subscribeEvents } from './api.js'
 import AssetPanel from './components/AssetPanel.jsx'
+import ChatPanel from './components/ChatPanel.jsx'
 import Inspector from './components/Inspector.jsx'
 import Preview from './components/Preview.jsx'
 import Timeline from './components/Timeline.jsx'
@@ -19,6 +20,9 @@ export default function App() {
   const [busy, setBusy] = useState(false)
   const [rendering, setRendering] = useState(false)  // any server render/gen
   const [selected, setSelected] = useState(null)  // { track, item } | null
+  // An async generation occupying a timeline lane ({ jobId, clip, lane, start,
+  // end, label }) so the Timeline can show a "Generating…" block in place.
+  const [pendingGen, setPendingGen] = useState(null)
   const videoRef = useRef(null)
 
   // Load the project state (clip list + source meta) on mount.
@@ -53,6 +57,26 @@ export default function App() {
   // Drop the selection when the clip changes.
   useEffect(() => { setSelected(null) }, [clipId])
 
+  // Clear an in-lane "Generating…" block when its job finishes, and reconcile
+  // the fresh {result,state,timeline} the worker computed — but only onto the
+  // clip it targeted (a stale timeline from another clip must not apply).
+  useEffect(() => {
+    const unsub = subscribeEvents((evt) => {
+      const job = evt.job
+      if (!job || evt.type !== 'job_done') return
+      setPendingGen((pg) => {
+        if (!pg || job.id !== pg.jobId) return pg
+        const res = job.result
+        if (res && (!res.timeline || res.timeline.clip === pg.clip)) {
+          if (res.state) setState(res.state)
+          if (res.timeline) setTimeline(res.timeline)
+        }
+        return null
+      })
+    })
+    return unsub
+  }, [])
+
   if (error) {
     return (
       <div className="shell">
@@ -85,20 +109,23 @@ export default function App() {
 
       <div className="body">
         <aside className="rail">
-          <div className="rail-title">Clips · {clips.length}</div>
-          <ul className="clip-list">
-            {clips.map((c) => (
-              <li
-                key={c.id}
-                className={c.id === clipId ? 'clip active' : 'clip'}
-                onClick={() => { setClipId(c.id); setTimeline(null) }}
-              >
-                <span className="clip-id">#{c.id}</span>
-                <span className="clip-title">{c.title || `clip ${c.id}`}</span>
-                <span className={c.rendered ? 'dot ok' : 'dot'} />
-              </li>
-            ))}
-          </ul>
+          <div className="rail-clips">
+            <div className="rail-title">Clips · {clips.length}</div>
+            <ul className="clip-list">
+              {clips.map((c) => (
+                <li
+                  key={c.id}
+                  className={c.id === clipId ? 'clip active' : 'clip'}
+                  onClick={() => { setClipId(c.id); setTimeline(null) }}
+                >
+                  <span className="clip-id">#{c.id}</span>
+                  <span className="clip-title">{c.title || `clip ${c.id}`}</span>
+                  <span className={c.rendered ? 'dot ok' : 'dot'} />
+                </li>
+              ))}
+            </ul>
+          </div>
+          <ChatPanel project={project} onMutated={onMutated} />
         </aside>
 
         <main className="stage">
@@ -119,6 +146,7 @@ export default function App() {
               onClose={() => setSelected(null)}
               onMutated={onMutated}
               onRendering={setRendering}
+              onPendingGen={setPendingGen}
             />
           )}
           <Timeline
@@ -133,6 +161,7 @@ export default function App() {
             selected={selected}
             onSelectEvent={(track, item) => setSelected({ track, item })}
             onRendering={setRendering}
+            pendingGen={pendingGen}
           />
         </main>
 

@@ -204,20 +204,63 @@ def generate_video(prompt: str, *, model: str | None = None,
 
 
 def generate_image(prompt: str, *, model: str | None = None, width: int = 1080,
-                   height: int = 1920, seed: int | None = None) -> str | None:
+                   height: int = 1920, seed: int | None = None,
+                   reference_path: str | None = None,
+                   negative_prompt: str = "",
+                   strength: float | None = None) -> str | None:
     """Generate a still image from `prompt`. Returns a cached png path, or None
-    on any failure. Cached like generate_video."""
+    on any failure. Cached like generate_video.
+
+    reference_path: an optional init/reference image (Palmier's "@-mention a
+    photo → generate"). When set, the still is generated FROM that image —
+    generation routes to an image-edit model (GENMEDIA_IMAGE_EDIT_MODEL) unless
+    the caller passes an explicit edit-capable model, and the image is sent
+    inline as a data-URI (both `image_url` and `image_urls` so FLUX-i2i and
+    nano-banana-edit schemas are both satisfied; the provider ignores the key it
+    doesn't use). negative_prompt / strength are forwarded where supported. The
+    reference content hash + negative + strength fold into the cache key so a
+    reference-guided gen never collides with the plain text gen."""
     prompt = (prompt or "").strip()
     if not prompt or not available():
         return None
+
+    ref = Path(reference_path) if reference_path else None
+    ref_ok = bool(ref and ref.exists())
+    if ref_ok:
+        # Reference-guided: a text-only model (FLUX schnell) can't honor an input
+        # image, so prefer an edit model unless the caller chose one explicitly.
+        if not model or model == config.GENMEDIA_IMAGE_MODEL:
+            model = config.GENMEDIA_IMAGE_EDIT_MODEL
     model = model or config.GENMEDIA_IMAGE_MODEL
-    out = _cache_path("image", prompt, model, seed, width, height, None)
+
+    # Build a cache key that captures the reference + tuning so replays reuse the
+    # exact image and reference-guided ≠ text-only for the same prompt.
+    cache_prompt = prompt
+    if ref_ok:
+        import base64
+        import mimetypes
+        img_bytes = ref.read_bytes()
+        img_key = hashlib.sha1(img_bytes).hexdigest()[:12]
+        cache_prompt = (f"ref:{img_key}|neg:{negative_prompt}|"
+                        f"s:{strength}|{prompt}")
+    out = _cache_path("image", cache_prompt, model, seed, width, height, None)
     if out.exists():
         return str(out)
-    payload = {"prompt": prompt, "image_size": {"width": width, "height": height},
+
+    payload = {"prompt": prompt,
+               "image_size": {"width": width, "height": height},
                "aspect_ratio": _aspect_ratio(width, height)}
     if seed is not None:
         payload["seed"] = int(seed)
+    if negative_prompt:
+        payload["negative_prompt"] = negative_prompt
+    if ref_ok:
+        mime = mimetypes.guess_type(str(ref))[0] or "image/png"
+        data_uri = f"data:{mime};base64," + base64.b64encode(img_bytes).decode()
+        payload["image_url"] = data_uri          # FLUX-style image-to-image
+        payload["image_urls"] = [data_uri]       # nano-banana-edit schema
+        if strength is not None:
+            payload["strength"] = max(0.0, min(1.0, float(strength)))
     try:
         return _generate("image", prompt, payload, model, out)
     except Exception:  # noqa: BLE001

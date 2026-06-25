@@ -1,8 +1,8 @@
 import { useEffect, useRef, useState } from 'react'
 import {
   addBrollFromAsset, applyStyle, generateAsset, generateVariations, getModels,
-  imageToVideo, listAssets, listStyles, moveAssetToFolder, organizeAssets,
-  subscribeEvents, uploadAsset,
+  imageToVideo, insertGeneratedClip, listAssets, listStyles, moveAssetToFolder,
+  organizeAssets, subscribeEvents, uploadAsset,
 } from '../api.js'
 
 // The library + generation surface (Palmier's signature region): a tabbed
@@ -20,7 +20,9 @@ function onCardDragStart(a) {
   }
 }
 
-function AssetCard({ a, genAvailable, clip, folders, onI2V, onAdd, onRef, onMove }) {
+function AssetCard({
+  a, genAvailable, clip, folders, onI2V, onAdd, onRef, onMove, onInsert,
+}) {
   const [menu, setMenu] = useState(false)
   return (
     <div className="asset-card" draggable onDragStart={onCardDragStart(a)}
@@ -45,7 +47,13 @@ function AssetCard({ a, genAvailable, clip, folders, onI2V, onAdd, onRef, onMove
         )}
         {(a.kind === 'image' || a.kind === 'video' || a.kind === 'audio')
           && clip && (
-          <button onClick={() => onAdd(a)}>+ TL</button>
+          <button onClick={() => onAdd(a)} title="Overlay on the current clip">
+            + TL</button>
+        )}
+        {a.kind === 'video' && clip && (
+          <button onClick={() => onInsert(a)}
+            title="Insert as a new clip after the current one (shifts later clips)">
+            ⎀ Clip</button>
         )}
         <button className="af-more" onClick={() => setMenu((m) => !m)}
           title="Move to folder">⋯</button>
@@ -208,6 +216,22 @@ export default function AssetPanel({
     finally { setBusy(''); onRendering?.(false) }
   }
 
+  // Insert a library video into the clip SEQUENCE as a new clip right after the
+  // current one — the time-inserting generative insert (later clips shift).
+  async function onInsertClip(asset) {
+    if (!clip || busy) return
+    setBusy('Inserting as a clip…')
+    onRendering?.(true)
+    try {
+      const res = await insertGeneratedClip(
+        project, { after: clip, assetId: asset.id }, clip)
+      const r = res?.result
+      if (r?.ok === false) alert(r.error || 'Could not insert clip')
+      else onMutated?.(res)
+    } catch (e) { alert(String(e.message || e)) }
+    finally { setBusy(''); onRendering?.(false) }
+  }
+
   async function onApplyStyle(name) {
     if (!clip || busy) return
     setBusy(`Applying ${name}…`)
@@ -313,7 +337,8 @@ export default function AssetPanel({
               <div key={a.id} className="card-wrap">
                 <AssetCard a={a} genAvailable={genAvailable} clip={clip}
                   folders={folders} onI2V={(id) => setI2v({ id })}
-                  onAdd={onAddToTimeline} onRef={useAsReference} onMove={onMove} />
+                  onAdd={onAddToTimeline} onRef={useAsReference} onMove={onMove}
+                  onInsert={onInsertClip} />
                 {i2v?.id === a.id && (
                   <div className="i2v-pop">
                     <input className="ap-input" value={i2vPrompt}

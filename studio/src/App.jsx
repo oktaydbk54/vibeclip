@@ -143,6 +143,7 @@ export default function App() {
               clip={clipId}
               track={selected.track}
               item={selected.item}
+              speed={timeline?.speed}
               onClose={() => setSelected(null)}
               onMutated={onMutated}
               onRendering={setRendering}

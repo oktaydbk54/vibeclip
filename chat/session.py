@@ -594,6 +594,12 @@ class Session:
         """Clip-local word timings valid for the clip's current timing."""
         from pipeline.transcribe import transcribe
 
+        # Synthetic clips (inserted generative footage — insert_generated_clip)
+        # carry no speech track; skip transcription and report no words so the
+        # captions lane is simply empty instead of transcribing silent footage.
+        if clip.get("synthetic"):
+            return []
+
         ref = None
         for st in clip["stages"]:
             if st["name"] in TIMING_STAGES:
@@ -615,6 +621,8 @@ class Session:
         timing — the dub stage's natural unit. Reads the same TIMING-stage
         artifact words_for uses; transcribe() is disk-cached so this is cheap."""
         from pipeline.transcribe import transcribe
+        if clip.get("synthetic"):
+            return []
         ref = None
         for st in clip["stages"]:
             if st["name"] in TIMING_STAGES:

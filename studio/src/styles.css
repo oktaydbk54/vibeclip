@@ -83,6 +83,7 @@ code {
   box-shadow: 0 14px 44px rgba(0,0,0,0.55);
   max-height: calc(100% - 28px); overflow-y: auto;
 }
+.insp-tabs { margin: 2px 0 10px; }
 .insp-tune, .insp-ai, .insp-transform {
   margin-top: 10px; padding-top: 8px; border-top: 1px solid var(--line);
 }
@@ -343,6 +344,16 @@ code {
 }
 .item.point .item-label { display: none; }
 .item-label { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+
+/* keyframe diamonds on the zoom lane (animated-property ramp in/out markers) */
+.item .kf {
+  position: absolute; top: 50%; width: 7px; height: 7px;
+  transform: translateY(-50%) rotate(45deg);
+  background: #0c0d12; opacity: 0.5; pointer-events: none;
+}
+.item .kf-in { left: 3px; }
+.item .kf-out { right: 3px; }
+.item.point .kf { display: none; }   /* point dots have no room for diamonds */
 
 .playhead {
   position: absolute; top: 0; bottom: 0; width: 2px; margin-left: -1px;

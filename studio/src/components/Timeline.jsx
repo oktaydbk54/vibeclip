@@ -443,6 +443,14 @@ export default function Timeline({
                     >
                       {it.generated && <span className="gen-dot">✦</span>}
                       <span className="item-label">{it.label}</span>
+                      {/* zoom is an animated property: mark its ramp-in/out
+                          keyframes with diamonds (Palmier's ◆ Keyframes). */}
+                      {t.key === 'zoom' && (
+                        <>
+                          <span className="kf kf-in" title="keyframe (ramp in)" />
+                          <span className="kf kf-out" title="keyframe (ramp out)" />
+                        </>
+                      )}
                     </div>
                   )
                 })}

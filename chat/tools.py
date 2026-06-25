@@ -19,7 +19,8 @@ MUTATING_TOOLS = frozenset({
     "cut_silences", "set_fade", "add_sound_effect", "apply_style",
     "remove_fillers", "remove_section", "set_speed", "set_cut", "auto_zoom",
     "add_broll", "rerun_broll", "set_watermark", "set_title_card",
-    "add_meme_text", "duplicate_clip", "pick_variant", "join_clips",
+    "add_meme_text", "duplicate_clip", "insert_generated_clip",
+    "pick_variant", "join_clips",
     "set_look", "add_overlay", "add_reaction", "add_sticker", "add_emphasis",
     "auto_pace", "set_loudness", "add_gameplay_background", "fix_transcript",
     "edit_event", "delete_event", "generate_storyboard", "assemble_reel",
@@ -1682,6 +1683,161 @@ def duplicate_clip(session: Session, clip_id: int, label: str = "") -> dict:
     return _ok(new_id=new["id"], variant_of=new["variant_of"],
                msg="Variant created instantly; it shares the original's "
                    "render until you change one of its stages.")
+
+
+def _has_audio_stream(path: str) -> bool:
+    """True if `path` carries at least one audio stream."""
+    import json as _json
+    import subprocess
+    try:
+        out = subprocess.run(
+            ["ffprobe", "-v", "error", "-select_streams", "a",
+             "-show_entries", "stream=index", "-of", "json", str(path)],
+            capture_output=True, text=True, check=True).stdout
+        return bool(_json.loads(out).get("streams"))
+    except Exception:
+        return False
+
+
+def _conform_sequence_clip(src: str, width: int, height: int, fps: float,
+                           out_dir: Path) -> str:
+    """Conform ANY video into a full SEQUENCE clip matching the reel's frame.
+
+    Unlike normalize_media (built for b-roll OVERLAYS: it strips audio with
+    -an and caps length at 20s because the main clip carries the sound), a
+    sequence clip stands on its own — so this PRESERVES the source's full
+    length and audio, synthesizing a silent stereo track only when the source
+    has none. That keeps every clip uniform so join_clips/assemble_reel can
+    xfade them ([1:a] always exists). Content-addressed so a replay reuses the
+    encode."""
+    import hashlib
+    from pipeline import config
+    from pipeline.media import run_ffmpeg
+    s = Path(src)
+    if not s.exists():
+        raise ValueError(f"Media not found: {src}")
+    out_dir.mkdir(parents=True, exist_ok=True)
+    key = hashlib.sha1(
+        f"{s.resolve()}:{s.stat().st_mtime}:{width}x{height}@{fps:.0f}"
+        .encode()).hexdigest()[:12]
+    out = out_dir / f"insert_{key}.mp4"
+    if out.exists():
+        return str(out)
+    vf = (f"scale={width}:{height}:force_original_aspect_ratio=increase,"
+          f"crop={width}:{height},fps={fps:g}")
+    if _has_audio_stream(src):
+        run_ffmpeg(["-i", str(s.resolve()), "-vf", vf,
+                    "-c:v", config.VIDEO_ENCODER, "-c:a", "aac",
+                    "-ar", "44100", str(out)])
+    else:
+        run_ffmpeg(["-i", str(s.resolve()), "-f", "lavfi", "-i",
+                    "anullsrc=channel_layout=stereo:sample_rate=44100",
+                    "-vf", vf, "-c:v", config.VIDEO_ENCODER,
+                    "-c:a", "aac", "-shortest", str(out)])
+    return str(out)
+
+
+def insert_generated_clip(session: Session, after_clip_id: int = -1,
+                          asset_id: str = "", prompt: str = "",
+                          seconds: float = 0.0, model: str = "",
+                          seed: int = -1, title: str = "") -> dict:
+    """Insert a VIDEO into the clip SEQUENCE as a NEW clip, right after
+    `after_clip_id` (−1 = append at the end). The footage is either a library
+    video asset (`asset_id`) or generated from `prompt` (text-to-video).
+
+    Inserting shifts every later clip forward in the edit — a true
+    time-inserting generative insert at clip granularity (the clip list IS our
+    sequence axis), NOT a free-NLE splice over existing footage. To OVERLAY
+    generated footage on top of an existing clip instead, use add_broll.
+
+    The inserted clip is 'synthetic': its own footage is the source, it carries
+    no transcript (captions lane stays empty) and renders no further stages —
+    the normalized file is played as-is. Needs GENMEDIA_API_KEY when `prompt`
+    is used. seconds: target length for generation (0 = provider default).
+    seed (>=0) locks the generation; model picks a specific genmedia video id."""
+    from pipeline.media import ffprobe_info
+
+    clips = session.data["clips"]
+
+    # Reference frame: the anchor clip's, else the first rendered clip's, else
+    # default vertical — so the insert matches the reel's dimensions/fps.
+    anchor = None
+    if after_clip_id is not None and after_clip_id >= 0:
+        try:
+            anchor = session.clip(int(after_clip_id))
+        except ValueError:
+            return _err(f"No clip #{after_clip_id} to insert after.")
+    ref_clip = anchor or next((c for c in clips if c.get("current")), None)
+    try:
+        w, h, fps = _frame_of(ref_clip) if ref_clip else (1080, 1920, 30.0)
+    except Exception:
+        w, h, fps = 1080, 1920, 30.0
+
+    # Resolve the footage: an existing library video, or generate one.
+    gen_meta = None
+    if asset_id:
+        from pipeline import assets as alib
+        row = alib.get_asset(asset_id)
+        if not row:
+            return _err(f"No asset {asset_id} in the library.")
+        if row.get("kind") != "video":
+            return _err(f"Asset {asset_id} is a {row.get('kind')}, not a video.")
+        src = row.get("path", "")
+        if not src or not Path(src).exists():
+            return _err(f"Asset {asset_id} file is missing on disk.")
+    elif prompt.strip():
+        from pipeline import config, genmedia
+        if not genmedia.available():
+            return _err("Generative media is not configured. Set "
+                        "GENMEDIA_API_KEY in .env to generate footage.")
+        secs = float(seconds) if seconds and seconds > 0 \
+            else float(config.GENMEDIA_VIDEO_SECONDS)
+        gseed = int(seed) if seed is not None and seed >= 0 else None
+        src = genmedia.generate_video(prompt.strip(), width=w, height=h,
+                                      seconds=secs, model=model or None,
+                                      seed=gseed)
+        if not src:
+            return _err(f"Could not generate '{prompt.strip()}'.")
+        gen_meta = {"prompt": prompt.strip(),
+                    "model": model or config.GENMEDIA_VIDEO_MODEL,
+                    "provider": config.GENMEDIA_PROVIDER, "seed": gseed}
+    else:
+        return _err("Provide an asset_id or a prompt to insert.")
+
+    session.snapshot("insert_generated_clip")
+    # Conform to the reel's frame, keeping full length + audio (a sequence clip
+    # stands alone, unlike a b-roll overlay) so it joins/xfades with real clips.
+    norm = _conform_sequence_clip(src, w, h, fps, session.workdir)
+    dur = round(float(ffprobe_info(norm)["duration"]), 3)
+
+    new_id = max((c["id"] for c in clips), default=0) + 1
+    label = (title.strip()
+             or (f"Insert: {prompt.strip()[:32]}" if prompt.strip()
+                 else "Generated insert"))
+    new_clip = {
+        "id": new_id, "title": label, "start": 0.0, "end": dur, "score": 0,
+        "status": "approved", "synthetic": True,
+        "source_path": norm, "current": norm,
+        # A single already-materialized cut stage: words_for/_timeline find a
+        # TIMING-stage output, and the synthetic flag keeps them from
+        # transcribing it. No reframe/caption tail — the footage is final.
+        "stages": [{"name": "cut", "params": {"start": 0.0, "end": dur},
+                    "output": norm}],
+    }
+    if gen_meta:
+        new_clip["gen"] = gen_meta
+
+    # List order IS the edit's clip sequence: inserting right after the anchor
+    # shifts every later clip forward. Append when there's no anchor.
+    pos = len(clips)
+    if anchor is not None:
+        pos = next((i for i, c in enumerate(clips)
+                    if c["id"] == anchor["id"]), len(clips) - 1) + 1
+    clips.insert(pos, new_clip)
+    session.save()
+    return _ok(clip_id=new_id, position=pos + 1, duration=dur,
+               msg=f"Inserted a {dur:g}s clip at position {pos + 1} "
+                   f"— later clips shifted forward.")
 
 
 def pick_variant(session: Session, clip_id: int) -> dict:
@@ -3554,6 +3710,14 @@ TOOL_SPECS = [
           "different edit ('3 farklı hook dene' = duplicate twice, then edit "
           "each). Instant.",
           {"clip_id": _INT, "label": _STR}, ["clip_id"]),
+    _spec("insert_generated_clip", "INSERT a video into the clip SEQUENCE as a "
+          "new clip after after_clip_id (−1 = append), shifting later clips "
+          "forward — a time-inserting generative insert at clip granularity "
+          "('üret ve araya klip olarak ekle'). Footage from a library video "
+          "asset_id OR generated from prompt (text-to-video). For an OVERLAY "
+          "on an existing clip use add_broll instead.",
+          {"after_clip_id": _INT, "asset_id": _STR, "prompt": _STR,
+           "seconds": _NUM, "model": _STR, "seed": _INT, "title": _STR}, []),
     _spec("pick_variant", "Resolve an A/B test: keep this variant, archive "
           "its siblings.", {"clip_id": _INT}, ["clip_id"]),
     _spec("join_clips", "Join clips into ONE compilation video with "
@@ -3709,6 +3873,7 @@ REGISTRY = {
     "set_title_card": set_title_card,
     "add_meme_text": add_meme_text,
     "duplicate_clip": duplicate_clip,
+    "insert_generated_clip": insert_generated_clip,
     "pick_variant": pick_variant,
     "join_clips": join_clips,
     "assemble_reel": assemble_reel,

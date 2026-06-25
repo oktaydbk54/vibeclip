@@ -171,6 +171,23 @@ export function organizeAssets(project, folders, clip, async_ = true) {
   return (async_ ? runToolAsync : runTool)(project, 'organize_assets', args, clip)
 }
 
+// Insert a library/generated VIDEO into the clip SEQUENCE as a new clip after
+// `after` (−1 = append), shifting later clips forward — the time-inserting
+// generative insert (TimeMap) at clip granularity. async_ runs it on the job
+// worker so the lane can show a "Generating…" block while it renders.
+export function insertGeneratedClip(
+  project,
+  { after = -1, assetId = '', prompt = '', seconds = 0, model = '', seed = -1, title = '' },
+  clip, async_ = false,
+) {
+  const args = {
+    after_clip_id: after, asset_id: assetId, prompt,
+    seconds, model: model || '', seed: seed ?? -1, title,
+  }
+  return (async_ ? runToolAsync : runTool)(
+    project, 'insert_generated_clip', args, clip)
+}
+
 // Image → video (animate a library still) into the library.
 export function imageToVideo(project, { asset_id, prompt, model, seed }, clip) {
   return runTool(project, 'generate_video_from_asset',

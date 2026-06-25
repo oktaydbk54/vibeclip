@@ -58,7 +58,7 @@ TOOL_WHITELIST = {"export_captions", "undo", "redo", "remove_section",
                   "add_broll", "rerun_broll", "assemble_reel",
                   "generate_storyboard",
                   "generate_asset", "generate_variations",
-                  "generate_video_from_asset",
+                  "generate_video_from_asset", "insert_generated_clip",
                   "move_asset_to_folder", "organize_assets",
                   "apply_style", "set_subtitles",
                   "revert_plan", "regenerate_plan"}

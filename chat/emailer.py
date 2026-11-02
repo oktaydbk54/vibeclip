@@ -32,7 +32,7 @@ def _from_addr() -> str:
 
 
 def _otp_html(code: str, name: str = "") -> str:
-    hello = f"Hi {name}," if name else "Hi,"
+    hello = f"Hola {name}," if name else "Hola,"
     spaced = " ".join(code)  # visual spacing of the digits
     return f"""\
 <!doctype html><html><body style="margin:0;background:#0a0712;
@@ -47,20 +47,20 @@ def _otp_html(code: str, name: str = "") -> str:
        <div style="font-weight:800;letter-spacing:.14em;font-size:18px;color:#fff;margin-bottom:4px">
          VIBECLIP</div>
        <div style="font-size:11px;letter-spacing:.3em;color:#615a73;text-transform:uppercase;margin-bottom:26px">
-         Verify your email</div>
+         Verifica tu correo</div>
        <p style="margin:0 0 18px;font-size:15px;color:#c8c2da">{hello}</p>
        <p style="margin:0 0 22px;font-size:15px;color:#918aa6;line-height:1.5">
-         Enter this code to finish creating your account:</p>
+         Introduce este código para terminar de crear tu cuenta:</p>
        <div style="font-family:'Courier New',monospace;font-weight:700;font-size:34px;
                    letter-spacing:.32em;color:{ACCENT};background:#0a0712;
                    border:1px solid #3a2c54;border-radius:9px;padding:18px 0;
                    text-align:center;margin-bottom:22px">{spaced}</div>
        <p style="margin:0;font-size:12.5px;color:#615a73;line-height:1.5">
-         This code expires in 10 minutes. If you didn't request it, you can
-         safely ignore this email.</p>
+         Este código expira en 10 minutos. Si no lo solicitaste, puedes
+         ignorar este correo sin problemas.</p>
      </td></tr>
     </table>
-    <div style="font-size:11px;color:#4a4458;margin-top:18px">VibeClip · AI short-form video editor</div>
+    <div style="font-size:11px;color:#4a4458;margin-top:18px">VibeClip · Editor de vídeo IA para formato corto</div>
    </td></tr>
   </table>
 </body></html>"""
@@ -72,12 +72,12 @@ def send_otp(to_email: str, code: str, name: str = "") -> bool:
     Dev fallback (no RESEND_API_KEY): prints the code to the console and
     returns True so the signup flow is fully testable without a key.
     """
-    subject = f"{code} is your VibeClip verification code"
-    text = (f"Your VibeClip verification code is {code}. "
-            "It expires in 10 minutes.")
+    subject = f"{code} es tu código de verificación de VibeClip"
+    text = (f"Tu código de verificación de VibeClip es {code}. "
+            "Expira en 10 minutos.")
 
     if _mode() == "console":
-        print(f"[emailer] EMAIL_MODE=console — OTP for {to_email}: {code}",
+        print(f"[emailer] EMAIL_MODE=console — OTP para {to_email}: {code}",
               flush=True)
         return True
 
@@ -116,11 +116,11 @@ if __name__ == "__main__":
 
     dest = sys.argv[1] if len(sys.argv) > 1 else ""
     if not dest:
-        print("usage: python -m chat.emailer <to-email>")
+        print("uso: python -m chat.emailer <correo-destino>")
         raise SystemExit(2)
-    print(f"[emailer] mode={_mode()}  from={_from_addr()}")
-    ok = send_otp(dest, "123456", "VibeClip test")
-    print("[emailer] sent OK ✓" if ok else
-          "[emailer] FAILED ✗ — check EMAIL_MODE=resend, RESEND_API_KEY, "
-          "and that RESEND_FROM's domain is verified in Resend")
+    print(f"[emailer] modo={_mode()}  de={_from_addr()}")
+    ok = send_otp(dest, "123456", "Prueba VibeClip")
+    print("[emailer] enviado OK ✓" if ok else
+          "[emailer] FALLÓ ✗ — revisa EMAIL_MODE=resend, RESEND_API_KEY, "
+          "y que el dominio de RESEND_FROM esté verificado en Resend")
     raise SystemExit(0 if ok else 1)

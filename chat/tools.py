@@ -36,7 +36,347 @@ def _ok(**kw) -> dict:
 
 
 def _err(msg: str) -> dict:
-    return {"ok": False, "error": msg}
+    return {"ok": False, "error": _tr(msg)}
+
+
+def _tr(msg: str) -> str:
+    """Traduce al español si el mensaje está en inglés; si ya está en español, lo devuelve tal cual."""
+    # Mapeo de mensajes de error comunes
+    translations = {
+        "This project uses your own uploaded clips -- auto-clipping would replace them.":
+            "Este proyecto usa tus propios clips subidos -- el recorte automatico los reemplazaria.",
+        "No clip-worthy moments found.":
+            "No se encontraron momentos destacables para crear clips.",
+        "status must be one of ":
+            "el estado debe ser uno de ",
+        "Clip #":
+            "Clip #",
+        " has no rendered file yet.":
+            " aun no tiene archivo renderizado.",
+        "No matching music track found. Drop files into ":
+            "No se encontro pista musical coincidente. Arrastra archivos a ",
+        "Music library is empty. Drop files into ":
+            "La biblioteca de musica esta vacia. Arrastra archivos a ",
+        "SFX file not found: ":
+            "Archivo SFX no encontrado: ",
+        "Unknown sfx '":
+            "SFX desconocido '",
+        "'. Available: ":
+            "'. Disponibles: ",
+        "Unknown style '":
+            "Estilo desconocido '",
+        "Give the style a usable name.":
+            "Dale al estilo un nombre usable.",
+        "Paste at least one Instagram Reel URL (your own).":
+            "Pega al menos una URL de Reel de Instagram (tuyo).",
+        "Only individual instagram.com Reel/post links work -- no ":
+            "Solo funcionan enlaces individuales a instagram.com Reel/post -- no ",
+        "Couldn't download/analyze any of those Reels. ":
+            "No se pudo descargar/analizar ninguno de esos Reels. ",
+        "Empty preference.":
+            "Preferencia vacia.",
+        "end must be greater than start.":
+            "el final debe ser mayor que el inicio.",
+        "That removes ":
+            "Eso elimina ",
+        "s of a ":
+            "s de un clip de ",
+        "s clip ":
+            "s ",
+        "Clip is picture-locked -- unlock it first to change speed.":
+            "El clip esta bloqueado (picture-lock) -- desbloquealo primero para cambiar la velocidad.",
+        "No speech found to plan zooms from.":
+            "No se encontro voz para planificar zooms.",
+        "The planner found no zoom-worthy moments.":
+            "El planificador no encontro momentos para hacer zoom.",
+        "Render or open the clip first.":
+            "Renderiza o abre el clip primero.",
+        "No moment matching that description was found in this clip.":
+            "No se encontro ningun momento que coincida con esa descripcion en este clip.",
+        "Clip is picture-locked -- unlock it first.":
+            "El clip esta bloqueado (picture-lock) -- desbloquealo primero.",
+        "occurrence must be 'first' or 'all'.":
+            "occurrence debe ser 'first' o 'all'.",
+        "No part matching \"":
+            "Ninguna parte que coincida con \"",
+        "\" cleared the confidence ":
+            "\" supero la confianza ",
+        "Media not found: ":
+            "Multimedia no encontrado: ",
+        "Local-file b-roll needs start and end seconds.":
+            "El b-roll de archivo local necesita segundos de inicio y fin.",
+        "B-roll can't cover the hook (first ":
+            "El b-roll no puede cubrir el hook (primeros ",
+        "s).":
+            "s).",
+        "No b-roll-worthy moments found in this clip.":
+            "No se encontraron momentos para b-roll en este clip.",
+        "Manual b-roll needs query, start and end.":
+            "El b-roll manual necesita consulta, inicio y fin.",
+        "No stock footage found for: ":
+            "No se encontro metraje de stock para: ",
+        "Unknown pack '":
+            "Pack desconocido '",
+        "'. Choose one of: ":
+            "'. Elige uno de: ",
+        "Pack '":
+            "Pack '",
+        "' isn't installed yet -- no footage on disk. ":
+            "' no esta instalado aun -- no hay metraje en disco. ",
+        "platforms must be a subset of ":
+            "platforms debe ser un subconjunto de ",
+        "Metadata generation failed -- try again.":
+            "Fallo la generacion de metadatos -- intentalo de nuevo.",
+        "No transcript words for this clip -- open/render it first.":
+            "No hay palabras de transcripcion para este clip -- abrelo/renderizalo primero.",
+        "Watermark image not found: ":
+            "Imagen de marca de agua no encontrada: ",
+        "corner must be tl|tr|bl|br":
+            "corner debe ser tl|tr|bl|br",
+        "Title text is empty.":
+            "El texto del titulo esta vacio.",
+        "Meme text is empty.":
+            "El texto del meme esta vacio.",
+        "position must be top|bottom":
+            "position debe ser top|bottom",
+        "LUT not found: ":
+            "LUT no encontrado: ",
+        "Unknown look '":
+            "Aspecto desconocido '",
+        "'. Built-ins: ":
+            "'. Integrados: ",
+        "(or pass file=<path.cube>)":
+            "(o pasa file=<ruta.cube>)",
+        "Overlay media not found: ":
+            "Multimedia de overlay no encontrada: ",
+        "Reaction clip not found: ":
+            "Clip de reaccion no encontrado: ",
+        "Sticker image not found: ":
+            "Imagen de sticker no encontrada: ",
+        "kind must be flash|shake|flashshake":
+            "kind debe ser flash|shake|flashshake",
+        "Clip has no render yet.":
+            "El clip no tiene render aun.",
+        "Pacing is already within target -- nothing to add.":
+            "El ritmo ya esta dentro del objetivo -- nada que anadir.",
+        "Unknown platform '":
+            "Plataforma desconocida '",
+        "'. Options: ":
+            "'. Opciones: ",
+        "Clip #":
+            "Clip #",
+        " has no variants to resolve.":
+            " no tiene variantes para resolver.",
+        "Siblings archived (files kept on disk; undo restores).":
+            "Variantes archivadas (archivos conservados en disco; deshacer restaura).",
+        "Need at least 2 clip ids to join.":
+            "Se necesitan al menos 2 IDs de clip para unir.",
+        "Clip #":
+            "Clip #",
+        " has no rendered file.":
+            " no tiene archivo renderizado.",
+        "Compilation rendered (loudness-normalized once at the end).":
+            "Compilacion renderizada (normalizada en loudness una vez al final).",
+        "Asset library is empty. Upload files in the web UI or ":
+            "La biblioteca de assets esta vacia. Sube archivos en la UI web o ",
+        "use ingest_assets with a file/folder path.":
+            "usa ingest_assets con una ruta de archivo/carpeta.",
+        "Clip has no cut to nudge.":
+            "El clip no tiene corte para ajustar.",
+        "That would make the clip shorter than 0.2s.":
+            "Eso haria el clip mas corto de 0.2s.",
+        "Stage '":
+            "Etapa '",
+        "' is not directly editable.":
+            "' no es editable directamente.",
+        "Clip has no ":
+            "El clip no tiene ",
+        " stage.":
+            " etapa.",
+        "No ":
+            "No hay ",
+        " event #":
+            " evento #",
+        " (have ":
+            " (hay ",
+        ").":
+            ").",
+        "end must be after start.":
+            "el final debe ser despues del inicio.",
+        "mode must be 'ask_all' or 'auto_minor'.":
+            "mode debe ser 'ask_all' o 'auto_minor'.",
+        "format must be 'srt' or 'vtt'.":
+            "format debe ser 'srt' o 'vtt'.",
+        "No transcript words to export for this clip.":
+            "No hay palabras de transcripcion para exportar en este clip.",
+        "strength must be one of ":
+            "strength debe ser uno de ",
+        "Clip is picture-locked -- unlock it first.":
+            "El clip esta bloqueado (picture-lock) -- desbloquealo primero.",
+        "That span is not inside any removed section.":
+            "Ese tramo no esta dentro de ninguna seccion eliminada.",
+        "aspect must be one of ":
+            "aspect debe ser uno de ",
+        "Clip # is already ":
+            "Clip # ya es ",
+        "Reframed clip #":
+            "Clip reencuadrado #",
+        " to ":
+            " a ",
+        "Exported clip #":
+            "Clip exportado #",
+        " at full resolution.":
+            " a resolucion completa.",
+        "Timeline exported. It references the original source ":
+            "Timeline exportado. Referencia el archivo fuente original ",
+        "file; import into Resolve via File -> Import -> Timeline.":
+            "archivo; importalo en Resolve via Archivo -> Importar -> Timeline.",
+        "No pending plan. Use propose_edit first.":
+            "No hay plan pendiente. Usa propose_edit primero.",
+        "Completed steps are kept; one undo reverts the whole plan.":
+            "Los pasos completados se conservan; un deshacer revierte todo el plan.",
+        "Applied across ":
+            "Aplicado en ",
+        " clip(s); one undo reverts the whole ":
+            " clip(s); un deshacer revierte toda la ",
+        "multi-clip operation.":
+            "operacion multi-clip.",
+        "Pending plan discarded.":
+            "Plan pendiente descartado.",
+        "No applied plan to revert.":
+            "No hay plan aplicado para revertir.",
+        "No applied plan found to regenerate.":
+            "No se encontro plan aplicado para regenerar.",
+        "Could not revert (the checkpoint aged out), so the new ":
+            "No se pudo revertir (el checkpoint expiro), asi que el nuevo ",
+        "plan stacks on the current state. ":
+            "plan se apila sobre el estado actual. ",
+        "The user REJECTED a previous plan for this same instruction. Take a ":
+            "El usuario RECHAZO un plan previo para la misma instruccion. Toma un ",
+        "NOTICEABLY different approach (different actions or clearly different ":
+            "enfoque NOTABLEMENTE diferente (acciones distintas o parametros claramente ",
+        "different parameters). Previous steps: ":
+            "diferentes). Pasos previos: ",
+        "New (different) project plan ready for ":
+            "Nuevo plan de proyecto (diferente) listo para ",
+        " clip(s) with a ":
+            " clip(s) con un ",
+        "per-clip A/B carousel. Present the per-clip steps and WAIT for ":
+            "carousel A/B por clip. Presenta los pasos por clip y ESPERA ",
+        "approval; apply_plan commits them all under one undo.":
+            "aprobacion; apply_plan los confirma todos bajo un deshacer.",
+        "New (different) plan ready with a PREVIEW render showing ":
+            "Nuevo plan (diferente) listo con render PREVIEW mostrando ",
+        "in the player (A=current, B=plan). Present the numbered steps ":
+            "en el jugador (A=actual, B=plan). Presenta los pasos numerados ",
+        "(with each 'why'), tell the user to compare A/B, and WAIT for ":
+            "(con cada 'por que'), dile al usuario que compare A/B, y ESPERA ",
+        "approval. Only call apply_plan after they confirm.":
+            "aprobacion. Solo llama apply_plan tras su confirmacion.",
+        "New (different) plan ready, but the preview render could ":
+            "Nuevo plan (diferente) listo, pero el render preview no ",
+        "not be produced. Present the numbered steps (with each 'why'), ":
+            "pudo generarse. Presenta los pasos numerados (con cada 'por que'), ",
+        "note there is no A/B preview, and WAIT for approval.":
+            "nota que no hay preview A/B, y ESPERA aprobacion.",
+        "edge must be 'start' or 'end'.":
+            "edge debe ser 'start' o 'end'.",
+        "Stage '":
+            "Etapa '",
+        "' is not directly editable.":
+            "' no es editable directamente.",
+        "Clip has no ":
+            "El clip no tiene ",
+        " stage.":
+            " etapa.",
+        "No ":
+            "No hay ",
+        " event #":
+            " evento #",
+        " (have ":
+            " (hay ",
+        ").":
+            ").",
+        "end must be after start.":
+            "el final debe ser despues del inicio.",
+        "mode must be 'ask_all' or 'auto_minor'.":
+            "mode debe ser 'ask_all' o 'auto_minor'.",
+        "format must be 'srt' or 'vtt'.":
+            "format debe ser 'srt' o 'vtt'.",
+        "No transcript words to export for this clip.":
+            "No hay palabras de transcripcion para exportar en este clip.",
+        "strength must be one of ":
+            "strength debe ser uno de ",
+        "Clip is picture-locked -- unlock it first.":
+            "El clip esta bloqueado (picture-lock) -- desbloquealo primero.",
+        "That span is not inside any removed section.":
+            "Ese tramo no esta dentro de ninguna seccion eliminada.",
+        "aspect must be one of ":
+            "aspect debe ser uno de ",
+        "Clip # is already ":
+            "Clip # ya es ",
+        "Reframed clip #":
+            "Clip reencuadrado #",
+        " to ":
+            " a ",
+        "Exported clip #":
+            "Clip exportado #",
+        " at full resolution.":
+            " a resolucion completa.",
+        "Timeline exported. It references the original source ":
+            "Timeline exportado. Referencia el archivo fuente original ",
+        "file; import into Resolve via File -> Import -> Timeline.":
+            "archivo; importalo en Resolve via Archivo -> Importar -> Timeline.",
+        "No pending plan. Use propose_edit first.":
+            "No hay plan pendiente. Usa propose_edit primero.",
+        "Completed steps are kept; one undo reverts the whole plan.":
+            "Los pasos completados se conservan; un deshacer revierte todo el plan.",
+        "Applied across ":
+            "Aplicado en ",
+        " clip(s); one undo reverts the whole ":
+            " clip(s); un deshacer revierte toda la ",
+        "multi-clip operation.":
+            "operacion multi-clip.",
+        "Pending plan discarded.":
+            "Plan pendiente descartado.",
+        "No applied plan to revert.":
+            "No hay plan aplicado para revertir.",
+        "No applied plan found to regenerate.":
+            "No se encontro plan aplicado para regenerar.",
+        "Could not revert (the checkpoint aged out), so the new ":
+            "No se pudo revertir (el checkpoint expiro), asi que el nuevo ",
+        "plan stacks on the current state. ":
+            "plan se apila sobre el estado actual. ",
+        "The user REJECTED a previous plan for this same instruction. Take a ":
+            "El usuario RECHAZO un plan previo para la misma instruccion. Toma un ",
+        "NOTICEABLY different approach (different actions or clearly different ":
+            "enfoque NOTABLEMENTE diferente (acciones distintas o parametros claramente ",
+        "different parameters). Previous steps: ":
+            "diferentes). Pasos previos: ",
+        "New (different) project plan ready for ":
+            "Nuevo plan de proyecto (diferente) listo para ",
+        " clip(s) with a ":
+            " clip(s) con un ",
+        "per-clip A/B carousel. Present the per-clip steps and WAIT for ":
+            "carousel A/B por clip. Presenta los pasos por clip y ESPERA ",
+        "approval; apply_plan commits them all under one undo.":
+            "aprobacion; apply_plan los confirma todos bajo un deshacer.",
+        "New (different) plan ready with a PREVIEW render showing ":
+            "Nuevo plan (diferente) listo con render PREVIEW mostrando ",
+        "in the player (A=current, B=plan). Present the numbered steps ":
+            "en el jugador (A=actual, B=plan). Presenta los pasos numerados ",
+        "(with each 'why'), tell the user to compare A/B, and WAIT for ":
+            "(con cada 'por que'), dile al usuario que compare A/B, y ESPERA ",
+        "approval. Only call apply_plan after they confirm.":
+            "aprobacion. Solo llama apply_plan tras su confirmacion.",
+        "New (different) plan ready, but the preview render could ":
+            "Nuevo plan (diferente) listo, pero el render preview no ",
+        "not be produced. Present the numbered steps (with each 'why'), ":
+            "pudo generarse. Presenta los pasos numerados (con cada 'por que'), ",
+        "note there is no A/B preview, and WAIT for approval.":
+            "nota que no hay preview A/B, y ESPERA aprobacion.",
+    }
+    return translations.get(msg, msg)
 
 
 # ----------------------------------------------------------------- impls
@@ -194,7 +534,7 @@ def preview_clip(session: Session, clip_id: int) -> dict:
     if not clip.get("current"):
         return _err(f"Clip #{clip_id} has no rendered file yet.")
     open_in_player(clip["current"])
-    return _ok(msg=f"Opened clip #{clip_id} in the player.",
+    return _ok(msg=_tr(f"Opened clip #{clip_id} in the player."),
                file=clip["current"])
 
 
@@ -484,7 +824,7 @@ def save_style(session: Session, name: str, from_clip: int) -> dict:
     }
     path = _write_user_style(slug, style)
     return _ok(style=slug, file=str(path),
-               msg=f"Saved — 'apply_style {slug}' artık her klipte çalışır.")
+               msg=_tr(f"Saved — 'apply_style {slug}' ahora funciona en todos los clips."))
 
 
 def _write_user_style(slug: str, style: dict):
@@ -553,10 +893,9 @@ def learn_style_from_reels(session: Session, urls=None, name: str = "",
     path = _write_user_style(slug, style)
     return _ok(style=slug, file=str(path), learned_from=len(fingerprints),
                skipped=skipped, label=style["label"],
-               subtitle=style["subtitle"], pacing=style["pacing"],
-               audio=style["audio"], look=style.get("look"),
-               msg=f"Stil '{slug}' kaydedildi — 'apply_style {slug}' veya "
-                   "ayarlardan otomatik-edit stili yapabilirsin.")
+                              subtitle=style["subtitle"], pacing=style["pacing"],
+                              audio=style["audio"], look=style.get("look"),
+                              msg=_tr(f"Estilo '{slug}' guardado -- 'apply_style {slug}' o desde ajustes como estilo auto-edit."))
 
 
 def remember_preference(session: Session, preference: str) -> dict:
@@ -575,7 +914,7 @@ def remember_preference(session: Session, preference: str) -> dict:
 def forget_preferences(session: Session) -> dict:
     session.data["preferences"] = []
     session.save()
-    return _ok(msg="All stored preferences cleared.")
+    return _ok(msg=_tr("Todas las preferencias guardadas borradas."))
 
 
 def remove_section(session: Session, clip_id: int, start: float,
@@ -676,7 +1015,7 @@ def set_speed(session: Session, clip_id: int, factor: float) -> dict:
 
     out = session.set_stages(clip_id, updates)
     return _ok(file=out, factor=new_f,
-               msg=f"Speed set to {new_f:g}× (captions kept in sync).",
+               msg=_tr(f"Velocidad ajustada a {new_f:g}× (subtítulos sincronizados)."),
                notes=session.last_notes)
 
 
@@ -1502,7 +1841,7 @@ def auto_pace(session: Session, clip_id: int,
     if not times:
         return _ok(added=[], longest_span=round(
             longest_static_span(existing, duration), 1),
-            msg="Pacing is already within target — nothing to add.")
+            msg=_tr("El ritmo ya esta dentro del objetivo — nada que anadir."))
 
     session.snapshot("auto_pace")
     added = []
@@ -1568,8 +1907,8 @@ def duplicate_clip(session: Session, clip_id: int, label: str = "") -> dict:
     session.data["clips"].append(new)
     session.save()
     return _ok(new_id=new["id"], variant_of=new["variant_of"],
-               msg="Variant created instantly; it shares the original's "
-                   "render until you change one of its stages.")
+               msg=_tr("Variante creada al instante; comparte el render del original "
+                       "hasta que cambies una de sus etapas."))
 
 
 def pick_variant(session: Session, clip_id: int) -> dict:
@@ -1589,7 +1928,7 @@ def pick_variant(session: Session, clip_id: int) -> dict:
         archived.append(c)
     session.save()
     return _ok(kept=clip_id, archived=[c["id"] for c in siblings],
-               msg="Siblings archived (files kept on disk; undo restores).")
+               msg=_tr("Variantes archivadas (archivos conservados en disco; deshacer restaura)."))
 
 
 def join_clips(session: Session, clip_ids: list[int],
@@ -1622,7 +1961,7 @@ def join_clips(session: Session, clip_ids: list[int],
     comps.append(comp)
     session.save()
     return _ok(compilation=comp,
-               msg="Compilation rendered (loudness-normalized once at the end).")
+               msg=_tr("Compilacion renderizada (normalizada en loudness una vez al final)."))
 
 
 def list_assets(session: Session) -> dict:
@@ -1947,12 +2286,12 @@ def propose_assets(session: Session, clip_id: int,
     session.data["pending_plan"] = plan
     session.save()
     return _ok(plan=plan, gaps=plan.get("gaps") or None,
-               msg="Plan ready and a PREVIEW render of the result is already "
-                   "showing in the player (A=current, B=plan). Present the "
-                   "numbered steps (with each 'why', and any 'gaps' as "
-                   "missing-asset notes), tell the user to compare A/B, and "
-                   "WAIT for approval. Only call apply_plan after they "
-                   "confirm; approval is then instant (cached render).")
+               msg=_tr("Plan listo y un render PREVIEW del resultado ya se muestra "
+                       "en el jugador (A=actual, B=plan). Presenta los "
+                       "pasos numerados (con cada 'por que', y cualquier 'gap' como "
+                       "notas de asset faltante), dile al usuario que compare A/B, y "
+                       "ESPERA aprobacion. Solo llama apply_plan despues de que "
+                       "confirmen; la aprobacion es instantanea (render en cache)."))
 
 
 # Edits the user has flagged as safe to auto-apply under autonomy=auto_minor:
@@ -1995,8 +2334,8 @@ def propose_edit(session: Session, clip_id: int, instruction: str) -> dict:
         res = apply_plan(session)
         res["auto_applied"] = True
         res["plan"] = plan
-        res["msg"] = ("Auto-applied (autonomy=auto_minor; all steps were minor "
-                      "polish). Tell the user what changed; undo reverts it.")
+        res["msg"] = _tr("Auto-aplicado (autonomy=auto_minor; todos los pasos eran pulido "
+                      "menor). Dile al usuario que cambio; deshacer lo revierte.")
         return res
 
     preview = _render_plan_preview(session, plan)
@@ -2008,17 +2347,17 @@ def propose_edit(session: Session, clip_id: int, instruction: str) -> dict:
     session.data["pending_plan"] = plan
     session.save()
     if preview:
-        msg = ("Plan ready and a PREVIEW render of the result is already "
-               "showing in the player (A=current, B=plan). Present the "
-               "numbered steps (with each 'why'), tell the user to compare "
-               "A/B, and WAIT for approval. Only call apply_plan after they "
-               "confirm; approval is then instant (cached render).")
+        msg = _tr("Plan listo y un render PREVIEW del resultado ya se muestra "
+               "en el jugador (A=actual, B=plan). Presenta los "
+               "pasos numerados (con cada 'por que'), dile al usuario que compare "
+               "A/B, y ESPERA aprobacion. Solo llama apply_plan despues de que "
+               "confirmen; la aprobacion es instantanea (render en cache).")
     else:
-        msg = ("Plan ready, but the preview render could not be produced (a "
-               "step may not apply to this clip — e.g. it is picture-locked). "
-               "Present the numbered steps (with each 'why'), note there is no "
-               "A/B preview yet, and WAIT for approval. On 'uygula' call "
-               "apply_plan; if a step then fails, explain which and why.")
+        msg = _tr("Plan listo, pero el render preview no pudo generarse (un "
+               "paso puede no aplicar a este clip — ej. esta picture-locked). "
+               "Presenta los pasos numerados (con cada 'por que'), nota que no hay "
+               "preview A/B aun, y ESPERA aprobacion. Al decir 'aplica' llama "
+               "apply_plan; si un paso falla, explica cual y por que.")
     return _ok(plan=plan, msg=msg)
 
 
@@ -2046,17 +2385,17 @@ def propose_project(session: Session, instruction: str,
     session.save()
     n = len(composite.get("plans") or [])
     if preview:
-        msg = (f"Project plan ready for {n} clip(s); a per-clip A/B preview "
-               "carousel is showing (A=current, B=plan per clip). Present the "
-               "per-clip steps, note any skipped clips, tell the user to "
-               "compare A/B across clips, and WAIT for approval. Only call "
-               "apply_plan after they confirm — it applies every clip's steps "
-               "under ONE undo (cached render, instant).")
+        msg = _tr(f"Plan de proyecto listo para {n} clip(s); un carousel A/B por clip "
+               "se muestra (A=actual, B=plan por clip). Presenta los "
+               "pasos por clip, nota cualquier clip omitido, dile al usuario que "
+               "compare A/B entre clips, y ESPERA aprobacion. Solo llama "
+               "apply_plan tras confirmar — aplica los pasos de cada clip bajo "
+               "UN deshacer (render en cache, instantaneo).")
     else:
-        msg = (f"Project plan ready for {n} clip(s), but no preview render "
-               "could be produced. Present the per-clip steps, note there is "
-               "no A/B preview yet, and WAIT for approval. On approval call "
-               "apply_plan — one undo reverts the whole multi-clip op.")
+        msg = _tr(f"Plan de proyecto listo para {n} clip(s), pero no se pudo "
+               "generar render preview. Presenta los pasos por clip, nota que no hay "
+               "preview A/B aun, y ESPERA aprobacion. Al aprobar llama "
+               "apply_plan — un deshacer revierte toda la operacion multi-clip.")
     return _ok(plan=composite, scope="project",
                skipped=composite.get("skipped"), msg=msg)
 
@@ -2132,17 +2471,17 @@ def apply_plan(session: Session) -> dict:
     session.data["applied_plans"] = session.data["applied_plans"][-20:]
     session.last_applied = record  # transient, surfaced in the chat payload
     session.save()
-    msg = ("Completed steps are kept; one undo reverts the whole plan."
+    msg = (_tr("Pasos completados conservados; un deshacer revierte todo el plan.")
            if not is_project else
-           f"Applied across {len(plans)} clip(s); one undo reverts the whole "
-           "multi-clip operation.")
+           _tr(f"Aplicado en {len(plans)} clip(s); un deshacer revierte toda la "
+               "operacion multi-clip."))
     return _ok(applied=results, failed_at=failed_at, checkpoint=cp, msg=msg)
 
 
 def discard_plan(session: Session) -> dict:
     session.data["pending_plan"] = None
     session.save()
-    return _ok(msg="Pending plan discarded.")
+    return _ok(msg=_tr("Plan pendiente descartado."))
 
 
 def _resolve_applied(session: Session, checkpoint: str = "") -> dict | None:
@@ -2168,8 +2507,8 @@ def revert_plan(session: Session, checkpoint: str = "") -> dict:
     if "not found" in msg:
         session.save()
         return _err(msg)
-    return _ok(reverted=cp, msg=msg + " (this restores the state BEFORE that "
-               "plan, including any later edits; the revert is itself undoable)")
+    return _ok(reverted=cp, msg=_tr(msg + " (esto restaura el estado ANTES de ese "
+               "plan, incluyendo ediciones posteriores; el revertir es en si deshacible)"))
 
 
 def regenerate_plan(session: Session, checkpoint: str = "",
@@ -2187,8 +2526,8 @@ def regenerate_plan(session: Session, checkpoint: str = "",
         # Revert FIRST so the preview backup below captures the reverted state.
         msg = session.revert_to_tag(record["checkpoint"])
         if "not found" in msg:
-            note = ("Could not revert (the checkpoint aged out), so the new "
-                    "plan stacks on the current state. ")
+            note = _tr("No se pudo revertir (el checkpoint expiro), asi que el nuevo "
+                    "plan se apila sobre el estado actual. ")
     extra_note = (
         "The user REJECTED a previous plan for this same instruction. Take a "
         "NOTICEABLY different approach (different actions or clearly different "
@@ -2213,9 +2552,9 @@ def regenerate_plan(session: Session, checkpoint: str = "",
         session.save()
         n = len(plan.get("plans") or [])
         return _ok(plan=plan, scope="project", msg=(
-            note + f"New (different) project plan ready for {n} clip(s) with a "
-            "per-clip A/B carousel. Present the per-clip steps and WAIT for "
-            "approval; apply_plan commits them all under one undo."))
+            note + _tr(f"Nuevo plan de proyecto (diferente) listo para {n} clip(s) con un "
+            "carousel A/B por clip. Presenta los pasos por clip y ESPERA "
+            "aprobacion; apply_plan los confirma todos bajo un deshacer.")))
     try:
         plan = propose(session, record["clip_id"], record["instruction"],
                        extra_note=extra_note)
@@ -2227,14 +2566,14 @@ def regenerate_plan(session: Session, checkpoint: str = "",
     session.data["pending_plan"] = plan
     session.save()
     if preview:
-        msg = (note + "New (different) plan ready with a PREVIEW render showing "
-               "in the player (A=current, B=plan). Present the numbered steps "
-               "(with each 'why'), tell the user to compare A/B, and WAIT for "
-               "approval. Only call apply_plan after they confirm.")
+        msg = note + _tr("Nuevo plan (diferente) listo con render PREVIEW mostrando "
+               "en el jugador (A=actual, B=plan). Presenta los pasos numerados "
+               "(con cada 'por que'), dile al usuario que compare A/B, y ESPERA "
+               "aprobacion. Solo llama apply_plan tras su confirmacion.")
     else:
-        msg = (note + "New (different) plan ready, but the preview render could "
-               "not be produced. Present the numbered steps (with each 'why'), "
-               "note there is no A/B preview, and WAIT for approval.")
+        msg = note + _tr("Nuevo plan (diferente) listo, pero el render preview no "
+               "pudo generarse. Presenta los pasos numerados (con cada 'por que'), "
+               "nota que no hay preview A/B, y ESPERA aprobacion.")
     return _ok(plan=plan, msg=msg)
 
 
@@ -2527,12 +2866,12 @@ def set_aspect(session: Session, clip_id: int, aspect: str = "9:16") -> dict:
                           if st["name"] == "reframe"), {}))
     if existing.get("aspect", "9:16") == aspect and clip.get("current"):
         return _ok(file=clip["current"], aspect=aspect,
-                   msg=f"Clip #{clip_id} is already {aspect}.")
+                   msg=_tr(f"Clip #{clip_id} ya es {aspect}."))
     session.snapshot(f"aspect:{aspect}")
     existing["aspect"] = aspect
     out = session.set_stage(clip_id, "reframe", existing)
     return _ok(file=out, clip_id=clip_id, aspect=aspect,
-               msg=f"Reframed clip #{clip_id} to {aspect}.",
+               msg=_tr(f"Clip #{clip_id} reencuadrado a {aspect}."),
                notes=session.last_notes)
 
 
@@ -2578,7 +2917,7 @@ def export_clip(session: Session, clip_id: int, aspect: str = "") -> dict:
                aspect=aspect or "stored",
                resolution=f"{info.get('width')}x{info.get('height')}",
                metadata=clip.get("metadata"),
-               msg=f"Exported clip #{clip_id} at full resolution.")
+               msg=_tr(f"Clip #{clip_id} exportado a resolucion completa."))
 
 
 def export_timeline(session: Session, clip_id: int,
@@ -2593,9 +2932,9 @@ def export_timeline(session: Session, clip_id: int,
         return _err(str(e))
     fmt = out.suffix.lstrip(".")
     return _ok(path=str(out), format=fmt,
-               url=f"/api/export/{clip_id}.{fmt}",
-               msg="Timeline exported. It references the original source "
-                   "file; import into Resolve via File → Import → Timeline.")
+                   url=f"/api/export/{clip_id}.{fmt}",
+                   msg=_tr("Timeline exportado. Referencia el archivo fuente original "
+                       "archivo; importalo en Resolve via Archivo -> Importar -> Timeline."))
 
 
 def undo(session: Session) -> dict:
@@ -2622,338 +2961,337 @@ _STAGE_ENUM = {"type": "string", "enum": sorted(_EDITABLE_EVENTS)}
 _ASPECT_ENUM = {"type": "string", "enum": list(ASPECT_CHOICES)}
 
 TOOL_SPECS = [
-    _spec("ask_user", "Ask the user ONE short clarifying question when an edit "
-          "request is genuinely ambiguous and the choice changes the result "
-          "(e.g. which kind of transition, which music mood, which color). "
-          "options = 2-4 concrete one-tap choices in the user's language. The "
-          "turn ends after this; the user's reply answers it. Do NOT use it "
-          "when the intent is already clear.",
+    _spec("ask_user", "Pregunta al usuario UNA sola pregunta corta de aclaracion cuando una "
+          "peticion de edicion es genuinamente ambigua y la eleccion cambia el resultado "
+          "(ej. que tipo de transicion, que mood de musica, que color). "
+          "options = 2-4 opciones concretas de un toque en el idioma del usuario. El "
+          "turno termina tras esto; la respuesta del usuario la contesta. NO la uses "
+          "cuando la intencion ya esta clara.",
           {"question": _STR,
            "options": {"type": "array", "items": {"type": "string"}}},
           ["question"]),
-    _spec("generate_clips", "Analyze the source video and produce the best "
-          "short clips (cut + silence-trim + vertical reframe + karaoke "
-          "captions). Replaces any existing clips. Clip length is chosen by "
-          "the AI from the content's structure — only pass max_duration when "
-          "the user explicitly asks for a cap. model: optional whisper size "
-          "('tiny'/'base'/'small') for the analysis transcription — smaller is "
-          "faster for a quick first candidate list; default keeps the "
-          "configured model.",
+    _spec("generate_clips", "Analiza el video fuente y produce los mejores "
+          "clips cortos (corte + recorte silencios + reencuadre vertical + subtitulos karaoke). "
+          "Reemplaza cualquier clip existente. La duracion del clip la elige la IA "
+          "desde la estructura del contenido — solo pasa max_duration cuando "
+          "el usuario pide explicitamente un limite. model: tamano whisper opcional "
+          "('tiny'/'base'/'small') para la transcripcion de analisis — mas pequeno es "
+          "mas rapido para una primera lista de candidatos; el default mantiene el "
+          "modelo configurado.",
           {"count": _INT, "max_duration": _NUM, "model": _STR}, []),
-    _spec("list_clips", "Show the current session state (all clips and their "
-          "applied stages).", {}, []),
-    _spec("set_clip_status", "Set a candidate clip's review-queue status: "
-          "pending | approved | skipped | exported. 'skipped' prunes a "
-          "candidate from the top of the queue (the user dismissed it) WITHOUT "
-          "deleting its rendered file — restore it later by setting it back to "
-          "'pending'. Bookkeeping only; never re-renders.",
+    _spec("list_clips", "Muestra el estado actual de la sesion (todos los clips y sus "
+          "etapas aplicadas).", {}, []),
+    _spec("set_clip_status", "Establece el estado de cola de revision de un clip candidato: "
+          "pending | approved | skipped | exported. 'skipped' elimina un "
+          "candidato de la cola (el usuario lo descarto) SIN "
+          "borrar su archivo renderizado — restauaralo luego volviendolo a "
+          "'pending'. Solo contabilidad; nunca re-renderiza.",
           {"clip_id": _INT, "status": _STR}, ["clip_id", "status"]),
-    _spec("preview_clip", "Open a clip in the video player (QuickTime).",
+    _spec("preview_clip", "Abre un clip en el reproductor de video (QuickTime).",
           {"clip_id": _INT}, ["clip_id"]),
-    _spec("set_music", "Add or change a clip's background music (auto-ducked "
-          "under speech). mood: calm|neutral|energetic or a free word; or pass "
-          "an explicit audio file path.",
+    _spec("set_music", "Añade o cambia la musica de fondo de un clip (auto-atenuada "
+          "bajo la voz). mood: calm|neutral|energetic o palabra libre; o pasa "
+          "una ruta de archivo de audio explicita.",
           {"clip_id": _INT, "mood": _STR, "file": _STR, "volume": _NUM},
           ["clip_id"]),
-    _spec("set_subtitles", "Re-style a clip's captions. scale: 1.0=default "
-          "size (1.3=bigger). y_ratio: vertical center 0..1 (smaller=higher, "
-          "default 0.68). karaoke: highlight the spoken word. text_color / "
-          "highlight_color: hex like '#ffffff' / '#ffd60a'.",
+    _spec("set_subtitles", "Re-estiliza los subtitulos de un clip. scale: 1.0=tamano "
+          "default (1.3=mas grande). y_ratio: centro vertical 0..1 (mas pequeno=mas arriba, "
+          "default 0.68). karaoke: resalta la palabra hablada. text_color / "
+          "highlight_color: hex como '#ffffff' / '#ffd60a'.",
           {"clip_id": _INT, "karaoke": _BOOL, "scale": _NUM, "y_ratio": _NUM,
            "text_color": _STR, "highlight_color": _STR},
           ["clip_id"]),
-    _spec("list_music", "List the available music tracks (by mood bucket) and "
-          "ambience files — use to SUGGEST music to the user.", {}, []),
-    _spec("add_zoom", "Add an eased punch-in zoom at a moment (seconds, "
-          "clip-local). strength is a zoom FACTOR > 1: 1.1=subtle, "
-          "1.18=default, 1.3=strong. motion: center|left|right|up|down — "
-          "center=static punch, the others add a slow Ken-Burns pan.",
+    _spec("list_music", "Lista las pistas de musica disponibles (por bucket de mood) y "
+          "archivos de ambience -- usa para SUGERIR musica al usuario.", {}, []),
+    _spec("add_zoom", "Añade un zoom punch-in suavizado en un momento (segundos, "
+          "locale al clip). strength es un FACTOR de zoom > 1: 1.1=sutil, "
+          "1.18=default, 1.3=fuerte. motion: center|left|right|up|down — "
+          "center=punch estatico, los demas añaden paneo lento Ken-Burns.",
           {"clip_id": _INT, "time": _NUM, "duration": _NUM, "strength": _NUM,
            "motion": _STR},
           ["clip_id", "time"]),
-    _spec("cut_silences", "Tighten a clip by removing pauses longer than "
-          "max_pause seconds.",
+    _spec("cut_silences", "Ajusta un clip eliminando pausas mas largas que "
+          "max_pause segundos.",
           {"clip_id": _INT, "max_pause": _NUM}, ["clip_id"]),
-    _spec("set_fade", "Set fade-in/out duration (also loudness-normalizes).",
+    _spec("set_fade", "Establece duracion de fade-in/out (tambien normaliza loudness).",
           {"clip_id": _INT, "fade": _NUM}, ["clip_id"]),
-    _spec("add_sound_effect", "Add a timed sound effect. kind: ding|whoosh|"
-          "riser|impact|pop|boom|glitch (any file in assets/sfx/), or pass "
-          "file=<path> for a user-library sfx.",
+    _spec("add_sound_effect", "Añade un efecto de sonido temporizado. kind: ding|whoosh|"
+          "riser|impact|pop|boom|glitch (cualquier archivo en assets/sfx/), o pasa "
+          "file=<ruta> para un sfx de la biblioteca del usuario.",
           {"clip_id": _INT, "time": _NUM, "kind": _STR, "volume": _NUM,
            "file": _STR},
           ["clip_id", "time"]),
-    _spec("get_transcript", "Get a clip's timestamped transcript (to find "
-          "moments for zoom/sfx or answer content questions).",
+    _spec("get_transcript", "Obtiene la transcripcion con timestamps de un clip (para "
+          "encontrar momentos para zoom/sfx o responder preguntas de contenido).",
           {"clip_id": _INT}, ["clip_id"]),
-    _spec("find_moment", "Semantic in-clip moment lookup: describe WHAT is "
-          "said/happens ('where she mentions pricing', 'sondaki tekrar') and "
-          "get the best matching {start,end} time spans (clip-local player "
-          "seconds) with the matched quote. Use BEFORE add_zoom/add_broll/"
-          "remove_section/add_emphasis or inside a propose_edit instruction "
-          "when the user references content instead of times. Read-only.",
+    _spec("find_moment", "Busqueda semantica de momento en clip: describe QUE se "
+          "dice/pasa ('donde menciona el precio', 'la repeticion final') y "
+          "obtiene los mejores tramos {start,end} (segundos locale al jugador) "
+          "con la cita coincidente. Usa ANTES de add_zoom/add_broll/"
+          "remove_section/add_emphasis o dentro de una instruccion propose_edit "
+          "cuando el usuario referencia contenido en vez de tiempos. Solo lectura.",
           {"clip_id": _INT, "description": _STR, "limit": _INT},
           ["clip_id", "description"]),
-    _spec("list_styles", "List the available named editing styles (presets "
-          "bundling captions+pacing+music+sfx).", {}, []),
-    _spec("apply_style", "Apply a named style preset to a clip in one pass "
-          "('Hormozi tarzı yap'). Changes captions, pacing, zooms, music, "
-          "sfx and fade together. Use list_styles for names.",
+    _spec("list_styles", "Lista los estilos de edicion con nombre disponibles (presets "
+          "que agrupan subtitulos+ritmo+musica+sfx).", {}, []),
+    _spec("apply_style", "Aplica un preset de estilo con nombre a un clip en una pasada "
+          "('Hazlo estilo Hormozi'). Cambia subtitulos, ritmo, zooms, musica, "
+          "sfx y fade juntos. Usa list_styles para los nombres.",
           {"clip_id": _INT, "style": _STR}, ["clip_id", "style"]),
-    _spec("remove_fillers", "Cut hesitation sounds (um, uh, ee, ıı, hmm...). "
-          "aggressive=true ALSO removes Turkish discourse fillers (yani, "
-          "şey, hani) judged per-occurrence by an LLM.",
+    _spec("remove_fillers", "Corta sonidos de duda (eh, em, ee, ii, hmm...). "
+          "aggressive=true TAMBIEN elimina muletillas del discurso turco (yani, "
+          "sey, hani) juzgadas por ocurrencia por un LLM.",
           {"clip_id": _INT, "aggressive": _BOOL}, ["clip_id"]),
-    _spec("save_style", "Save a clip's current look (captions+pacing+audio) "
-          "as a named style preset reusable via apply_style.",
+    _spec("save_style", "Guarda la apariencia actual de un clip (subtitulos+ritmo+audio) "
+          "como preset de estilo con nombre reutilizable via apply_style.",
           {"name": _STR, "from_clip": _INT}, ["name", "from_clip"]),
-    _spec("learn_style_from_reels", "Learn the user's editing STYLE from their "
-          "OWN Instagram Reels and save it as a reusable preset (then usable via "
-          "apply_style or as the auto-edit style). Pass the Reel permalink URLs "
-          "the user provides (individual instagram.com/reel/... links only — "
-          "never a profile/bulk). Optional name; use_vision uses the BYOK vision "
-          "model for font/color/emoji feel (degrades gracefully). Use for "
-          "'reel'lerimden stilimi öğren', 'learn my style from my reels'.",
+    _spec("learn_style_from_reels", "Aprende el ESTILO de edicion del usuario desde SUS "
+          "propios Reels de Instagram y lo guarda como preset reutilizable (luego usable via "
+          "apply_style o como estilo auto-edit). Pasa las URLs de permalink de Reels "
+          "que el usuario proporcione (solo enlaces individuales instagram.com/reel/... — "
+          "nunca perfil/bulk). Nombre opcional; use_vision usa el modelo vision BYOK "
+          "para sensacion de fuente/color/emoji (degrada graciosamente). Usa para "
+          "'aprende mi estilo de mis reels', 'learn my style from my reels'.",
           {"urls": {"type": "array", "items": _STR}, "name": _STR,
            "use_vision": _BOOL}, ["urls"]),
-    _spec("remember_preference", "Store a DURABLE editing taste the user "
-          "expressed ('hep daha az zoom', 'always yellow highlights') — "
-          "future edits and plans will respect it.",
+    _spec("remember_preference", "Guarda un gusto de edicion DURADERO que el usuario "
+          "expresó ('siempre menos zoom', 'siempre resaltado amarillo') — "
+          "futuras ediciones y planes lo respetaran.",
           {"preference": _STR}, ["preference"]),
-    _spec("forget_preferences", "Clear all stored editing preferences.",
+    _spec("forget_preferences", "Borra todas las preferencias de edicion guardadas.",
           {}, []),
-    _spec("remove_section", "Remove a section of a clip ('şu kısmı at'). "
-          "start/end are CURRENT-timeline clip seconds (as the user sees in "
-          "the player). Refuses to remove more than half the clip.",
+    _spec("remove_section", "Elimina una seccion de un clip ('quita esa parte'). "
+          "start/end son segundos del timeline ACTUAL del clip (como ve el usuario en "
+          "el jugador). Rechaza eliminar mas de la mitad del clip.",
           {"clip_id": _INT, "start": _NUM, "end": _NUM},
           ["clip_id", "start", "end"]),
-    # transcript_timeline: delete by CONTENT ('X dediği cümleyi sil') — resolves
-    # the span via the same lookup as find_moment, then trims it.
-    _spec("remove_phrase", "Delete the sentence/part where the speaker SAYS "
-          "something ('X dediği yeri/cümleyi sil'), described by CONTENT not "
-          "times. Resolves the matching span semantically (like find_moment) "
-          "then removes it through the trim pipeline. occurrence='all' deletes "
-          "every matching occurrence in one atomic step. Refuses if the total "
-          "removal exceeds half the clip.",
+    # transcript_timeline: delete by CONTENT ('X dijo esa frase') -- resuelve
+    # el tramo via la misma busqueda que find_moment, luego lo recorta.
+    _spec("remove_phrase", "Elimina la frase/parte donde el orador DICE "
+          "algo ('borra donde dice X'), descrito por CONTENIDO no "
+          "tiempos. Resuelve el tramo coincidente semanticamente (como find_moment) "
+          "luego lo elimina via el pipeline de recorte. occurrence='all' borra "
+          "todas las ocurrencias coincidentes en un paso atomico. Rechaza si la "
+          "eliminacion total excede la mitad del clip.",
           {"clip_id": _INT, "description": _STR,
            "occurrence": {"type": "string", "enum": ["first", "all"]}},
           ["clip_id", "description"]),
-    _spec("set_speed", "Change a clip's constant playback speed. factor: "
-          "2.0 = 2× faster, 0.5 = slow-motion, 1.0 = normal (range 0.25-4). "
-          "Captions are rescaled with the footage so they stay in sync.",
+    _spec("set_speed", "Cambia la velocidad de reproduccion constante de un clip. factor: "
+          "2.0 = 2x mas rapido, 0.5 = camara lenta, 1.0 = normal (rango 0.25-4). "
+          "Los subtitulos se reescalan con el metraje para que se mantengan sincronizados.",
           {"clip_id": _INT, "factor": _NUM}, ["clip_id", "factor"]),
-    _spec("set_cut", "Re-cut a clip's bounds from the SOURCE video (seconds "
-          "in the original long video) — e.g. start earlier / extend the end. "
-          "All downstream edits replay automatically.",
+    _spec("set_cut", "Recorta los limites de un clip desde el video FUENTE (segundos "
+          "en el video largo original) — ej. empieza antes / alarga el final. "
+          "Todas las ediciones posteriores se re-ejecutan automaticamente.",
           {"clip_id": _INT, "start": _NUM, "end": _NUM},
           ["clip_id", "start", "end"]),
-    _spec("auto_zoom", "Automatically place punch-in zooms on the clip's "
-          "emphatic phrases. density: zooms per second (0.25 = one per ~4s). "
-          "strength: zoom factor 1.1-1.3.",
+    _spec("auto_zoom", "Coloca automaticamente zooms punch-in en las frases enfaticas del clip. "
+          "density: zooms por segundo (0.25 = uno cada ~4s). "
+          "strength: factor de zoom 1.1-1.3.",
           {"clip_id": _INT, "density": _NUM, "strength": _NUM}, ["clip_id"]),
-    _spec("add_broll", "Overlay cover footage on parts of a clip. Three "
-          "modes: auto=true (LLM picks moments + Pexels stock); query+"
-          "start/end (manual stock search); file+start/end (a LOCAL/user "
-          "asset video or image path). Never covers the first 3s.",
+    _spec("add_broll", "Superpone metraje de cobertura en partes de un clip. Tres "
+          "modos: auto=true (LLM elige momentos + stock Pexels); query+"
+          "start/end (busqueda manual de stock); file+start/end (video/imagen "
+          "LOCAL/de usuario). Nunca cubre los primeros 3s.",
           {"clip_id": _INT, "auto": _BOOL, "query": _STR,
            "start": _NUM, "end": _NUM, "file": _STR}, ["clip_id"]),
-    _spec("add_gameplay_background", "Split-screen 'brainrot'/doom-scroll "
-          "format: put the clip in the TOP of the frame and a looping, muted "
-          "gameplay/satisfying background in the BOTTOM — the secondary motion "
-          "boosts retention. pack: minecraft (parkour) | satisfying (glitter/"
-          "particles in water) | runner (fast forward FPV motion) | ramp "
-          "(racing-car POV); or 'off' to remove. layout: top fraction 0.4-0.8 "
-          "(default 0.6 = top 60%). where: 'full' (whole clip, default) or "
-          "'auto' (gameplay shows ONLY during quiet/low-energy moments, full-"
-          "frame when the speaker is talking). Use for 'alt tarafa oyun koy', "
-          "'split screen', 'doom scroll'; where='auto' for 'sadece sessiz "
-          "anlarda', 'boş anlarda oyun çıksın'.",
+    _spec("add_gameplay_background", "Formato split-screen 'brainrot'/doom-scroll: "
+          "pon el clip en la PARTE SUPERIOR del frame y un fondo de gameplay/satisfying "
+          "en bucle y muteado en la INFERIOR — el movimiento secundario "
+          "mejora retencion. pack: minecraft (parkour) | satisfying (brillo/particulas "
+          "en agua) | runner (movimiento FPV rapido) | ramp "
+          "(POV coche de carreras); u 'off' para quitar. layout: fraccion superior 0.4-0.8 "
+          "(default 0.6 = 60% arriba). where: 'full' (clip entero, default) o "
+          "'auto' (gameplay SOLO en momentos silenciosos/baja energia, "
+          "pantalla completa cuando habla el orador). Usa para 'pon gameplay abajo', "
+          "'pantalla partida', 'doom scroll'; where='auto' para 'solo en silencios', "
+          "'que salga juego en huecos'.",
           {"clip_id": _INT, "pack": _STR, "layout": _NUM, "where": _STR},
           ["clip_id"]),
-    _spec("fix_transcript", "INTENT FIX: re-read the clip's transcript and "
-          "correct obvious speech-to-text errors — mis-heard English tech "
-          "terms (backend->'bekend', AI->'EI', frontend->'fronted') and "
-          "similar. Fixes the CAPTION TEXT only; timing is untouched. Pass "
-          "the user's specific correction as hint when they name one ('EI "
-          "should be AI'). Use for 'altyazıdaki/transkriptteki hataları "
-          "düzelt', 'yanlış yazılmış kelimeler', 'intent fix'.",
+    _spec("fix_transcript", "CORRECCION INTENCION: re-lee la transcripcion del clip y "
+          "corrige errores obvios de speech-to-text -- terminos tecnicos en ingles "
+          "mal oidos (backend->'bekend', AI->'EI', frontend->'fronted') y "
+          "similares. Corrige SOLO el TEXTO de los subtitulos; el timing no cambia. Pasa "
+          "la correccion especifica del usuario como pista cuando la nombra ('EI "
+          "debe ser AI'). Usa para 'corrige errores en subtitulos/transcripcion', "
+          "'palabras mal escritas', 'intent fix'.",
           {"clip_id": _INT, "hint": _STR}, ["clip_id"]),
-    _spec("list_assets", "Show the user's asset library (their uploaded "
-          "logos, b-roll, music, SFX...) with AI descriptions and ids.",
-          {}, []),
-    _spec("ingest_assets", "Add user assets to the library from a file or "
-          "folder path — auto-analyzes (vision tags, colors, loudness).",
+    _spec("list_assets", "Muestra la biblioteca de assets del usuario (sus logos, "
+          "b-roll, musica, SFX...) con descripciones e ids de la IA.", {}, []),
+    _spec("ingest_assets", "Añade assets del usuario a la biblioteca desde un archivo o "
+          "ruta de carpeta -- auto-analiza (tags vision, colores, loudness).",
           {"path": _STR}, ["path"]),
-    _spec("propose_assets", "Propose where the USER'S OWN assets would "
-          "improve a clip (logo watermark, their b-roll, their music/sfx). "
-          "Returns a plan for approval — same flow as propose_edit. Pass "
-          "the user's wish as instruction if they gave one.",
+    _spec("propose_assets", "Propone donde los PROPIOS assets del usuario mejorarian "
+          "un clip (logo watermark, su b-roll, su musica/sfx). Devuelve un plan "
+          "para aprobacion -- mismo flujo que propose_edit. Pasa "
+          "el deseo del usuario como instruccion si dio uno.",
           {"clip_id": _INT, "instruction": _STR}, ["clip_id"]),
-    _spec("set_watermark", "Add a corner logo watermark. corner: tl|tr|bl|br.",
+    _spec("set_watermark", "Añade un logo watermark en una esquina. corner: tl|tr|bl|br.",
           {"clip_id": _INT, "file": _STR, "corner": _STR, "opacity": _NUM},
           ["clip_id", "file"]),
-    _spec("set_title_card", "Show a big title card over the first seconds "
-          "of a clip.",
+    _spec("set_title_card", "Muestra una tarjeta de titulo grande sobre los primeros segundos "
+          "de un clip.",
           {"clip_id": _INT, "text": _STR, "duration": _NUM},
           ["clip_id", "text"]),
-    _spec("add_meme_text", "Add an Instagram-style meme HEADLINE to a clip. "
-          "bar=true (default) = classic white bar with black text; bar=false = "
-          "white Impact text with a heavy black outline over the video. "
-          "position: top|bottom. Omit duration (or 0) to show it the whole "
-          "clip; else it shows for duration seconds from start. This is the "
-          "meme caption/'üst yazı' the user writes — NOT the spoken karaoke "
-          "subtitles. font: impact|block|condensed (free bundled faces).",
+    _spec("add_meme_text", "Añade un TITULAR estilo meme de Instagram a un clip. "
+          "bar=true (default) = barra blanca clasica con texto negro; bar=false = "
+          "texto blanco Impact con contorno negro grueso sobre el video. "
+          "position: top|bottom. Omite duration (o 0) para mostrarlo todo el "
+          "clip; sino se muestra duration segundos desde el inicio. Esto es el "
+          "pie de foto meme/'texto superior' que escribe el usuario -- NO los "
+          "subtitulos karaoke hablados. font: impact|block|condensed (fuentes gratuitas incluidas).",
           {"clip_id": _INT, "text": _STR, "position": _STR, "bar": _BOOL,
            "font": _STR, "start": _NUM, "duration": _NUM},
           ["clip_id", "text"]),
-    _spec("auto_pace", "RETENTION PASS: guarantee a visual/audio change "
-          "every few seconds. Finds static spans longer than max_static "
-          "(default 5s) and fills them with jittered interrupts (zoom/"
-          "whoosh/shake/ding). Use for 'daha akıcı yap', 'izleyiciyi tut'.",
+    _spec("auto_pace", "PASE DE RETENCION: garantiza un cambio visual/audio "
+          "cada pocos segundos. Encuentra tramos estaticos mas largos que max_static "
+          "(default 5s) y los rellena con interrupciones aleatorias (zoom/"
+          "whoosh/shake/ding). Usa para 'hazlo mas fluido', 'retiene al espectador'.",
           {"clip_id": _INT, "max_static": _NUM}, ["clip_id"]),
-    _spec("set_loudness", "Master the clip's final loudness for a platform. "
+    _spec("set_loudness", "Normaliza el loudness final del clip para una plataforma. "
           "platform: youtube_shorts (-14 LUFS) | tiktok | instagram_reels "
           "(-11 LUFS).",
           {"clip_id": _INT, "platform": _STR}, ["clip_id", "platform"]),
-    _spec("set_look", "Color-grade a clip. look: warm|cold|bw|cinematic|"
-          "vintage (built-in), or file=<path.cube> for a user LUT. "
-          "strength 0.1-1.0 (default 0.5 — pros never use 1.0).",
+    _spec("set_look", "Color-grading de un clip. look: warm|cold|bw|cinematic|"
+          "vintage (integrados), o file=<ruta.cube> para LUT de usuario. "
+          "strength 0.1-1.0 (default 0.5 — los pros nunca usan 1.0).",
           {"clip_id": _INT, "look": _STR, "file": _STR, "strength": _NUM},
           ["clip_id"]),
-    _spec("add_overlay", "Blend a texture video loop (film grain, light "
-          "leak, dust) over a clip. mode: screen|overlay|softlight. "
-          "opacity 0.2-0.4 typical. Omit end to cover the whole clip.",
+    _spec("add_overlay", "Mezcla un bucle de video de textura (grano de cine, "
+          "fuga de luz, polvo) sobre un clip. mode: screen|overlay|softlight. "
+          "opacity 0.2-0.4 tipico. Omite end para cubrir todo el clip.",
           {"clip_id": _INT, "file": _STR, "mode": _STR, "opacity": _NUM,
            "start": _NUM, "end": _NUM}, ["clip_id", "file"]),
-    _spec("add_reaction", "Overlay a GREEN-SCREEN reaction/meme clip at a "
-          "moment (keyed, bottom-center by default, 0.5-1.5s typical).",
+    _spec("add_reaction", "Superpone un clip de reaccion/meme con GREEN-SCREEN en un "
+          "momento (keyed, bottom-center por default, 0.5-1.5s tipico).",
           {"clip_id": _INT, "file": _STR, "start": _NUM, "duration": _NUM,
            "width_ratio": _NUM, "y_ratio": _NUM}, ["clip_id", "file", "start"]),
-    _spec("add_sticker", "Overlay a PNG sticker/emoji/arrow/logo at a "
-          "position. x_ratio/y_ratio = center (0-1), width_ratio = size.",
+    _spec("add_sticker", "Superpone un sticker/emoji/flecha/logo PNG en una "
+          "posicion. x_ratio/y_ratio = centro (0-1), width_ratio = tamaño.",
           {"clip_id": _INT, "file": _STR, "start": _NUM, "duration": _NUM,
            "x_ratio": _NUM, "y_ratio": _NUM, "width_ratio": _NUM},
           ["clip_id", "file", "start"]),
-    _spec("add_emphasis", "Flash+shake accent on the strongest moment "
-          "(kind: flash|shake|flashshake), optionally with an impact sfx.",
+    _spec("add_emphasis", "Acento flash+shake en el momento mas fuerte "
+          "(kind: flash|shake|flashshake), opcionalmente con sfx de impacto.",
           {"clip_id": _INT, "time": _NUM, "kind": _STR, "with_sfx": _BOOL},
           ["clip_id", "time"]),
-    _spec("duplicate_clip", "Create a VARIANT copy of a clip to try a "
-          "different edit ('3 farklı hook dene' = duplicate twice, then edit "
-          "each). Instant.",
+    _spec("duplicate_clip", "Crea una copia VARIANTE de un clip para probar una "
+          "edicion distinta ('prueba 3 hooks distintos' = duplicate dos veces, "
+          "luego edita cada una). Instantaneo.",
           {"clip_id": _INT, "label": _STR}, ["clip_id"]),
-    _spec("pick_variant", "Resolve an A/B test: keep this variant, archive "
-          "its siblings.", {"clip_id": _INT}, ["clip_id"]),
-    _spec("join_clips", "Join clips into ONE compilation video with "
-          "transitions. transition: fade|slideleft|wipeleft|circleopen|"
+    _spec("pick_variant", "Resuelve un test A/B: queda esta variante, archiva "
+          "sus hermanas.", {"clip_id": _INT}, ["clip_id"]),
+    _spec("join_clips", "Une clips en UN video de compilacion con "
+          "transiciones. transition: fade|slideleft|wipeleft|circleopen|"
           "dissolve.",
           {"clip_ids": {"type": "array", "items": {"type": "integer"}},
            "transition": _STR, "duration": _NUM}, ["clip_ids"]),
-    _spec("propose_edit", "Plan a vague/multi-aspect 'vibe' edit ('daha "
-          "punchy yap', 'X tarzı ama girişe dokunma') WITHOUT executing. "
-          "Returns a numbered step plan to show the user for approval. "
-          "Pass the user's instruction verbatim.",
+    _spec("propose_edit", "Planifica una edicion 'vibe' vaga/multi-aspecto ('hazlo mas "
+          "punchy', 'estilo X pero sin tocar la intro') SIN ejecutar. "
+          "Devuelve un plan de pasos numerados para mostrar al usuario para aprobacion. "
+          "Pasa la instruccion del usuario textualmente.",
           {"clip_id": _INT, "instruction": _STR},
           ["clip_id", "instruction"]),
-    # multiclip_plans: project-scope 'tighten every clip' planning. Builds ONE
-    # composite pending plan over several clips; apply_plan commits them all
-    # under a single undo.
-    _spec("propose_project", "Plan a project-scope 'vibe' edit spanning "
-          "SEVERAL clips ('tighten every clip', 'hepsine altyazı ekle') "
-          "WITHOUT executing. Omit clip_ids to target every non-skipped clip "
-          "(capped); else pass the specific ids. Returns a per-clip A/B "
-          "carousel for approval. Pass the user's instruction verbatim.",
+    # multiclip_plans: planificacion a nivel proyecto 'aprieta todos los clips'.
+    # Construye UN pending_plan compuesto sobre varios clips; apply_plan los
+    # confirma todos bajo un solo deshacer.
+    _spec("propose_project", "Planifica una edicion 'vibe' a nivel proyecto que abarca "
+          "VARIOS clips ('aprieta cada clip', 'pon subtitulos a todos') "
+          "SIN ejecutar. Omite clip_ids para apuntar a todo clip no omitido "
+          "(con limite); si no pasa los ids especificos. Devuelve un carousel "
+          "A/B por clip para aprobacion. Pasa la instruccion del usuario textualmente.",
           {"instruction": _STR,
            "clip_ids": {"type": "array", "items": {"type": "integer"}}},
           ["instruction"]),
-    _spec("apply_plan", "Execute the pending plan from propose_edit/"
-          "propose_project after the user approves. One undo reverts the "
-          "whole plan (every clip of a project plan, atomically).", {}, []),
-    _spec("discard_plan", "Discard the pending plan (user said no/vazgeç).",
+    _spec("apply_plan", "Ejecuta el plan pendiente de propose_edit/"
+          "propose_project tras la aprobacion del usuario. Un deshacer revierte "
+          "todo el plan (cada clip de un plan de proyecto, atomicamente).", {}, []),
+    _spec("discard_plan", "Descarta el plan pendiente (el usuario dijo no/vazgec).",
           {}, []),
-    _spec("revert_plan", "Revert ONE previously applied plan by its checkpoint "
-          "id (from apply_plan's result / the chat message). Restores the "
-          "pre-plan state — including any edits applied after it — without "
-          "disturbing later history (the revert itself is undoable). Empty "
-          "checkpoint = the most recent applied plan.",
+    _spec("revert_plan", "Revierte UN plan aplicado previamente por su checkpoint "
+          "id (del resultado de apply_plan / mensaje del chat). Restaura el "
+          "estado previo al plan -- incluyendo ediciones aplicadas despues -- sin "
+          "alterar historial posterior (el revertir es en si deshacible). Checkpoint "
+          "vacio = el plan aplicado mas reciente.",
           {"checkpoint": _STR}, []),
-    _spec("regenerate_plan", "Redo a previously applied plan DIFFERENTLY: "
-          "reverts to its checkpoint and re-proposes the SAME instruction with "
-          "a 'take a different approach' nudge. Returns a new pending plan for "
-          "A/B approval. Empty checkpoint = the most recent applied plan.",
+    _spec("regenerate_plan", "Rehace un plan aplicado PREVIAMENTE de forma DIFERENTE: "
+          "revierte a su checkpoint y re-propone la MISMA instruccion con un "
+          "empujon de 'toma un enfoque distinto'. Devuelve un nuevo plan pendiente "
+          "para aprobacion A/B. Checkpoint vacio = el plan aplicado mas reciente.",
           {"checkpoint": _STR, "revert": _BOOL}, []),
-    _spec("export_captions", "Export a clip's captions as a downloadable "
-          "subtitle sidecar file. format: srt (default) | vtt. Matches the "
-          "on-screen captions exactly.",
+    _spec("export_captions", "Exporta los subtitulos de un clip como archivo "
+          "sidecar descargable. format: srt (default) | vtt. Coincide exactamente "
+          "con los subtitulos en pantalla.",
           {"clip_id": _INT, "format": _STR}, ["clip_id"]),
-    _spec("nudge_edit", "Move a clip's cut boundary by N frames (frame-exact). "
-          "edge: start|end. frames negative = earlier ('kesimi 4 frame geri "
-          "al' = frames -4).",
+    _spec("nudge_edit", "Mueve el borde de corte de un clip N frames (frame-exacto). "
+          "edge: start|end. frames negativo = anterior ('corte 4 frames atras' "
+          "= frames -4).",
           {"clip_id": _INT, "edge": _STR, "frames": _INT}, ["clip_id"]),
-    _spec("add_marker", "Pin a marker (note/chapter point) at clip-local time "
-          "t seconds. No re-render.",
+    _spec("add_marker", "Pone un marcador (nota/punto de capitulo) en tiempo "
+          "locale al clip t segundos. Sin re-render.",
           {"clip_id": _INT, "t": _NUM, "label": _STR}, ["clip_id", "t"]),
-    _spec("remove_marker", "Remove a marker by its id.",
+    _spec("remove_marker", "Elimina un marcador por su id.",
           {"clip_id": _INT, "marker_id": _STR}, ["clip_id", "marker_id"]),
-    _spec("edit_event", "Move/resize/retune ONE existing timeline event by its "
-          "0-based index (indices are shown per stage in the session state, "
-          "e.g. zoom[1] = the second zoom). start/end are clip-local "
-          "PLAYER-timeline seconds (frame-snapped); value retunes the stage's "
-          "knob (zoom strength 1.05-1.6 | sfx volume | overlay opacity); motion "
-          "(zoom only): center|left|right|up|down. Include only the fields you "
-          "change.",
+    _spec("edit_event", "Mueve/redimensiona/reajusta UN evento de timeline existente "
+          "por su indice 0-based (los indices se muestran por etapa en el estado "
+          "de la sesion, ej. zoom[1] = el segundo zoom). start/end son segundos "
+          "locale al jugador (frame-snapped); value reajusta el knob de la etapa "
+          "(fuerza zoom 1.05-1.6 | volumen sfx | opacity overlay); motion "
+          "(solo zoom): center|left|right|up|down. Incluye solo los campos que "
+          "cambies.",
           {"clip_id": _INT, "stage": _STAGE_ENUM, "index": _INT,
            "start": _NUM, "end": _NUM, "value": _NUM, "motion": _STR},
           ["clip_id", "stage", "index"]),
-    _spec("delete_event", "Delete ONE timeline event (a specific zoom/sfx/"
-          "b-roll/overlay/fx hit) by stage + 0-based index from the session "
-          "state.",
+    _spec("delete_event", "Elimina UN evento de timeline (un zoom/sfx/"
+          "b-roll/overlay/fx hit especifico) por etapa + indice 0-based del "
+          "estado de la sesion.",
           {"clip_id": _INT, "stage": _STAGE_ENUM, "index": _INT},
           ["clip_id", "stage", "index"]),
-    _spec("lock_clip", "Picture-lock a clip — freeze its timing (cut/silence/"
-          "trim); only visual & audio polish stays editable.",
+    _spec("lock_clip", "Picture-lock un clip -- congela su timing (corte/silencio/"
+          "recorte); solo pulido visual y de audio queda editable.",
           {"clip_id": _INT}, ["clip_id"]),
-    _spec("unlock_clip", "Remove a clip's picture-lock.",
+    _spec("unlock_clip", "Quita el picture-lock de un clip.",
           {"clip_id": _INT}, ["clip_id"]),
-    _spec("set_autonomy", "Set how much the AI does without asking. mode: "
-          "ask_all (approve everything) | auto_minor (auto-apply minor-only "
-          "plans: fillers/loudness/fade; structural edits still ask).",
+    _spec("set_autonomy", "Establece cuanta IA hace sin preguntar. mode: "
+          "ask_all (aprueba todo) | auto_minor (auto-aplica solo planes menores: "
+          "fillers/loudness/fade; ediciones estructurales siguen pidiendo).",
           {"mode": _STR}, ["mode"]),
     # reframe_aspect_tool: change a clip's framing/aspect ratio (a render).
-    _spec("set_aspect", "Reframe a clip to a different aspect ratio: 9:16 "
-          "(dikey, default), 1:1 (kare) or 16:9 (yatay). Keeps the "
-          "active-speaker tracking and re-renders downstream captions/overlays "
-          "on the new canvas. Goes through the A/B approval gate.",
+    _spec("set_aspect", "Reencuadra un clip a otra aspect ratio: 9:16 "
+          "(vertical, default), 1:1 (cuadrado) o 16:9 (horizontal). Mantiene el "
+          "tracking de orador activo y re-renderiza subtitulos/overlays "
+          "en el nuevo canvas. Pasa por la puerta de aprobacion A/B.",
           {"clip_id": _INT, "aspect": _ASPECT_ENUM}, ["clip_id", "aspect"]),
-    _spec("export_clip", "Render the FINAL full-resolution video for a clip. "
-          "Editing/preview uses a fast 540p proxy; this replays the approved "
-          "edits on the full-res source for the deliverable. Marks the clip "
-          "'exported'. Not part of the approval gate — call it when the user is "
-          "happy with the clip and wants the final file. Optional aspect "
-          "(9:16/1:1/16:9) exports that ratio for this render only without "
-          "changing the clip's stored framing.",
+    _spec("export_clip", "Renderiza el video FINAL a resolucion completa para un clip. "
+          "Edicion/preview usa proxy rapido 540p; esto re-ejecuta las ediciones "
+          "aprobadas en la fuente full-res para el entregable. Marca el clip "
+          "'exportado'. No parte de la puerta de aprobacion — llamalo cuando el "
+          "usuario esta contento con el clip y quiere el archivo final. Aspect opcional "
+          "(9:16/1:1/16:9) exporta esa ratio solo para este render sin "
+          "cambiar el reencuadre guardado del clip.",
           {"clip_id": _INT, "aspect": _ASPECT_ENUM}, ["clip_id"]),
-    _spec("generate_metadata", "Write platform-specific publish copy (title + "
-          "description + hashtags) for a clip from its transcript. platforms "
-          "subset of youtube_shorts|tiktok|instagram_reels (default: all). "
-          "Read-only — no render, no approval gate. Offer it after export_clip.",
+    _spec("generate_metadata", "Escribe copy de publicacion especifico de plataforma (titulo + "
+          "descripcion + hashtags) para un clip desde su transcripcion. platforms "
+          "subconjunto de youtube_shorts|tiktok|instagram_reels (default: all). "
+          "Solo lectura — sin render, sin puerta de aprobacion. Ofrecelo tras export_clip.",
           {"clip_id": _INT,
            "platforms": {"type": "array", "items": {
                "type": "string",
                "enum": ["youtube_shorts", "tiktok", "instagram_reels"]}},
            "language": _STR}, ["clip_id"]),
-    _spec("export_timeline", "Export a clip's cuts+markers as an NLE timeline "
-          "for DaVinci Resolve / Premiere. format: xml (FCP7, default) | edl.",
+    _spec("export_timeline", "Exporta cortes+marcadores de un clip como timeline NLE "
+          "para DaVinci Resolve / Premiere. format: xml (FCP7, default) | edl.",
           {"clip_id": _INT, "format": _STR}, ["clip_id"]),
-    _spec("restore_section", "Bring back a removed span (undo one specific "
-          "cut without touching anything else). start/end in SOURCE seconds — "
-          "get them from the transcript's cut list.",
+    _spec("restore_section", "Recupera un tramo eliminado (deshace un corte "
+          "especifico sin tocar nada mas). start/end en segundos SOURCE -- "
+          "obtenlos de la lista de cortes de la transcripcion.",
           {"clip_id": _INT, "start": _NUM, "end": _NUM},
           ["clip_id", "start", "end"]),
-    _spec("set_denoise", "Clean background noise from the speech track. "
+    _spec("set_denoise", "Limpia ruido de fondo de la pista de voz. "
           "strength: light | medium | strong | off.",
           {"clip_id": _INT, "strength": _STR}, ["clip_id"]),
-    _spec("undo", "Undo the last editing operation.", {}, []),
-    _spec("redo", "Redo the last undone editing operation.", {}, []),
+    _spec("undo", "Deshace la ultima operacion de edicion.", {}, []),
+    _spec("redo", "Rehace la ultima operacion de edicion deshecha.", {}, []),
 ]
 
 REGISTRY = {

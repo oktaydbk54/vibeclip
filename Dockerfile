@@ -13,9 +13,11 @@ WORKDIR /app
 # Install Python deps (mirror of pyproject [project].dependencies) before copying
 # the code so this layer is cached across code-only changes.
 RUN pip install --no-cache-dir \
+        "av==17.1.0" \
         "cryptography>=42" \
         "fastapi>=0.136.3" \
         "faster-whisper>=1.2.1" \
+        "httpx>=0.28.1" \
         "mcp[cli]>=1.2.0" \
         "numpy>=2.4.6" \
         "openai>=2.41.0" \
@@ -23,7 +25,8 @@ RUN pip install --no-cache-dir \
         "pillow>=12.2.0" \
         "python-dotenv>=1.2.2" \
         "rich>=13" \
-        "uvicorn>=0.49.0"
+        "uvicorn>=0.49.0" \
+        "yt-dlp>=2025.1.15"
 
 COPY . .
 

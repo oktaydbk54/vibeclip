@@ -5,9 +5,11 @@ description = "VibeClip — the AI video editor you control by talking. Turns lo
 readme = "README.md"
 requires-python = ">=3.12"
 dependencies = [
+    "av==17.1.0",
     "cryptography>=42",
     "fastapi>=0.136.3",
     "faster-whisper>=1.2.1",
+    "httpx>=0.28.1",
     "mcp[cli]>=1.2.0",
     "numpy>=2.4.6",
     "openai>=2.41.0",

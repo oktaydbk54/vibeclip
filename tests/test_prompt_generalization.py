@@ -87,12 +87,12 @@ def test_propose_honors_planner_tier_override(monkeypatch):
     assert tier == "pro"
 
 
-# --- (c) phrase maps untouched (regression guard against deletion) ---------
+# --- (c) phrase maps and localized deterministic approval -------------------
 def test_system_rules_keeps_phrase_mappings():
     rules = agent.SYSTEM_RULES
     for phrase in (
-        "ikinci klip",
-        "müzik ekle",
+        "segundo clip",
+        "añade musica",
         "remove_phrase",
         "apply_style",
         "set_aspect",
@@ -118,13 +118,33 @@ def test_capability_headers_are_additive():
         agent.SYSTEM_RULES.index("A/B APPROVAL GATE")
 
 
-# --- (d) deterministic backstops unchanged ---------------------------------
 def test_approve_reject_backstops_intact():
-    assert agent._APPROVE_RE.search("uygula")
-    assert agent._APPROVE_RE.search("evet")
+    assert agent._APPROVE_RE.search("aplica")
+    assert agent._APPROVE_RE.search("si")
     assert agent._APPROVE_RE.search("approve")
-    assert agent._REJECT_RE.search("vazgeç")
-    assert agent._REJECT_RE.search("hayır")
+    assert agent._REJECT_RE.search("cancela")
+    assert agent._REJECT_RE.search("no")
     assert agent._REJECT_RE.search("cancel")
-    # "evet ama 3x" is a modification, not a plain approval.
-    assert agent._MODIFY_RE.search("evet ama 3x olsun")
+    # Spanish approval should be localized; English should remain English.
+    assert agent._SPANISH_RE.search("aplica")
+    assert agent._SPANISH_RE.search("sí")
+    assert not agent._SPANISH_RE.search("approve")
+    # "si pero 3x" is a modification, not a plain approval.
+    assert agent._MODIFY_RE.search("si pero 3x")
+
+
+def test_plan_narration_backstop_patterns_compile_and_match():
+    """The plan-narration guard's patterns remain valid and recognize both languages."""
+    import re
+
+    plan_words = re.compile(
+        r"\bplan\b|\bpaso\b|\bstep\b|approve", re.I
+    )
+    plan_action = re.compile(
+        r"crear|preparar|proponer|añadir|hacer|created|ready|"
+        r"propos|here.{0,3}s the|steps?:|will (add|apply)", re.I
+    )
+    assert plan_words.search("He preparado un plan")
+    assert plan_action.search("He preparado un plan")
+    assert plan_words.search("Here is the plan")
+    assert plan_action.search("Here is the plan")

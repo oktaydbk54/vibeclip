@@ -31,7 +31,7 @@ vertical, captioned, ready-to-post shorts.** Then you refine every clip by *chat
 Spin up a private instance in three commands. All you add is **one** LLM key.
 
 ```bash
-git clone https://github.com/oktaydbk54/vibeclip.git
+git clone https://github.com/rwbel/vibeclip.git
 cd vibeclip
 cp .env.example .env          # add ONE line: OPENAI_API_KEY=sk-...
 docker compose up -d --build

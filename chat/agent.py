@@ -226,7 +226,8 @@ _AB_EXEMPT = frozenset({"generate_clips", "duplicate_clip", "pick_variant",
 def _ab_gated() -> frozenset:
     return (MUTATING_TOOLS | {"set_denoise"}) - _AB_EXEMPT
 
-MAX_ROUNDS = 6
+
+MAX_ROUNDS = 10
 
 
 def _client_and_model(tier: str = "fast"):
@@ -239,8 +240,8 @@ def _client_and_model(tier: str = "fast"):
 
 
 def run_turn(session: Session, history: list[dict], user_msg: str,
-             on_tool=None, mode: str = "pro", profile_prompt: str = "",
-             tier: str = "fast") -> str:
+              on_tool=None, mode: str = "pro", profile_prompt: str = "",
+              tier: str = "fast") -> str:
     """One chat turn. Mutates `history`. Returns the assistant's final text.
 
     on_tool: optional callback(tool_name, args) for progress display.
@@ -424,6 +425,29 @@ def run_turn(session: Session, history: list[dict], user_msg: str,
             messages.append({"role": "tool", "tool_call_id": tc.id,
                              "content": json.dumps(result, ensure_ascii=False)})
 
-    history.append({"role": "assistant",
-                    "content": "(reached the operation-round limit)"})
-    return "Reached the operation-round limit — check the latest state with list_clips."
+    # Tools from the final allowed round have already run. Give the model one
+    # tool-free chance to summarize their results without extending the loop.
+    messages.append({
+        "role": "system",
+        "content": (
+            "The tool-call round limit has been reached. Do not call tools. "
+            "Briefly summarize what was completed, mention anything still "
+            "incomplete, and tell the user how to continue in a new message."
+        ),
+    })
+    try:
+        final = client.chat.completions.create(
+            model=model,
+            messages=messages,
+            tools=TOOL_SPECS,
+            tool_choice="none",
+            temperature=0.2,
+        )
+        text = final.choices[0].message.content or "(no reply)"
+    except Exception:
+        text = (
+            "Llegué al límite de operaciones de este turno. Las últimas "
+            "herramientas se ejecutaron; envía otro mensaje para continuar."
+        )
+    history.append({"role": "assistant", "content": text})
+    return text

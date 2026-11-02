@@ -1,9 +1,9 @@
 <!doctype html>
-<html lang="en">
+<html lang="es">
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>VibeClip Studio — Setup</title>
+<title>VibeClip Studio — Configuración</title>
 <link rel="icon" type="image/svg+xml" href="/static/favicon.svg">
 <link rel="icon" type="image/x-icon" href="/static/favicon.ico" sizes="any">
 <link rel="apple-touch-icon" href="/static/apple-touch-icon.png">
@@ -142,50 +142,50 @@ body{min-height:100vh; background:var(--ink); color:var(--bone);
   "use strict";
 
   var STEPS = [
-    { field: "content_type", eyebrow: "CONTENT TYPE",
-      q: "What kind of videos will you edit?",
-      sub: "We'll tune the AI's suggestions to match.",
+    { field: "content_type", eyebrow: "TIPO DE CONTENIDO",
+      q: "¿Qué tipo de vídeos vas a editar?",
+      sub: "Ajustaremos las sugerencias de la IA a tu contenido.",
       opts: [
-        ["podcast", "🎙", "Podcast & Talk", "best moments from long recordings"],
-        ["egitim", "🎓", "Education & How-to", "lessons, explainers, knowledge content"],
-        ["oyun", "🎮", "Gaming & Stream clips", "stream highlights"],
-        ["vlog", "🌍", "Vlog & Lifestyle", "daily life, travel, lifestyle"],
-        ["marka", "💼", "Brand & Product", "promos, ads, social content"]
+        ["podcast", "🎙", "Podcast y Charlas", "mejores momentos de grabaciones largas"],
+        ["egitim", "🎓", "Educación y Tutoriales", "lecciones, explicaciones, contenido de conocimiento"],
+        ["oyun", "🎮", "Gaming y Clips de Stream", "momentos destacados de streams"],
+        ["vlog", "🌍", "Vlog y Estilo de vida", "día a día, viajes, lifestyle"],
+        ["marka", "💼", "Marca y Producto", "promos, ads, contenido social"]
       ] },
-    { field: "platform", eyebrow: "PLATFORM",
-      q: "Where will your clips be published?",
-      sub: "Loudness, format and pacing adapt to the platform.",
+    { field: "platform", eyebrow: "PLATAFORMA",
+      q: "¿Dónde publicarás tus clips?",
+      sub: "Sonoridad, formato y ritmo se adaptan a la plataforma.",
       opts: [
         ["tiktok", "", "TikTok", ""],
         ["reels", "", "Instagram Reels", ""],
         ["youtube_shorts", "", "YouTube Shorts", ""],
-        ["multi", "", "All of them", "I publish on multiple platforms"]
+        ["multi", "", "Todas", "Publico en varias plataformas"]
       ] },
-    { field: "experience", eyebrow: "EXPERIENCE",
-      q: "How much editing experience do you have?",
-      sub: "We'll set up the interface to match — you can change it anytime.",
+    { field: "experience", eyebrow: "EXPERIENCIA",
+      q: "¿Cuánta experiencia editando tienes?",
+      sub: "Configuraremos la interfaz acorde — puedes cambiarlo luego.",
       opts: [
-        ["yeni", "🌱", "None", "let AI edit, I'll just approve"],
-        ["orta", "⚡", "Some", "I want ideas and options, AI handles the details"],
-        ["pro", "🎛", "I'm a pro", "timeline, transcript, full control"]
+        ["yeni", "🌱", "Ninguna", "que la IA edite, yo solo apruebo"],
+        ["orta", "⚡", "Algo", "quiero ideas y opciones, la IA lleva los detalles"],
+        ["pro", "🎛", "Soy pro", "línea de tiempo, transcripción, control total"]
       ] },
-    { field: "style_vibe", eyebrow: "STYLE",
-      q: "What's the vibe of your videos?",
+    { field: "style_vibe", eyebrow: "ESTILO",
+      q: "¿Cuál es la vibra de tus vídeos?",
       sub: "",
       opts: [
-        ["enerjik", "🔥", "Energetic & fast", "punchy cuts, bold captions"],
-        ["sinematik", "🎬", "Cinematic & emotional", "soft transitions, atmosphere"],
-        ["sade", "◻", "Clean & professional", "minimal, no distractions"],
-        ["eglenceli", "😄", "Fun & meme-y", "stickers, sfx, internet culture"]
+        ["enerjik", "🔥", "Enérgico y rápido", "cortes punchy, subtítulos bold"],
+        ["sinematik", "🎬", "Cinemático y emotivo", "transiciones suaves, atmósfera"],
+        ["sade", "◻", "Limpio y profesional", "minimalista, sin distracciones"],
+        ["eglenceli", "😄", "Divertido y meme", "stickers, sfx, cultura de internet"]
       ] },
-    { field: "goal", eyebrow: "GOAL",
-      q: "What's your priority?",
+    { field: "goal", eyebrow: "OBJETIVO",
+      q: "¿Cuál es tu prioridad?",
       sub: "",
       opts: [
-        ["viral", "📈", "Views & viral reach", ""],
-        ["topluluk", "🫂", "Followers & community", ""],
-        ["satis", "💰", "Sales & customers", ""],
-        ["zaman", "⏱", "Just saving time", "I don't want to spend hours editing"]
+        ["viral", "📈", "Visitas y alcance viral", ""],
+        ["topluluk", "🫂", "Seguidores y comunidad", ""],
+        ["satis", "💰", "Ventas y clientes", ""],
+        ["zaman", "⏱", "Solo ahorrar tiempo", "no quiero pasar horas editando"]
       ] }
   ];
 
@@ -209,8 +209,8 @@ body{min-height:100vh; background:var(--ink); color:var(--bone);
         '</span><span class="key">' + (oi + 1) + '</span></button>';
     }).join("");
     var back = si > 0
-      ? '<button class="back" data-back>← back</button>'
-      : '<button class="back hide" data-back>← back</button>';
+      ? '<button class="back" data-back>← volver</button>'
+      : '<button class="back hide" data-back>← volver</button>';
     d.innerHTML =
       '<div class="q-eyebrow">' + s.eyebrow + '</div>' +
       '<h2>' + s.q + '</h2>' +
@@ -228,7 +228,7 @@ body{min-height:100vh; background:var(--ink); color:var(--bone);
   function show() {
     els.forEach(function (el, i) { el.classList.toggle("on", i === cur); });
     finalEl.classList.remove("on");
-    stepc.textContent = "STEP " + (cur + 1) + " / 5";
+    stepc.textContent = "PASO " + (cur + 1) + " / 5";
     progressBar.style.width = ((cur + 1) / 5 * 100) + "%";
   }
 
@@ -271,7 +271,7 @@ body{min-height:100vh; background:var(--ink); color:var(--bone);
   function showFinalScreen() {
     els.forEach(function (el) { el.classList.remove("on"); });
     finalEl.classList.add("on");
-    stepc.textContent = "DONE";
+    stepc.textContent = "LISTO";
     progressBar.style.width = "100%";
   }
 
@@ -286,11 +286,11 @@ body{min-height:100vh; background:var(--ink); color:var(--bone);
   // The checklist lines REPLAY the user's actual answers, so setup feels personal.
   function buildLines() {
     return [
-      "Tuning the AI for " + labelFor("content_type"),
-      "Optimizing format & loudness for " + labelFor("platform"),
-      'Setting the interface to “' + labelFor("experience") + '”',
-      "Dialing in the " + labelFor("style_vibe").toLowerCase() + " look",
-      "Prioritizing " + labelFor("goal").toLowerCase()
+      "Ajustando la IA para " + labelFor("content_type"),
+      "Optimizando formato y sonoridad para " + labelFor("platform"),
+      'Poniendo la interfaz en “' + labelFor("experience") + '”',
+      "Marcando el look " + labelFor("style_vibe").toLowerCase(),
+      "Priorizando " + labelFor("goal").toLowerCase()
     ];
   }
 
@@ -298,8 +298,8 @@ body{min-height:100vh; background:var(--ink); color:var(--bone);
     showFinalScreen();
     errline.style.display = "none";
     retry.style.display = "none";
-    finalTitle.textContent = "Building your studio…";
-    finalSub.textContent = "Personalizing VibeClip from your answers.";
+    finalTitle.textContent = "Construyendo tu estudio…";
+    finalSub.textContent = "Personalizando VibeClip con tus respuestas.";
 
     // Render the checklist (all pending) and tick them one-by-one.
     buildlist.style.display = "flex";
@@ -327,16 +327,16 @@ body{min-height:100vh; background:var(--ink); color:var(--bone);
       if (r.status === 401) { location.href = "/login"; return; }
       var data = {};
       try { data = await r.json(); } catch (e) {}
-      if (!r.ok) throw new Error(data.error || "Something went wrong.");
+      if (!r.ok) throw new Error(data.error || "Algo salió mal.");
       await animDone;                       // let the checklist finish ticking
-      finalTitle.textContent = "You're all set! 🎬";
-      finalSub.textContent = "Opening your studio…";
+      finalTitle.textContent = "¡Todo listo! 🎬";
+      finalSub.textContent = "Abriendo tu estudio…";
       setTimeout(function () { location.href = data.next || "/studio"; }, 500);
     } catch (e) {
       buildlist.style.display = "none";
-      finalTitle.textContent = "Something went wrong";
+      finalTitle.textContent = "Algo salió mal";
       finalSub.textContent = "";
-      errline.textContent = (e && e.message) ? e.message : "Could not reach the server.";
+      errline.textContent = (e && e.message) ? e.message : "No se pudo contactar con el servidor.";
       errline.style.display = "block";
       retry.style.display = "inline-block";
     }

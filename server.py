@@ -31,22 +31,22 @@ mcp = FastMCP("shorts")
 
 @mcp.tool()
 def ping() -> str:
-    """Health check. Returns 'pong' if the server is alive."""
+    """Comprobación de salud. Devuelve 'pong' si el servidor está vivo."""
     return "pong"
 
 
 @mcp.tool()
 def media_info(video_path: str) -> dict:
-    """Probe a video file and return duration, resolution, fps, and codec."""
+    """Sonda un archivo de vídeo y devuelve duración, resolución, fps y códec."""
     return ffprobe_info(video_path)
 
 
 @mcp.tool()
 def transcribe(video_path: str, model_size: str = "") -> dict:
-    """Transcribe a video to word-timestamped text (cached).
+    """Transcribe un vídeo a texto con timestamps por palabra (cacheado).
 
-    Returns {language, duration, segments[], words[]}. `model_size` overrides
-    the configured Whisper model (tiny|base|small|medium|large-v3).
+    Devuelve {language, duration, segments[], words[]}. `model_size` sobrescribe
+    el modelo Whisper configurado (tiny|base|small|medium|large-v3).
     """
     return _transcribe(video_path, model_size or None)
 
@@ -58,11 +58,11 @@ def find_highlights(
     count: int = 5,
     max_duration: float = 60.0,
 ) -> list[dict]:
-    """Find the best short-clip moments in a video.
+    """Encuentra los mejores momentos para clips cortos en un vídeo.
 
-    Transcribes (cached) then asks DeepSeek to pick `count` clips for `platform`
-    (youtube_shorts|instagram_reels|tiktok). Returns clips with start/end
-    snapped to word boundaries, sorted by viral score.
+    Transcribe (cacheado) y pide a DeepSeek que elija `count` clips para `platform`
+    (youtube_shorts|instagram_reels|tiktok). Devuelve clips con inicio/fin
+    ajustados a límites de palabra, ordenados por puntuación viral.
     """
     transcript = _transcribe(video_path)
     return _find_highlights(transcript, platform, count, max_duration)
@@ -76,10 +76,10 @@ def cut_clip(
     title: str = "",
     precise: bool = False,
 ) -> str:
-    """Cut a single [start, end] clip from a video into outputs/.
+    """Corta un clip [start, end] de un vídeo a outputs/.
 
-    precise=False is an instant stream-copy (keyframe-aligned); precise=True
-    re-encodes for frame-accurate boundaries. Returns the output file path.
+    precise=False es stream-copy instantáneo (alineado a keyframes); precise=True
+    re-codifica para límites frame-exactos. Devuelve la ruta del archivo de salida.
     """
     return _cut_clip(video_path, start, end, title=title, precise=precise)
 
@@ -102,15 +102,15 @@ def make_short(
     internal_transitions: bool = False,
     auto_soundbed: bool = True,
 ) -> dict:
-    """End-to-end: transcribe, understand structure, pick clips, cut/edit. Manifest.
+    """End-to-end: transcribe, entiende estructura, elige clips, corta/edita. Manifiesto.
 
-    structure_aware=True (default) builds a scene+speech+energy moment index and
-    draws clips from real topic segments. Basic mode: vertical/subtitles only.
-    auto_edit=True applies the full treatment per clip: silence trim (jumpcut),
-    active-speaker tracked vertical reframe, optional intra-clip transitions,
-    LLM-planned punch-in zoom, karaoke captions, auto energy-matched music +
-    ambience (auto_soundbed) or a manual music_path, timed SFX, and fades.
-    Requires an LLM key in .env.
+    structure_aware=True (por defecto) construye un índice de momentos escena+voz+energía
+    y saca clips de segmentos de tema reales. Modo básico: solo vertical/subtítulos.
+    auto_edit=True aplica el tratamiento completo por clip: recorte de silencios (jumpcut),
+    reencuadre vertical tracked con speaker activo, transiciones intra-clip opcionales,
+    zoom punch-in planificado por LLM, subtítulos karaoke, música auto a juego de energía +
+    ambience (auto_soundbed) o music_path manual, SFX temporizados, y fades.
+    Requiere clave LLM en .env.
     """
     return _make_short(
         video_path, platform, count, max_duration,
@@ -124,9 +124,9 @@ def make_short(
 
 @mcp.tool()
 def reframe_vertical(clip_path: str) -> str:
-    """Crop a landscape clip to vertical 9:16 (1080x1920), centered on faces.
+    """Recorta un clip landscape a vertical 9:16 (1080x1920), centrado en caras.
 
-    Falls back to a center crop if no face is detected. Returns the new path.
+    Fallback a center crop si no se detecta cara. Devuelve la nueva ruta.
     """
     return _reframe_vertical(clip_path)
 
@@ -134,11 +134,11 @@ def reframe_vertical(clip_path: str) -> str:
 @mcp.tool()
 def burn_subtitles(clip_path: str, words: list[dict], clip_start: float = 0.0,
                    karaoke: bool = False) -> str:
-    """Burn word-synced captions onto a clip.
+    """Quema subtítulos sincronizados por palabra en un clip.
 
-    `words` is a list of {start, end, word} in source time; `clip_start` is the
-    clip's offset in the source video. karaoke=True highlights each spoken word.
-    Returns the captioned clip path.
+    `words` es una lista de {start, end, word} en tiempo del source; `clip_start` es
+    el offset del clip en el vídeo fuente. karaoke=True resalta cada palabra hablada.
+    Devuelve la ruta del clip subtitulado.
     """
     return _burn_subtitles(clip_path, words, clip_start, karaoke=karaoke)
 
@@ -146,59 +146,59 @@ def burn_subtitles(clip_path: str, words: list[dict], clip_start: float = 0.0,
 @mcp.tool()
 def remove_silences(clip_path: str, words: list[dict], clip_start: float = 0.0,
                     max_pause: float = 0.5, keep_pause: float = 0.15) -> str:
-    """Jump-cut: remove dead air longer than `max_pause` using word timings."""
+    """Jump-cut: elimina aire muerto más largo que `max_pause` usando timings de palabras."""
     return _remove_silences(clip_path, words, clip_start, max_pause, keep_pause)
 
 
 @mcp.tool()
 def add_music(clip_path: str, music_path: str, music_volume: float = 0.18,
               duck: bool = True) -> str:
-    """Mix a background music bed under the clip; duck=True dips it under speech."""
+    """Mezcla una cama de música de fondo bajo el clip; duck=True la baja bajo la voz."""
     return _add_music(clip_path, music_path, music_volume, duck)
 
 
 @mcp.tool()
 def normalize_loudness(clip_path: str) -> str:
-    """Apply EBU R128 loudness normalization (platform-ready levels)."""
+    """Aplica normalización de sonoridad EBU R128 (niveles listos para plataforma)."""
     return _normalize(clip_path)
 
 
 @mcp.tool()
 def punch_zoom(clip_path: str, windows: list[list[float]], zoom: float = 1.18) -> str:
-    """Apply a punch-in zoom during each [start, end] window."""
+    """Aplica zoom punch-in durante cada ventana [start, end]."""
     return _punch_zoom(clip_path, [(w[0], w[1]) for w in windows], zoom)
 
 
 @mcp.tool()
 def transition(clip_a: str, clip_b: str, kind: str = "fade",
                duration: float = 0.5) -> str:
-    """Join clip_a -> clip_b with an xfade transition (fade|slideleft|wipeleft|...)."""
+    """Une clip_a -> clip_b con transición xfade (fade|slideleft|wipeleft|...)."""
     return _transition(clip_a, clip_b, kind, duration)
 
 
 @mcp.tool()
 def fade_in_out(clip_path: str, fade: float = 0.4) -> str:
-    """Fade from/to black at the clip's start and end (video + audio)."""
+    """Fade a/desde negro al inicio y final del clip (vídeo + audio)."""
     return _fade(clip_path, fade)
 
 
 @mcp.tool()
 def add_sfx(clip_path: str, events: list[dict]) -> str:
-    """Mix sound effects into a clip. events: [{time, path, volume}]."""
+    """Mezcla efectos de sonido en un clip. events: [{time, path, volume}]."""
     return _add_sfx(clip_path, events)
 
 
 @mcp.tool()
 def analyze_structure(video_path: str, platform: str = "youtube_shorts") -> list[dict]:
-    """Understand a video's structure: fuse scene cuts + audio energy + topic
-    segmentation into scored moments (hook/flow/value). Returns the moment index."""
+    """Entiende la estructura de un vídeo: fusiona cortes de escena + energía de audio +
+    segmentación de temas en momentos puntuados (hook/flow/valor). Devuelve el índice de momentos."""
     return _analyze_structure(video_path, _transcribe(video_path), platform=platform)
 
 
 @mcp.tool()
 def reframe_vertical_tracked(clip_path: str) -> str:
-    """Active-speaker tracked 9:16 reframe: classifies scene type and pans the crop
-    to follow the speaker (eased), letterboxes screencasts. Returns the new path."""
+    """Reencuadre vertical 9:16 con tracking de speaker activo: clasifica tipo de escena
+    y panea el crop siguiendo al hablante (suavizado), letterboxea screencasts. Devuelve la nueva ruta."""
     return _reframe_tracked(clip_path)
 
 

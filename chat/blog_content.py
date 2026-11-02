@@ -6,7 +6,7 @@ client-side JS shell. Adding a post = appending one dict here.
 
 Every body string is trusted, hand-authored HTML (no user input) — it is
 injected verbatim into the page. Keep it valid and self-contained.
-All copy is English (product/marketing output is English-only).
+All copy is Spanish (product/marketing output is Spanish-only).
 """
 
 import os
@@ -26,509 +26,302 @@ SAME_AS = [REPO_URL, "https://x.com/codebod1"]
 POSTS = [
     {
         "slug": "vibeclip-vs-opus-clip",
-        "title": "VibeClip vs. Opus Clip: An Open-Source AI Clip Editor Compared",
-        "description": "Opus Clip auto-clips long videos in the cloud on a credit/"
-                       "subscription model. VibeClip is the open-source, self-hostable, "
-                       "bring-your-own-key alternative you edit by talking. Here's how they differ.",
-        "keywords": "opus clip alternative, vibeclip vs opus clip, open source opus clip, "
-                    "ai clip generator, free ai video editor, self-hosted clip maker",
-        "tag": "COMPARE",
+        "title": "VibeClip vs. Opus Clip: Comparativa del editor de clips IA open-source",
+        "description": "Opus Clip genera clips automáticamente en la nube con modelo de créditos/suscripción. VibeClip es la alternativa open-source, autoalojable y con tu propia clave LLM que editas hablando. Aquí tienes cómo difieren.",
+        "keywords": "alternativa a opus clip, vibeclip vs opus clip, open source opus clip, generador de clips IA, editor de video IA gratis, creador de clips autoalojado",
+        "tag": "COMPARAR",
         "read_min": 8,
         "date": "2026-06-13",
-        "excerpt": "Opus Clip popularised one-click auto-clipping. VibeClip takes the same "
-                   "long-video-to-shorts job and makes it open source, self-hostable, and "
-                   "editable by chat — on your own LLM key.",
+        "excerpt": "Opus Clip popularizó el auto-clipping de un clic. VibeClip aborda el mismo trabajo de vídeo largo a shorts y lo hace open source, autoalojable y editable por chat — con tu propia clave LLM.",
         "body": """
-<p class="lede">If you've looked for a tool that turns a long video into a stack of
-short, captioned clips, you've met <strong>Opus Clip</strong>. It made one-click
-auto-clipping mainstream. <strong>VibeClip</strong> tackles the same job from a different
-angle: it's <strong>open source (AGPL-3.0)</strong>, you can <strong>self-host</strong> it,
-and you drive the edit by <strong>talking</strong> to it on <em>your own</em> LLM key.</p>
+<p class="lede">Si has buscado una herramienta que convierta un vídeo largo en una pila de clips cortos con subtítulos, te has topado con <strong>Opus Clip</strong>. Hizo mainstream el auto-clipping de un clic. <strong>VibeClip</strong> aborda el mismo trabajo desde otro ángulo: es <strong>open source (AGPL-3.0)</strong>, puedes <strong>autoalojarlo</strong> y diriges la edición <strong>hablando</strong> con él en <em>tu propia</em> clave LLM.</p>
 
-<p>This isn't a teardown — Opus Clip is a polished product. It's a comparison of two
-philosophies so you can pick the one that fits how you work.</p>
+<p>No es un despiece — Opus Clip es un producto pulido. Es una comparación de dos filosofías para que elijas la que encaja en tu forma de trabajar.</p>
 
-<h2>The core difference: a closed cloud service vs. an open, ownable studio</h2>
-<p>Opus Clip is a hosted SaaS. You upload to their cloud, it runs on their infrastructure,
-and you pay through credits and subscription tiers. That's frictionless — and it also means
-your footage lives on someone else's servers and your costs scale with their pricing.</p>
-<p>VibeClip is software you can actually own. Run the hosted version, or clone the repo and
-<code>docker compose up</code> on your own box. When you self-host, your footage never
-leaves your machine, speech-to-text and rendering run locally, and the only outbound call is
-to the LLM provider <em>you</em> chose with the key <em>you</em> control.</p>
+<h2>La diferencia clave: servicio cloud cerrado vs. estudio propio y abierto</h2>
+<p>Opus Clip es un SaaS alojado. Subes a su nube, procesa en su infraestructura y pagas mediante créditos y niveles de suscripción. Es sin fricción — y también significa que tu material está en servidores ajenos y tus costes escalan con su precio.</p>
+<p>VibeClip es software que puedes poseer de verdad. Usa la versión alojada, o clona el repo y haz <code>docker compose up</code> en tu máquina. Cuando te autoalojas, tu material nunca sale de tu equipo, el speech-to-text y el render corren localmente, y la única llamada saliente es al proveedor LLM <em>tú</em> eliges con la clave <em>tú</em> controlas.</p>
 
-<h2>Side by side</h2>
+<h2>Cara a cara</h2>
 <table>
   <thead><tr><th>&nbsp;</th><th>Opus Clip</th><th>VibeClip</th></tr></thead>
   <tbody>
-    <tr><td>Model</td><td>Hosted SaaS</td><td>Open source (AGPL-3.0) + optional hosted</td></tr>
-    <tr><td>Self-host</td><td>No</td><td>Yes — full studio, nothing held back</td></tr>
-    <tr><td>Where your video lives</td><td>Their cloud</td><td>Your machine (when self-hosted)</td></tr>
-    <tr><td>Pricing</td><td>Credits / subscription</td><td>Free to self-host; you pay your own LLM tokens (cents per short)</td></tr>
-    <tr><td>How you edit</td><td>Auto-clip, then UI tweaks</td><td>Auto-clip <em>and</em> refine by chat: "cut the silences", "bigger captions"</td></tr>
-    <tr><td>Control over the AI</td><td>Their models</td><td>Bring your own key — OpenAI, Claude, Gemini, local models</td></tr>
-    <tr><td>Edits reversible</td><td>Yes, in-app</td><td>Yes — every change is an A/B you approve; nothing destructive</td></tr>
+    <tr><td>Modelo</td><td>SaaS alojado</td><td>Open source (AGPL-3.0) + alojado opcional</td></tr>
+    <tr><td>Autoalojado</td><td>No</td><td>Sí — estudio completo, nada retenido</td></tr>
+    <tr><td>Dónde vive tu vídeo</td><td>Su nube</td><td>Tu máquina (cuando te autoalojas)</td></tr>
+    <tr><td>Precios</td><td>Créditos / suscripción</td><td>Gratis al autoalojar; pagas tus propios tokens LLM (céntimos por short)</td></tr>
+    <tr><td>Cómo editas</td><td>Auto-clip y luego ajustes en UI</td><td>Auto-clip <em>y</em> refinas por chat: "corta los silencios", "subtítulos más grandes"</td></tr>
+    <tr><td>Control sobre la IA</td><td>Sus modelos</td><td>Trae tu propia clave — OpenAI, Claude, Gemini, modelos locales</td></tr>
+    <tr><td>Edits reversibles</td><td>Sí, en la app</td><td>Sí — cada cambio es un A/B que apruebas; nada destructivo</td></tr>
   </tbody>
 </table>
 
-<h2>Where VibeClip wins</h2>
+<h2>Dónde gana VibeClip</h2>
 <ul>
-  <li><strong>Ownership &amp; privacy.</strong> Self-host and your raw footage and keys stay
-  on infrastructure you control — the right call for agencies, regulated teams, and anyone
-  who'd rather not upload client material to a third party.</li>
-  <li><strong>Cost at scale.</strong> No per-clip credits. You pay your LLM provider directly,
-  which for most creators is a few cents per short instead of a monthly clip quota.</li>
-  <li><strong>Talk-to-edit refinement.</strong> Auto-clipping gets you 80% there; the last
-  20% is taste. VibeClip lets you say what you want in plain words and stages a before/after,
-  so you're not hunting through panels. (Here's <a href="/blog/talk-to-edit-video-editing-by-chat">how editing by chat works</a>.)</li>
-  <li><strong>No lock-in.</strong> It's AGPL — fork it, extend it, run it forever.</li>
+  <li><strong>Propiedad y privacidad.</strong> Autoalojar y tu material bruto y claves se quedan en infraestructura que controlas — la opción correcta para agencias, equipos regulados y cualquiera que prefiera no subir material de clientes a un tercero.</li>
+  <li><strong>Coste a escala.</strong> Sin créditos por clip. Pagas a tu proveedor LLM directamente, que para la mayoría de creadores son unos céntimos por short en vez de una cuota mensual de clips.</li>
+  <li><strong>Refinado por chat.</strong> El auto-clipping te lleva al 80%; el 20% restante es gusto. VibeClip te deja decir lo que quieres en lenguaje natural y monta un antes/después, así que no cazas por paneles. (Aquí tienes <a href="/blog/talk-to-edit-video-editing-by-chat">cómo funciona la edición por chat</a>.)</li>
+  <li><strong>Sin vendor lock-in.</strong> Es AGPL — fórkalo, extiéndelo, ejecútalo para siempre.</li>
 </ul>
 
-<h2>Where a hosted SaaS still makes sense</h2>
-<p>If you never want to think about infrastructure and prefer a fixed monthly bill to managing
-an LLM key, a turnkey cloud tool is genuinely simpler on day one. VibeClip's hosted version
-exists for exactly that — but unlike a closed product, you can always take the open-source
-build and walk.</p>
+<h2>Dónde un SaaS alojado sigue teniendo sentido</h2>
+<p>Si nunca quieres pensar en infraestructura y prefieres una factura mensual fija a gestionar una clave LLM, una herramienta cloud llave en mano es genuinamente más simple el día uno. La versión alojada de VibeClip existe para eso — pero a diferencia de un producto cerrado, siempre puedes tomar la build open-source e irte.</p>
 
-<h2>The bottom line</h2>
-<p>Opus Clip is a great closed product for hands-off cloud clipping. VibeClip is for creators
-who want the same long-video-to-shorts speed <em>plus</em> ownership, privacy, lower running
-cost, and an editor they can talk to. New to the category? Start with
-<a href="/blog/what-is-an-ai-video-editor">what an AI video editor actually is</a>, or just
-<a href="/signup">try VibeClip free</a> and turn your next long video into shorts.</p>
+<h2>La conclusión</h2>
+<p>Opus Clip es un gran producto cerrado para auto-clipping cloud sin manos. VibeClip es para creadores que quieren la misma velocidad de vídeo-largo-a-shorts <em>más</em> propiedad, privacidad, menor coste operativo y un editor con el que pueden hablar. ¿Nuevo en la categoría? Empieza con <a href="/blog/what-is-an-ai-video-editor">qué es un editor de vídeo IA</a>, o directamente <a href="/signup">prueba VibeClip gratis</a> y convierte tu próximo vídeo largo en shorts.</p>
 """,
     },
     {
         "slug": "open-source-vs-saas-video-editor",
-        "title": "Open-Source vs. SaaS Video Editing: Why Self-Hosting Wins for Creators",
-        "description": "Cloud video tools are convenient but rent-forever and upload your "
-                       "footage to someone else's servers. Here's the case for a free, "
-                       "open-source, self-hosted AI video editor — and when SaaS still fits.",
-        "keywords": "free open source video editor, self-hosted video editor, open source "
-                    "video editing, private video editor, agpl video editor, byok video editor",
-        "tag": "COMPARE",
+        "title": "Open-Source vs. SaaS edición de vídeo: por qué autoalojar gana para creadores",
+        "description": "Las herramientas cloud de vídeo son cómodas pero alquiler para siempre y suben tu material a servidores ajenos. Aquí tienes el caso a favor de un editor de vídeo IA gratis, open-source y autoalojado — y cuándo el SaaS sigue encajando.",
+        "keywords": "editor de video open source gratis, editor de video autoalojado, edicion de video open source, editor de video privado, editor de video agpl, editor de video byok",
+        "tag": "COMPARAR",
         "read_min": 7,
         "date": "2026-06-13",
-        "excerpt": "Convenience vs. ownership. Why an open-source, self-hosted AI editor "
-                   "beats a rented cloud tool on privacy and cost — and the cases where "
-                   "SaaS is still the right call.",
+        "excerpt": "Comodidad vs. propiedad. Por qué un editor IA open-source y autoalojado gana en privacidad y coste a una herramienta cloud alquilada — y los casos donde SaaS sigue siendo la opción correcta.",
         "body": """
-<p class="lede">Almost every AI video tool today is a <strong>SaaS</strong>: you upload your
-footage to a cloud, it processes on their servers, and you pay a recurring bill. It's
-convenient — and it quietly trades away two things creators increasingly care about:
-<strong>ownership</strong> and <strong>privacy</strong>. Here's the honest case for the
-open-source, self-hosted alternative.</p>
+<p class="lede">Casi todas las herramientas de vídeo IA hoy son <strong>SaaS</strong>: subes tu material a la nube, procesa en sus servidores y pagas una factura recurrente. Es cómodo — y silenciosamente renuncia a dos cosas que los creadores valoran cada vez más: <strong>propiedad</strong> y <strong>privacidad</strong>. Aquí tienes el caso honesto a favor de la alternativa open-source y autoalojada.</p>
 
-<h2>What "self-hosted" actually means</h2>
-<p>A self-hosted app runs on infrastructure <em>you</em> control — your laptop, your VPS, your
-company server. With an open-source AI video editor like VibeClip, that means your raw video
-files, your transcripts, and your renders never leave your machine. Speech-to-text and every
-render run locally; the only thing that touches the network is the LLM provider you pick,
-called with a key you own (that's the "bring your own key" / BYOK model).</p>
+<h2>Qué significa realmente "autoalojado"</h2>
+<p>Una app autoalojada corre en infraestructura <em>tú</em> controlas — tu portátil, tu VPS, el servidor de tu empresa. Con un editor de vídeo IA open-source como VibeClip, eso significa que tus vídeos en bruto, transcripciones y renders nunca salen de tu máquina. Speech-to-text y cada render corren localmente; lo único que toca la red es el proveedor LLM que eliges, llamado con una clave que posees (ese es el modelo "bring your own key" / BYOK).</p>
 
-<h2>Three reasons it wins</h2>
+<h2>Tres razones por las que gana</h2>
 <ul>
-  <li><strong>Privacy by default.</strong> Unreleased footage, client material, internal
-  recordings — none of it gets uploaded to a third party. For agencies and regulated teams
-  that's not a nice-to-have, it's a requirement.</li>
-  <li><strong>Cost that doesn't compound.</strong> SaaS pricing scales with <em>their</em>
-  margins and your usage tier. Self-hosting is free; you pay your LLM provider directly for
-  tokens — typically a few cents per short. No per-clip credits, no seat fees.</li>
-  <li><strong>No lock-in, ever.</strong> Open source (VibeClip is AGPL-3.0) means you can read
-  the code, fork it, extend it, and keep running it even if the company behind it disappears.
-  A closed SaaS can change pricing, gate features, or shut down — and your workflow goes with it.</li>
+  <li><strong>Privacidad por defecto.</strong> Material sin publicar, grabaciones de clientes, grabaciones internas — nada se sube a un tercero. Para agencias y equipos regulados no es un nice-to-have, es un requisito.</li>
+  <li><strong>Coste que no se compone.</strong> El precio SaaS escala con <em>sus</em> márgenes y tu nivel de uso. Autoalojar es gratis; pagas a tu proveedor LLM directamente por tokens — típicamente unos céntimos por short. Sin créditos por clip, sin tasas por asiento.</li>
+  <li><strong>Sin lock-in, nunca.</strong> Open source (VibeClip es AGPL-3.0) significa que puedes leer el código, forkearlo, extenderlo y seguir ejecutándolo aunque la empresa detrás desaparezca. Un SaaS cerrado puede cambiar precios, poner features detrás de paywall, o cerrar — y tu workflow se va con él.</li>
 </ul>
 
-<h2>The convenience tax</h2>
-<p>Let's be fair: SaaS is easier on day one. There's nothing to install, no key to manage, no
-server to keep alive. For a creator who edits occasionally and prefers a predictable monthly
-fee, that simplicity is worth real money.</p>
-<p>The open-source answer to "but setup is hard" is to make setup trivial. VibeClip runs in the
-browser, and self-hosting is one <code>docker compose up</code>. You add your LLM key once and
-you're editing. (Curious how the editing itself feels?
-<a href="/blog/talk-to-edit-video-editing-by-chat">You talk to it.</a>)</p>
+<h2>El impuesto de la comodidad</h2>
+<p>Seamos justos: SaaS es más fácil el día uno. Nada que instalar, ninguna clave que gestionar, ningún servidor que mantener vivo. Para un creador que edita ocasionalmente y prefiere una cuota mensual predecible, esa simplicidad vale dinero real.</p>
+<p>La respuesta open-source a "pero configurar es difícil" es hacer la configuración trivial. VibeClip corre en el navegador, y autoalojarse es un <code>docker compose up</code>. Añades tu clave LLM una vez y ya estás editando. (¿Curioso de cómo se siente la edición? <a href="/blog/talk-to-edit-video-editing-by-chat">Hablas con él.</a>)</p>
 
-<h2>When SaaS still makes sense</h2>
-<p>If you have zero interest in infrastructure, edit rarely, and want one bill with support
-attached, a managed product is a reasonable choice. The best of both worlds is a tool that
-offers a hosted option <em>and</em> an open-source build — so you start easy and can take
-ownership whenever you outgrow the cloud.</p>
+<h2>Cuándo el SaaS sigue teniendo sentido</h2>
+<p>Si tienes cero interés en infraestructura, editas poco y quieres una factura única con soporte, un producto gestionado es una opción razonable. Lo mejor de los dos mundos es una herramienta que ofrezca opción alojada <em>y</em> build open-source — así empiezas fácil y puedes tomar propiedad cuando superes la nube.</p>
 
-<h2>How VibeClip fits</h2>
-<p>VibeClip is open source under AGPL-3.0, self-hostable in one command, and BYOK — and there's
-a hosted version for people who want turnkey. Same studio either way; no feature held back for
-the paid tier. If you're weighing tools, here's a concrete head-to-head:
-<a href="/blog/vibeclip-vs-opus-clip">VibeClip vs. Opus Clip</a>. Or just
-<a href="/signup">spin it up free</a> and see how
-<a href="/blog/turn-long-video-into-shorts-with-ai">one long video becomes a week of shorts</a>.</p>
+<h2>Cómo encaja VibeClip</h2>
+<p>VibeClip es open source bajo AGPL-3.0, autoalojable en un comando, y BYOK — y hay versión alojada para quien quiere llave en mano. Mismo estudio en ambos casos; ninguna feature retenida para el tier de pago. Si estás sopesando herramientas, aquí tienes un cara a cara concreto: <a href="/blog/vibeclip-vs-opus-clip">VibeClip vs. Opus Clip</a>. O simplemente <a href="/signup">pónlo a andar gratis</a> y mira cómo <a href="/blog/turn-long-video-into-shorts-with-ai">un vídeo largo se convierte en una semana de shorts</a>.</p>
 """,
     },
     {
         "slug": "capcut-alternative-ai-video-editor",
-        "title": "A CapCut Alternative for Creators Who Hate the Timeline",
-        "description": "CapCut is powerful but it's still a manual timeline editor. If you're "
-                       "repurposing long videos into shorts, a talk-to-edit AI editor like "
-                       "VibeClip is faster — and it's open source. Here's the comparison.",
-        "keywords": "capcut alternative, capcut for podcasts, ai video editor vs capcut, "
-                    "no timeline video editor, repurpose long video, open source capcut alternative",
-        "tag": "COMPARE",
+        "title": "Una alternativa a CapCut para creadores que odian la timeline",
+        "description": "CapCut es potente pero sigue siendo un editor de timeline manual. Si reutilizas vídeos largos en shorts, un editor IA talk-to-edit como VibeClip es más rápido — y es open source. Aquí la comparativa.",
+        "keywords": "alternativa a capcut, capcut para podcasts, editor de video ia vs capcut, editor de video sin timeline, reutilizar video largo, alternativa open source a capcut",
+        "tag": "COMPARAR",
         "read_min": 7,
         "date": "2026-06-13",
-        "excerpt": "CapCut gives you every knob — and every knob is your job. For turning long "
-                   "recordings into shorts, a talk-to-edit AI editor removes the timeline "
-                   "entirely. Here's how VibeClip compares.",
+        "excerpt": "CapCut te da todas las perillas — y cada perilla es tu trabajo. Para convertir grabaciones largas en shorts, un editor IA talk-to-edit elimina la timeline por completo. Así se compara VibeClip.",
         "body": """
-<p class="lede"><strong>CapCut</strong> is the default mobile/desktop editor for a huge number
-of creators, and for good reason — it's free to start, feature-rich, and great for hands-on,
-frame-level work. But if your actual job is <em>repurposing long recordings into shorts</em>,
-CapCut still asks you to do the editing. <strong>VibeClip</strong> is the alternative that does
-the editing for you — you just talk to it.</p>
+<p class="lede"><strong>CapCut</strong> es el editor móvil/escritorio por defecto para un número enorme de creadores, y con razón — es gratis para empezar, rico en features y genial para trabajo manual a nivel de frame. Pero si tu trabajo real es <em>reutilizar grabaciones largas en shorts</em>, CapCut sigue pidiéndote que hagas la edición. <strong>VibeClip</strong> es la alternativa que hace la edición por ti — solo le hablas.</p>
 
-<h2>Two different jobs</h2>
-<p>CapCut is a <strong>manual timeline editor</strong> with AI features bolted on. You import
-clips, arrange them on a timeline, and control every transition, caption, and cut yourself.
-That's perfect when you want total creative control over a single piece.</p>
-<p>VibeClip is built for the <strong>long-video-to-shorts</strong> workflow specifically. Drop
-in an hour of podcast or stream, and it finds the postable moments, reframes them to vertical,
-captions them, and tightens the pacing — then you refine by describing what you want. There's
-no timeline to scrub. (New to the idea?
-<a href="/blog/what-is-an-ai-video-editor">Here's what an AI video editor does.</a>)</p>
+<h2>Dos trabajos distintos</h2>
+<p>CapCut es un <strong>editor de timeline manual</strong> con features IA añadidas. Importas clips, los colocas en una timeline y controlas tú cada transición, subtítulo y corte. Es perfecto cuando quieres control creativo total sobre una pieza.</p>
+<p>VibeClip está construido para el workflow <strong>vídeo-largo-a-shorts</strong> específicamente. Sueltas una hora de podcast o stream, y encuentra los momentos publicables, reencuadra a vertical, subtitula y aprieta el ritmo — luego refinas describiendo lo que quieres. No hay timeline que scrubbear. (¿Nuevo en la idea? <a href="/blog/what-is-an-ai-video-editor">Aquí tienes qué hace un editor de vídeo IA.</a>)</p>
 
-<h2>Side by side</h2>
+<h2>Cara a cara</h2>
 <table>
   <thead><tr><th>&nbsp;</th><th>CapCut</th><th>VibeClip</th></tr></thead>
   <tbody>
-    <tr><td>Editing model</td><td>Manual timeline + AI tools</td><td>Talk-to-edit; AI does the work, you approve</td></tr>
-    <tr><td>Best at</td><td>Hands-on, frame-level edits</td><td>Turning long videos into many shorts fast</td></tr>
-    <tr><td>Finds clips for you</td><td>No — you scrub and cut</td><td>Yes — highlight detection proposes the moments</td></tr>
-    <tr><td>Open source / self-host</td><td>No</td><td>Yes — AGPL-3.0, runs on your server</td></tr>
-    <tr><td>Your footage</td><td>Processed by the app/cloud</td><td>Stays on your machine when self-hosted</td></tr>
-    <tr><td>Learning curve</td><td>Real — it's a full NLE</td><td>Describe the edit in plain words</td></tr>
+    <tr><td>Modelo de edición</td><td>Timeline manual + herramientas IA</td><td>Talk-to-edit; la IA hace el trabajo, tú apruebas</td></tr>
+    <tr><td>Mejor para</td><td>Edits manuales a nivel de frame</td><td>Convertir vídeos largos en muchos shorts rápido</td></tr>
+    <tr><td>Encuentra clips por ti</td><td>No — tú scrubbeas y cortas</td><td>Sí — detección de highlights propone los momentos</td></tr>
+    <tr><td>Open source / autoalojado</td><td>No</td><td>Sí — AGPL-3.0, corre en tu servidor</td></tr>
+    <tr><td>Tu material</td><td>Procesado por la app/nube</td><td>Se queda en tu máquina al autoalojar</td></tr>
+    <tr><td>Curva de aprendizaje</td><td>Real — es un NLE completo</td><td>Describes la edición en lenguaje natural</td></tr>
   </tbody>
 </table>
 
-<h2>When to reach for which</h2>
-<p>Keep CapCut for one-off hero edits where you want to place every element by hand. Reach for
-VibeClip when you have a backlog of long recordings and need to ship shorts on a schedule —
-batching a week of content out of one upload is exactly the case timelines make slow.
-(See <a href="/blog/repurpose-one-video-into-a-week-of-shorts">how to repurpose one video into a week of shorts</a>.)</p>
+<h2>Cuándo tirar de cada uno</h2>
+<p>Queda CapCut para edits hero puntuales donde quieres colocar cada elemento a mano. Tira de VibeClip cuando tienes un backlog de grabaciones largas y necesitas sacar shorts a ritmo — batchar una semana de contenido de una subida es exactamente el caso que las timelines hacen lento. (Ver <a href="/blog/repurpose-one-video-into-a-week-of-shorts">cómo reutilizar un vídeo en una semana de shorts</a>.)</p>
 
-<h2>Why creators switch for repurposing</h2>
+<h2>Por qué los creadores cambian para reutilizar</h2>
 <ul>
-  <li><strong>Speed.</strong> No timeline means no scrubbing. The bottleneck — finding and
-  cutting the good moments — is what the AI handles.</li>
-  <li><strong>Ownership.</strong> VibeClip is open source and self-hostable; your footage and
-  your LLM key stay yours. (More on that:
-  <a href="/blog/open-source-vs-saas-video-editor">open source vs. SaaS</a>.)</li>
-  <li><strong>Approval, not surrender.</strong> Every AI edit is staged as a before/after you
-  accept or reject — you keep creative control without the manual labour.</li>
+  <li><strong>Velocidad.</strong> Sin timeline no hay scrubbing. El cuello de botella — encontrar y cortar los buenos momentos — es lo que la IA gestiona.</li>
+  <li><strong>Propiedad.</strong> VibeClip es open source y autoalojable; tu material y tu clave LLM se quedan tuyos. (Más en <a href="/blog/open-source-vs-saas-video-editor">open source vs. SaaS</a>.)</li>
+  <li><strong>Aprobación, no rendición.</strong> Cada edición IA se monta como un antes/después que aceptas o rechazas — mantienes control creativo sin el trabajo manual.</li>
 </ul>
 
-<h2>Try it on your next long video</h2>
-<p>If timelines are the part of editing you dread, that's exactly the part VibeClip removes.
-<a href="/signup">Start free</a>, drop in a long recording, and describe the shorts you want.</p>
+<h2>Pruébalo en tu próximo vídeo largo</h2>
+<p>Si las timelines son la parte de editar que temes, esa es exactamente la parte que VibeClip elimina. <a href="/signup">Empieza gratis</a>, suelta una grabación larga y describe los shorts que quieres.</p>
 """,
     },
     {
         "slug": "what-is-an-ai-video-editor",
-        "title": "What Is an AI Video Editor? How It Turns Long Videos Into Shorts",
-        "description": "An AI video editor reads your footage and does the editing for "
-                       "you — captions, reframing, cuts. Here's how it works and how to "
-                       "turn one long video into viral-ready shorts.",
-        "keywords": "ai video editor, what is an ai video editor, ai video editing, "
-                    "long video to shorts, automatic video editing",
-        "tag": "GUIDE",
+        "title": "Qué es un editor de vídeo IA: cómo convierte vídeos largos en shorts",
+        "description": "Un editor de vídeo IA entiende qué hay dentro de tu material y hace la edición por ti — subtítulos, reencuadre, cortes. Así funciona y cómo pasar de un vídeo largo a shorts listos para viralizar.",
+        "keywords": "editor de video ia, que es un editor de video ia, edicion de video ia, video largo a shorts, edicion de video automatica",
+        "tag": "GUÍA",
         "read_min": 7,
         "date": "2026-06-12",
-        "excerpt": "The plain-English explanation: what an AI video editor actually does, "
-                   "what it doesn't, and why it's the fastest way to turn a long recording "
-                   "into a stack of shorts.",
+        "excerpt": "La explicación en llano: qué hace realmente un editor de vídeo IA, qué no, y por qué es la forma más rápida de convertir una grabación larga en una pila de shorts.",
         "body": """
-<p class="lede">An <strong>AI video editor</strong> is software that understands what's
-<em>inside</em> your footage — the words, the speaker, the pauses, the highlights — and
-does the mechanical editing work for you. Instead of dragging clips on a timeline for
-hours, you point it at a long video and it returns finished vertical shorts, captioned and
-reframed, ready to post.</p>
+<p class="lede">Un <strong>editor de vídeo IA</strong> es software que entiende qué hay <em>dentro</em> de tu material — las palabras, el hablante, las pausas, los highlights — y hace el trabajo mecánico de edición por ti. En lugar de arrastrar clips en una timeline durante horas, le apuntas a un vídeo largo y te devuelve shorts verticales terminados, subtitulados y reencuadrados, listos para publicar.</p>
 
-<p>For the last decade, "video editing" meant a timeline, a playhead, and a thousand tiny
-manual decisions. AI changes the unit of work: you stop editing <em>frames</em> and start
-editing <em>intent</em>. You say what you want; the editor figures out the frames.</p>
+<p>Durante la última década, "edición de vídeo" significaba una timeline, un playhead y mil microdecisiones manuales. La IA cambia la unidad de trabajo: dejas de editar <em>frames</em> y empiezas a editar <em>intención</em>. Dices lo que quieres; el editor averigua los frames.</p>
 
-<h2>What an AI video editor actually does</h2>
-<p>Under the hood, a modern AI editor chains together a few specialised models. Each one
-handles a job that used to be manual:</p>
+<h2>Qué hace realmente un editor de vídeo IA</h2>
+<p>Por debajo, un editor IA moderno encadena unos modelos especializados. Cada uno gestiona un trabajo que era manual:</p>
 <ul>
-  <li><strong>Transcription.</strong> Speech-to-text turns your audio into a time-aligned
-  transcript. This is the backbone — once the editor knows <em>what is said when</em>, it can
-  cut, caption, and search by meaning.</li>
-  <li><strong>Highlight detection.</strong> It scores the transcript to find the moments most
-  likely to travel — a strong hook, a punchline, a clean takeaway — and proposes them as
-  clips.</li>
-  <li><strong>Smart reframe.</strong> It tracks the speaker and re-crops a 16:9 landscape
-  frame into a 9:16 vertical one, keeping the face centred instead of chopping it off.</li>
-  <li><strong>Captions.</strong> It burns in word-by-word subtitles that stay in sync — the
-  single biggest driver of watch time on muted feeds.</li>
-  <li><strong>Cleanup.</strong> Silence removal, filler-word trimming, and pacing so the clip
-  feels tight, not raw.</li>
+  <li><strong>Transcripción.</strong> Speech-to-text convierte tu audio en transcripción alineada temporalmente. Es la columna vertebral — una vez que el editor sabe <em>qué se dice cuándo</em>, puede cortar, subtitular y buscar por significado.</li>
+  <li><strong>Detección de highlights.</strong> Puntúa la transcripción para encontrar los momentos con más probabilidad de viajar — un hook fuerte, un punchline, una conclusión limpia — y los propone como clips.</li>
+  <li><strong>Reencuadre inteligente.</strong> Rastrea al hablante y recorta un frame 16:9 landscape a 9:16 vertical, manteniendo la cara centrada en vez de cortarla.</li>
+  <li><strong>Subtítulos.</strong> Quema subtítulos palabra por palabra que se mantienen en sincro — el mayor driver de watch time en feeds muteados.</li>
+  <li><strong>Limpieza.</strong> Eliminación de silencios, recorte de muletillas y ajuste de ritmo para que el clip se sienta tenso, no en bruto.</li>
 </ul>
 
-<h2>Why "long video to shorts" is the killer use case</h2>
-<p>Most creators already sit on a goldmine: podcasts, streams, webinars, lectures,
-interviews. One hour of talking-head footage easily contains five to fifteen postable
-moments. Finding and cutting those by hand is the bottleneck — not the talent, not the
-camera. An AI video editor collapses that bottleneck from an afternoon into minutes.</p>
-<p>The workflow looks like this: drop in the long file → the editor transcribes and finds
-candidate clips → you pick the ones you like → it reframes, captions, and exports each as a
-vertical short. One recording becomes a week of content.</p>
+<h2>Por qué "vídeo largo a shorts" es el caso killer</h2>
+<p>La mayoría de creadores ya están sentados sobre una mina: podcasts, streams, webinars, charlas, entrevistas. Una hora de talking-head contiene fácilmente de cinco a quince momentos publicables. Encontrar y cortar esos a mano es el cuello de botella — no el talento, no la cámara. Un editor de vídeo IA colapsa ese cuello de una tarde a minutos.</p>
+<p>El workflow se ve así: sueltas el archivo largo → el editor transcribe y encuentra clips candidatos → eliges los que te gustan → reencuadra, subtitula y exporta cada uno como short vertical. Una grabación se convierte en una semana de contenido.</p>
 
-<h2>What it doesn't do (and shouldn't)</h2>
-<p>An AI video editor isn't a replacement for taste. It can find a strong moment, but it
-can't know your brand voice, your in-jokes, or the one line you personally care about. The
-best tools keep you in the loop: they <em>propose</em>, you <em>approve</em>. Editing stays
-reversible, and nothing ships without a human nod.</p>
+<h2>Qué NO hace (y no debería)</h2>
+<p>Un editor de vídeo IA no sustituye al gusto. Puede encontrar un momento fuerte, pero no conoce tu voz de marca, tus bromas internas, o la frase que a ti te importa personalmente. Las mejores herramientas te mantienen en el bucle: <em>proponen</em>, tú <em>apruebas</em>. La edición sigue siendo reversible, y nada sale sin un asentimiento humano.</p>
 
-<h2>How VibeClip approaches it</h2>
-<p>VibeClip is an AI video editor you drive by <strong>talking</strong>. You describe the
-edit in plain language — "cut the silences," "make the captions bigger," "pull the best 30
-seconds" — and it stages a before/after so you approve every change. No timeline scrubbing,
-no keyframes, no install. <a href="/signup">Start free</a> and turn your next long video into
-shorts in a single sitting.</p>
+<h2>Cómo lo aborda VibeClip</h2>
+<p>VibeClip es un editor de vídeo IA que diriges <strong>hablando</strong>. Describes la edición en lenguaje natural — "corta los silencios", "agrandar subtítulos", "saca los mejores 30 segundos" — y monta un antes/después para que apruebes cada cambio. Sin scrubbing de timeline, sin keyframes, sin instalación. <a href="/signup">Empieza gratis</a> y convierte tu próximo vídeo largo en shorts en una sentada.</p>
 """,
     },
     {
         "slug": "turn-long-video-into-shorts-with-ai",
-        "title": "How to Turn a Long Video Into Shorts With AI (Step by Step)",
-        "description": "A simple, repeatable workflow for turning one long video into "
-                       "multiple vertical shorts with AI — from upload to captioned, "
-                       "reframed export.",
-        "keywords": "turn long video into shorts, long video to shorts ai, how to make "
-                    "shorts from long videos, ai clip generator, repurpose video",
+        "title": "Cómo convertir un vídeo largo en shorts con IA (paso a paso)",
+        "description": "Un workflow simple y repetible para pasar de un vídeo largo a múltiples shorts verticales con IA — de la subida al export subtitulado y reencuadrado.",
+        "keywords": "convertir video largo en shorts, video largo a shorts ia, como hacer shorts de videos largos, generador de clips ia, reutilizar video",
         "tag": "TUTORIAL",
         "read_min": 6,
         "date": "2026-06-11",
-        "excerpt": "From a single long recording to a stack of ready-to-post vertical clips — "
-                   "the exact step-by-step, and the three decisions that make or break each clip.",
+        "excerpt": "De una sola grabación larga a una pila de clips verticales listos para publicar — el paso a paso exacto, y las tres decisiones que hacen o rompen cada clip.",
         "body": """
-<p class="lede">You already recorded the long thing — the podcast, the stream, the talk. The
-hard part was never the recording; it's slicing it into shorts people actually watch. Here's
-the step-by-step for doing it with an <strong>AI video editor</strong>, and the few judgment
-calls that matter.</p>
+<p class="lede">Ya grabaste la cosa larga — el podcast, el stream, la charla. La parte dura nunca fue la grabación; es trocearla en shorts que la gente vea de verdad. Aquí tienes el paso a paso con un <strong>editor de vídeo IA</strong>, y las pocas decisiones de juicio que importan.</p>
 
-<h2>Step 1 — Start with the right source</h2>
-<p>The best raw material is <strong>talking-driven</strong> footage: interviews, podcasts,
-lectures, reaction streams, tutorials. Anything where the value lives in what's <em>said</em>.
-A clear voice track matters more than 4K — captions and clip detection both ride on the
-transcript, so clean audio beats a pretty image.</p>
+<h2>Paso 1 — Empieza con la fuente adecuada</h2>
+<p>El mejor material en bruto es footage <strong>impulsado por habla</strong>: entrevistas, podcasts, charlas, reaction streams, tutoriales. Cualquier cosa donde el valor viva en lo que se <em>dice</em>. Una pista de voz clara importa más que 4K — subtítulos y detección de clips cabalgan sobre la transcripción, así que audio limpio gana a imagen bonita.</p>
 
-<h2>Step 2 — Let AI find the moments</h2>
-<p>Upload the full video and let the editor transcribe and scan it. Instead of scrubbing an
-hour looking for gold, you get a shortlist of candidate clips ranked by how likely they are to
-land. Each one usually centres on a single idea: a hook, a hot take, a clean how-to.</p>
-<p><strong>Tip:</strong> aim for clips that can be understood with zero context. If a moment
-only makes sense if you watched the previous ten minutes, it won't survive the feed.</p>
+<h2>Paso 2 — Deja que la IA encuentre los momentos</h2>
+<p>Sube el vídeo completo y deja que el editor transcriba y escanee. En lugar de scrubbear una hora buscando oro, obtienes una lista corta de clips candidatos rankeados por probabilidad de pegar. Cada uno suele centrar en una idea: un hook, una opinión fuerte, un how-to limpio.</p>
+<p><strong>Tip:</strong> apunta a clips que se entiendan con cero contexto. Si un momento solo tiene sentido si viste los diez minutos previos, no sobrevivirá al feed.</p>
 
-<h2>Step 3 — Reframe to vertical (9:16)</h2>
-<p>Shorts, Reels, and TikTok all live in a vertical 9:16 frame. A naïve centre-crop chops
-heads off the moment someone leans or moves. Smart reframe tracks the speaker and keeps them
-in frame as the crop follows them — the difference between "made for vertical" and "obviously
-a chopped landscape clip."</p>
+<h2>Paso 3 — Reencuadra a vertical (9:16)</h2>
+<p>Shorts, Reels y TikTok viven en frame vertical 9:16. Un center-crop ingenuo corta cabezas en cuanto alguien se mueve. El reencuadre inteligente rastrea al hablante y mueve el crop 9:16 para seguirle — la diferencia entre "hecho para vertical" y "obviamente un landscape troceado".</p>
 
-<h2>Step 4 — Add captions</h2>
-<p>Most feeds autoplay muted. Word-by-word burned-in captions are the single highest-leverage
-edit you can make — they routinely lift watch time because viewers can follow with the sound
-off. Keep them large, high-contrast, and synced tightly to the audio.</p>
+<h2>Paso 4 — Añade subtítulos</h2>
+<p>La mayoría de feeds autoplayan en mute. Subtítulos palabra por palabra quemados son la edición de mayor apalancamiento — rutinariamente levantan watch time porque el espectador puede seguir sin sonido. Mantenlos grandes, alto contraste, y sincronizados a pelo con el audio.</p>
 
-<h2>Step 5 — Tighten the pace</h2>
-<p>Remove dead air, long pauses, and filler. A short should feel like it's leaning forward.
-Cutting silences alone can shave 20–30% off a raw clip and noticeably improve retention.</p>
+<h2>Paso 5 — Aprieta el ritmo</h2>
+<p>El habla en bruto está llena de pausas, "eh"s y aire muerto. En un short, cada segundo muerto es una rampa de salida — razón para seguir scroll. Elimina aire muerto, pausas largas y muletillas. Un short debe sentirse que se inclina hacia adelante. Solo cortar silencios ya recorta 20–30% de un clip en bruto y mejora retención notablemente.</p>
 
-<h2>Step 6 — Review, then export</h2>
-<p>Before exporting, watch the clip once at full speed. Does the first second earn the next
-five? Is the payoff actually in frame? Good AI editors stage every change as a reversible
-proposal, so you can tweak the hook or recut the ending before anything is final. Export in
-clean 1080p vertical and you're ready to post.</p>
+<h2>Paso 6 — Revisa y exporta</h2>
+<p>Antes de exportar, mira el clip una vez a velocidad real. ¿El primer segundo gana los siguientes cinco? ¿El payoff está realmente en frame? Los buenos editores IA montan cada cambio como propuesta reversible, así que puedes retocar el hook o recortar el final antes de que nada sea final. Exporta en 1080p vertical limpio y listo para publicar.</p>
 
-<h2>The three decisions that matter most</h2>
+<h2>Las tres decisiones que más importan</h2>
 <ol>
-  <li><strong>The hook.</strong> The first 1–2 seconds decide everything. Start on the most
-  arresting line, not the windup.</li>
-  <li><strong>The length.</strong> Shorter than you think. If it can be 22 seconds, don't make
-  it 40.</li>
-  <li><strong>The payoff.</strong> Every clip needs a reason it was worth watching — a laugh, a
-  lesson, a "huh."</li>
+  <li><strong>El hook.</strong> Los primeros 1–2 segundos lo deciden todo. Arranca en la línea más arrestante, no en el calentamiento.</li>
+  <li><strong>La duración.</strong> Más corta de lo que crees. Si puede ser 22 segundos, no la hagas 40.</li>
+  <li><strong>El payoff.</strong> Cada clip necesita una razón por la que mereció la pena verlo — una risa, una lección, un "ajá".</li>
 </ol>
 
-<p>VibeClip runs all of this from a single chat box: describe what you want and approve each
-result. <a href="/signup">Try it free</a> on your next long recording.</p>
+<p>VibeClip corre todo esto desde una sola caja de chat: describes lo que quieres y apruebas cada resultado. <a href="/signup">Pruébalo gratis</a> en tu próxima grabación larga.</p>
 """,
     },
     {
         "slug": "talk-to-edit-video-editing-by-chat",
-        "title": "Talk-to-Edit: Editing Video by Chat Instead of a Timeline",
-        "description": "Talk-to-edit lets you edit video with plain-language instructions "
-                       "instead of a timeline. Here's what changes, where it shines, and "
-                       "where a sentence still beats a mouse.",
-        "keywords": "talk to edit, chat video editor, edit video with text, natural language "
-                    "video editing, ai video editor chat",
-        "tag": "CRAFT",
+        "title": "Talk-to-Edit: editar vídeo por chat en vez de timeline",
+        "description": "Talk-to-edit te deja editar vídeo con instrucciones en lenguaje natural en vez de una timeline. Qué cambia, dónde brilla, y dónde una frase sigue ganando al ratón.",
+        "keywords": "hablar para editar, editor de video por chat, editar video con texto, edicion de video lenguaje natural, editor de video ia chat",
+        "tag": "OFICIO",
         "read_min": 6,
         "date": "2026-06-10",
-        "excerpt": "What happens when the edit bay listens instead of waiting for keyframes — "
-                   "and the surprising places a single sentence outperforms a timeline.",
+        "excerpt": "Qué pasa cuando el cuarto de edición escucha en vez de esperar keyframes — y los sitios sorprendentes donde una sola frase supera a una timeline.",
         "body": """
-<p class="lede">The timeline has run video editing since the 1990s: a horizontal strip, a
-playhead, and you, nudging clips frame by frame. <strong>Talk-to-edit</strong> proposes a
-different contract — you say what you want in plain words, and the editor does the
-frame-level work. It's less "operate the software" and more "direct the edit."</p>
+<p class="lede">La timeline lleva mandando en edición de vídeo desde los 90: una tira horizontal, un playhead, y tú, empujando clips frame a frame. <strong>Talk-to-edit</strong> propone un contrato distinto — dices lo que quieres en lenguaje natural y el editor hace el trabajo a nivel de frame. Es menos "opera el software" y más "dirige la edición".</p>
 
-<h2>What actually changes</h2>
-<p>With a timeline, the gap between <em>knowing</em> what you want and <em>achieving</em> it
-is full of micro-skills: ripple deletes, keyframes, track management, export presets. Each is
-learnable, but each is friction. Talk-to-edit removes the friction layer:</p>
+<h2>Qué cambia realmente</h2>
+<p>Con una timeline, el hueco entre <em>saber</em> lo que quieres y <em>conseguirlo</em> está lleno de micro-skills: ripple deletes, keyframes, gestión de tracks, presets de export. Cada una es aprendible, pero cada una es fricción. Talk-to-edit elimina la capa de fricción:</p>
 <ul>
-  <li>"Cut the first 20 seconds" instead of dragging the in-point.</li>
-  <li>"Add captions and make them bigger" instead of opening a title tool.</li>
-  <li>"Pull the best 30 seconds" instead of scrubbing an hour.</li>
-  <li>"Make it punchier" instead of manually trimming every pause.</li>
+  <li>"Corta los primeros 20 segundos" en vez de arrastrar el in-point.</li>
+  <li>"Añade subtítulos y agrándalos" en vez de abrir una herramienta de títulos.</li>
+  <li>"Saca los mejores 30 segundos" en vez de scrubbear una hora.</li>
+  <li>"Hazlo más punchy" en vez de recortar manualmente cada pausa.</li>
 </ul>
-<p>The intent was always in your head. Talk-to-edit just lets you express it directly.</p>
+<p>La intención siempre estuvo en tu cabeza. Talk-to-edit solo te deja expresarla directo.</p>
 
-<h2>Where it shines</h2>
-<p><strong>Repetitive, describable edits.</strong> Captions, silence removal, reframing,
-pacing, format conversion — anything you could explain to an assistant in a sentence is faster
-spoken than clicked. For turning long videos into shorts, where you repeat the same handful of
-operations across many clips, the speed-up is dramatic.</p>
-<p><strong>Beginners.</strong> There's no UI to learn. The first edit a new user makes is as
-fast as their hundredth, because the interface is language they already speak.</p>
+<h2>Dónde brilla</h2>
+<p><strong>Edits repetitivos y describibles.</strong> Subtítulos, eliminación de silencios, reencuadre, ritmo, conversión de formato — cualquier cosa que podrías explicarle a un asistente en una frase es más rápido dicho que clicado. Para pasar de vídeo largo a shorts, donde repites el mismo puñado de operaciones en muchos clips, el speedup es dramático.</p>
+<p><strong>Principiantes.</strong> No hay UI que aprender. El primer edit de un usuario nuevo es tan rápido como el centésimo, porque la interfaz es lenguaje que ya habla.</p>
 
-<h2>Where a sentence still loses to a mouse</h2>
-<p>Talk-to-edit isn't magic, and good tools are honest about it. Frame-perfect creative work —
-a precise music-synced cut, a hand-tuned motion graphic, color grading by eye — is still
-faster and better with direct manipulation. The right model is <strong>hybrid</strong>: talk
-for the 90% that's describable, reach for fine controls on the 10% that isn't.</p>
+<h2>Dónde una frase sigue perdiendo contra el ratón</h2>
+<p>Talk-to-edit no es magia, y las buenas herramientas son honestas al respecto. Trabajo creativo frame-perfecto — un corte sincronizado a música preciso, un motion graphic afinado a mano, color grading a ojo — sigue siendo más rápido y mejor con manipulación directa. El modelo correcto es <strong>híbrido</strong>: habla para el 90% que es describible, tira de controles finos en el 10% que no lo es.</p>
 
-<h2>The trust problem — and the fix</h2>
-<p>The obvious worry: if the AI edits, how do I know it did what I meant? The answer is
-<strong>proposal, not autopilot</strong>. Every instruction should produce a staged change you
-can see — a before/after — that you approve or reject. Nothing destructive, full history,
-always reversible. That's what makes talk-to-edit trustworthy instead of a gamble.</p>
+<h2>El problema de la confianza — y la solución</h2>
+<p>La preocupación obvia: si la IA edita, ¿cómo sé que hizo lo que quise? La respuesta es <strong>propuesta, no autopiloto</strong>. Cada instrucción debería producir un cambio montado que ves — un antes/después — que apruebas o rechazas. Nada destructivo, historial completo, siempre reversible. Eso es lo que hace talk-to-edit confiable en vez de una apuesta.</p>
 
-<p>VibeClip is built entirely around this: you edit by chatting, in plain language, and approve
-every result before it sticks. <a href="/signup">Start free</a> and edit your next clip by
-talking to it.</p>
+<p>VibeClip está construido enteramente alrededor de esto: editas chateando, en lenguaje natural, y apruebas cada resultado antes de que se quede. <a href="/signup">Empieza gratis</a> y edita tu próximo clip hablándole.</p>
 """,
     },
     {
         "slug": "auto-captions-smart-reframe-silence-removal",
-        "title": "Auto Captions, Smart Reframe & Silence Removal: The AI Editing Stack",
-        "description": "The three AI edits that turn raw footage into scroll-stopping shorts — "
-                       "auto captions, smart reframe, and silence removal — explained simply.",
-        "keywords": "auto captions, smart reframe, silence removal, ai captions video, "
-                    "vertical video reframe, ai video editing features",
-        "tag": "EXPLAINER",
+        "title": "Subtítulos auto, reencuadre inteligente y eliminación de silencios: la pila de edición IA",
+        "description": "Las tres ediciones IA que convierten footage en bruto en shorts que paran el scroll — subtítulos auto, reencuadre inteligente y eliminación de silencios — explicadas simple.",
+        "keywords": "subtitulos auto, reencuadre inteligente, eliminacion de silencios, subtitulos ia video, reencuadre video vertical, features edicion video ia",
+        "tag": "EXPLICADOR",
         "read_min": 5,
         "date": "2026-06-09",
-        "excerpt": "Three edits do most of the heavy lifting on every viral short. Here's what "
-                   "each one is, why it works, and how AI does it automatically.",
+        "excerpt": "Tres ediciones hacen el 90% del trabajo pesado en cada short viral. Qué es cada una, por qué funciona, y cómo la IA la hace automática.",
         "body": """
-<p class="lede">Strip a viral short down to its mechanics and you'll find the same three edits
-almost every time: <strong>captions</strong>, <strong>a vertical reframe</strong>, and
-<strong>tight pacing</strong>. Each used to be manual. An <strong>AI video editor</strong> does
-all three automatically. Here's what they are and why they matter.</p>
+<p class="lede">Desnuda un short viral a su mecánica y encontrarás las mismas tres ediciones casi siempre: <strong>subtítulos</strong>, <strong>un reencuadre vertical</strong> y <strong>ritmo tenso</strong>. Cada una era manual. Un <strong>editor de vídeo IA</strong> hace las tres automáticas. Aquí tienes qué son y por qué importan.</p>
 
-<h2>1. Auto captions</h2>
-<p>Most social video is watched on mute — in bed, on transit, in a meeting. Burned-in,
-word-by-word captions let viewers follow with zero sound, which is why captioned clips
-consistently hold attention longer than bare ones.</p>
-<p><strong>How AI does it:</strong> speech-to-text transcribes the audio with per-word
-timestamps, then renders each word on screen exactly when it's spoken. The result is the
-karaoke-style caption you see on nearly every successful short — and because it's driven by the
-transcript, it stays in sync even after you cut. Good editors treat captions as
-<em>sacred</em>: cuts and speed changes must never knock them out of alignment.</p>
+<h2>1. Subtítulos automáticos</h2>
+<p>La mayoría del vídeo social se ve en mute — en la cama, en transporte, en una reunión. Subtítulos quemados, palabra por palabra, dejan al espectador seguir con cero sonido, por eso los clips subtitulados retienen consistentemente más atención que los que no.</p>
+<p><strong>Cómo lo hace la IA:</strong> speech-to-text transcribe el audio con timestamps por palabra, y luego renderiza cada palabra en pantalla exactamente cuando se dice. El resultado es el subtítulo estilo karaoke que ves en casi todo short exitoso — y como va pilotado por la transcripción, se mantiene en sincro incluso después de cortar. Los buenos editores tratan los subtítulos como <em>sagrados</em>: cortes y cambios de velocidad nunca deben sacarlos de alineación.</p>
 
-<h2>2. Smart reframe (16:9 → 9:16)</h2>
-<p>Your camera shot landscape. The feed wants vertical. A dumb centre-crop loses everyone who
-isn't standing dead-centre — and chops heads the instant someone moves.</p>
-<p><strong>How AI does it:</strong> the editor detects and tracks the speaker, then moves the
-9:16 crop window to follow them through the shot. Two people talking? It can cut between them.
-The output looks <em>shot</em> for vertical, not awkwardly cropped from something else — the
-detail that separates pro-looking shorts from obvious repurposes.</p>
+<h2>2. Reencuadre inteligente (16:9 → 9:16)</h2>
+<p>Tu cámara grabó landscape. El feed quiere vertical. Un center-crop tonto pierde a cualquiera que no esté muerto en el centro — y corta cabezas en cuanto alguien se mueve.</p>
+<p><strong>Cómo lo hace la IA:</strong> el editor detecta y rastrea al hablante, y mueve la ventana de crop 9:16 para seguirle por el plano. ¿Dos personas hablando? Puede cortar entre ellas. La salida parece <em>grabada</em> para vertical, no recortada torpe de otra cosa — el detalle que separa shorts pro de reutilizaciones obvias.</p>
 
-<h2>3. Silence removal & pacing</h2>
-<p>Raw speech is full of pauses, "um"s, and dead air. On a short, every dead second is an exit
-ramp — a reason to scroll on.</p>
-<p><strong>How AI does it:</strong> using the same word-timed transcript, the editor finds gaps
-and filler and trims them, tightening the clip without making it sound chopped. Removing
-silence alone often cuts 20–30% of runtime and visibly improves retention — the clip leans
-forward instead of dragging.</p>
+<h2>3. Eliminación de silencios y ritmo</h2>
+<p>El habla en bruto está llena de pausas, "eh"s y aire muerto. En un short, cada segundo muerto es una rampa de salida — razón para seguir scroll.</p>
+<p><strong>Cómo lo hace la IA:</strong> usando la misma transcripción con tiempos por palabra, el editor encuentra huecos y muletillas y los recorta, apretando el clip sin que suene troceado. Eliminar silencios solo suele recortar 20–30% del runtime y mejora visiblemente la retención — el clip se inclina hacia adelante en vez de arrastrarse.</p>
 
-<h2>Why they compound</h2>
-<p>None of these is impressive alone. Together they're the whole game: captions keep muted
-viewers in, reframing makes it feel native, and tight pacing stops the scroll. Stacked and
-automated, they turn a raw 45-minute recording into a clean vertical short in minutes instead
-of an afternoon.</p>
+<h2>Por qué se componen</h2>
+<p>Ninguna de las tres impresiona sola. Juntas son el juego entero: subtítulos mantienen a espectadores muteados, reencuadre lo hace sentir nativo, y ritmo tenso frena el scroll. Apiladas y automatizadas, convierten una grabación en bruto de 45 minutos en un short vertical limpio en minutos en vez de una tarde.</p>
 
-<p>VibeClip runs the full stack from one chat box — captions, reframe, and silence removal on
-request, each staged for your approval. <a href="/signup">Try it free</a>.</p>
+<p>VibeClip corre la pila completa desde una caja de chat — subtítulos, reencuadre y eliminación de silencios a petición, cada uno montado para tu aprobación. <a href="/signup">Pruébalo gratis</a>.</p>
 """,
     },
     {
         "slug": "repurpose-one-video-into-a-week-of-shorts",
-        "title": "Repurpose One Long Video Into a Week of Shorts",
-        "description": "A repeatable system for turning a single long recording into a week of "
-                       "vertical shorts — without burning out or running out of ideas.",
-        "keywords": "repurpose video, content repurposing, one video into many shorts, "
-                    "batch create shorts, content workflow creators",
-        "tag": "GROWTH",
+        "title": "Reutiliza un vídeo largo en una semana de shorts",
+        "description": "Un sistema repetible para convertir una sola grabación larga en una semana de shorts verticales — sin quemarte ni quedarte sin ideas.",
+        "keywords": "reutilizar video, repurposing contenido, un video en muchos shorts, crear shorts en lote, workflow creadores contenido",
+        "tag": "CRECIMIENTO",
         "read_min": 6,
         "date": "2026-06-08",
-        "excerpt": "Posting daily doesn't mean filming daily. The batching system that turns one "
-                   "recording into seven posts — and keeps the well from running dry.",
+        "excerpt": "Postear diario no significa grabar diario. El sistema de batching que convierte una grabación en siete posts — y evita que el pozo se seque.",
         "body": """
-<p class="lede">The creators who post every day are almost never filming every day. They're
-<strong>repurposing</strong> — turning one long recording into many short ones. Here's the
-system, and why it's the most underrated growth move for anyone with a back catalog.</p>
+<p class="lede">Los creadores que postean cada día casi nunca graban cada día. Están <strong>reutilizando</strong> — convirtiendo una grabación larga en muchas cortas. Aquí tienes el sistema, y por qué es el movimiento de growth más infravalorado para cualquiera con catálogo trasero.</p>
 
-<h2>The math that changes everything</h2>
-<p>One hour of good talking-head footage holds, conservatively, five to ten standalone
-moments. Record once a week and you've got enough raw material to post a short every single
-day — without ever pointing a camera at yourself a second time. The constraint was never ideas;
-it was the hours it took to find and cut them. An <strong>AI video editor</strong> removes that
-constraint.</p>
+<h2>La matemática que lo cambia todo</h2>
+<p>Una hora de buen footage talking-head aguanta, conservadoramente, de cinco a diez momentos independientes. Graba una vez a la semana y tienes material en bruto para postear un short cada día — sin volver a apuntar una cámara a ti una segunda vez. La restricción nunca fueron ideas; fueron las horas que costaba encontrarlos y cortarlos. Un <strong>editor de vídeo IA</strong> elimina esa restricción.</p>
 
-<h2>The weekly batching system</h2>
+<h2>El sistema de batching semanal</h2>
 <ol>
-  <li><strong>Record one anchor piece.</strong> A podcast, a livestream, a long-form talk —
-  anything 30–90 minutes where you're genuinely interesting.</li>
-  <li><strong>Mine it for moments.</strong> Run it through an AI editor and collect every
-  candidate clip. Don't self-edit yet — gather first.</li>
-  <li><strong>Pick seven.</strong> Choose the strongest standalone moments. Each must work with
-  zero context.</li>
-  <li><strong>Cut, caption, reframe in one sitting.</strong> Batch the same operations across
-  all seven. This is where AI saves hours — the work is identical per clip.</li>
-  <li><strong>Schedule the week.</strong> One clip a day. Now you're "posting daily" off a
-  single afternoon of work.</li>
+  <li><strong>Graba una pieza ancla.</strong> Un podcast, un livestream, una charla larga — cualquier cosa de 30–90 minutos donde seas genuinamente interesante.</li>
+  <li><strong>Mina momentos.</strong> Pásalo por un editor IA y recoge cada clip candidato. No te auto-edites aún — recopila primero.</li>
+  <li><strong>Elige siete.</strong> Quédate con los momentos independientes más fuertes. Cada uno debe funcionar con cero contexto.</li>
+  <li><strong>Corta, subtitula, reencuadra en una sentada.</strong> Batea las mismas operaciones en los siete. Aquí es donde la IA ahorra horas — el trabajo es idéntico por clip.</li>
+  <li><strong>Programa la semana.</strong> Un clip al día. Ya estás "posteando diario" con una tarde de trabajo.</li>
 </ol>
 
-<h2>Keeping the well from running dry</h2>
-<p>Repurposing fails when every clip feels the same. Vary the <em>angle</em>, not just the
-timestamp: pull a teaching moment, a hot take, a behind-the-scenes aside, a one-liner, a
-story. The same recording can feed five different content "lanes" if you look for them.</p>
+<h2>Evitando que el pozo se seque</h2>
+<p>Reutilizar falla cuando cada clip se siente igual. Varía el <em>ángulo</em>, no solo el timestamp: saca un momento didáctico, una opinión fuerte, un behind-the-scenes, un one-liner, una historia. La misma grabación puede alimentar cinco "carriles" de contenido distintos si los buscas.</p>
 
-<h2>Cross-post, don't clone</h2>
-<p>The same vertical short fits Shorts, Reels, and TikTok — but tweak the framing per platform:
-a slightly different hook, a caption tuned to each audience. Same core clip, native feel
-everywhere.</p>
+<h2>Cross-post, no clones</h2>
+<p>El mismo short vertical encaja en Shorts, Reels y TikTok — pero ajusta el framing por plataforma: un hook ligeramente distinto, un caption afinado a cada audiencia. Mismo clip núcleo, feel nativo en todas.</p>
 
-<h2>The payoff</h2>
-<p>Repurposing turns volume from a grind into a system. You film when you're at your best,
-then spend a focused session converting that into a week of posts. Consistency stops depending
-on motivation and starts depending on a workflow — which is the only way it survives long
-enough to compound.</p>
+<h2>La recompensa</h2>
+<p>Reutilizar convierte el volumen de un grind en un sistema. Filmas cuando estás a tope, luego pasas una sesión enfocada convirtiendo eso en una semana de posts. La consistencia deja de depender de motivación y empieza a depender de un workflow — que es la única forma de que sobreviva lo suficiente para componer.</p>
 
-<p>VibeClip is built for exactly this loop: drop in the long video, pull the clips, caption and
-reframe them by chat, export the set. <a href="/signup">Start free</a> and turn your back
-catalog into a content engine.</p>
+<p>VibeClip está construido exactamente para este bucle: sueltas el vídeo largo, sacas los clips, subtitulas y reencuadras por chat, exportas el set. <a href="/signup">Empieza gratis</a> y convierte tu catálogo trasero en motor de contenido.</p>
 """,
     },
 ]

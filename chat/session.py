@@ -309,7 +309,7 @@ class Session:
 
     def undo(self) -> str:
         if not self.data["history"]:
-            return "Nothing to undo."
+            return "No hay nada que deshacer."
         entry = self.data["history"].pop()
         label = entry.get("label", "") if isinstance(entry, dict) else ""
         # Stash the CURRENT state on the redo stack before reverting, so the
@@ -321,13 +321,13 @@ class Session:
         # Older project files stored a bare clips list.
         self.data["clips"] = entry["clips"] if isinstance(entry, dict) else entry
         self.save()
-        return "Reverted to the previous state."
+        return "Deshecho: estado anterior restaurado."
 
     def redo(self) -> str:
         """Re-apply the most recently undone edit (cleared by any new edit)."""
         redo = self.data.get("redo") or []
         if not redo:
-            return "Nothing to redo."
+            return "No hay nada que rehacer."
         entry = redo.pop()
         # Record the pre-redo state on history so it stays undoable. Use the
         # history list directly (not snapshot(), which would clear redo).
@@ -337,7 +337,7 @@ class Session:
         self.data["history"] = self.data["history"][-20:]
         self.data["clips"] = entry["clips"]
         self.save()
-        return "Re-applied the change."
+        return "Rehecho: cambio reaplicado."
 
     def revert_to_tag(self, tag: str) -> str:
         """Pop to a named checkpoint (e.g. an applied plan), restoring the
@@ -349,15 +349,15 @@ class Session:
             (e for e in self.data.get("history", [])
              if isinstance(e, dict) and e.get("tag") == tag), None)
         if entry is None:
-            return ("Checkpoint not found — it may have aged out of the "
-                    "20-step history.")
+            return ("Punto de control no encontrado — puede que se haya salido "
+                    "del historial de 20 pasos.")
         # Mirror /api/restore semantics: snapshot the current state, then swap
         # in the checkpoint's clips. This restores the state BEFORE that plan,
         # including any edits applied after it.
         self.snapshot("before revert", source="ui")
         self.data["clips"] = copy.deepcopy(entry["clips"])
         self.save()
-        return "Reverted to the state before that edit."
+        return "Deshecho: revertido al estado anterior a esa edición."
 
     # ------------------------------------------------------------- accessors
     @property
@@ -369,7 +369,7 @@ class Session:
             if c["id"] == clip_id:
                 return c
         raise ValueError(
-            f"No clip #{clip_id}. Existing: {[c['id'] for c in self.data['clips']]}"
+            f"Clip #{clip_id} no existe. Existentes: {[c['id'] for c in self.data['clips']]}"
         )
 
     # Phase 3 — per-clip review status (additive). Old sessions whose clips
@@ -488,95 +488,95 @@ class Session:
         return bool(pp and pp.get("scope") == "project")
 
     def summary(self) -> str:
-        """Compact state block for the agent's system prompt."""
-        s = self.data["source"]
-        active = self.active_clip_id()
-        lines = [
-            f"SOURCE: {s['path']} ({s['duration']:.0f}s, {s['width']}x{s['height']})",
-            f"PLATFORM: {self.data['platform']}",
-            f"CLIPS ({len(self.data['clips'])}):",
-        ]
-        for c in self.data["clips"]:
-            parts = []
-            for st in c["stages"]:
-                p = {k: v for k, v in st["params"].items()
-                     if k not in ("events", "windows", "path", "ranges")}
-                if st["name"] == "music" and st["params"].get("path"):
-                    p["track"] = Path(st["params"]["path"]).name
-                # Indexed event listings so the model can address "the second
-                # zoom" by its 0-based index (cf. edit_event/delete_event).
-                if st["name"] == "zoom":
-                    p["windows"] = [
-                        f"[{i}] {w[0]:.1f}-{w[1]:.1f}s x{w[2]:g}"
-                        + (f" {w[3]}" if len(w) > 3 else "")
-                        for i, w in enumerate(
-                            st["params"].get("windows", []))][:8]
-                if st["name"] in ("sfx", "fx"):
-                    p["events"] = [
-                        f"[{i}] {e['time']:.1f}s"
-                        + (f" {e.get('kind', '')}" if e.get("kind") else "")
-                        for i, e in enumerate(
-                            st["params"].get("events", []))][:8]
-                if st["name"] in ("broll", "overlay"):
-                    p["events"] = [
-                        f"[{i}] {e.get('start', 0):.1f}-{e.get('end', 0):.1f}s"
-                        for i, e in enumerate(
-                            st["params"].get("events", []))][:8]
-                if st["name"] == "trim":
-                    p["removed"] = [
-                        f"{r['start']:.1f}-{r['end']:.1f}s"
-                        for r in st["params"].get("ranges", [])]
-                parts.append(f"{st['name']}{p if p else ''}")
-            style = f" style={c['style']}" if c.get("style") else ""
-            variant = f" (variant of #{c['variant_of']})" \
-                if c.get("variant_of") else ""
-            # Phase 4 — mark the focused clip so the agent resolves bare
-            # references ("this clip"/"bu klip", an edit with no clip named) to
-            # the queue cursor rather than guessing.
-            focus = " <-- ACTIVE (in focus now)" if c["id"] == active else ""
-            lines.append(
-                f"  #{c['id']} '{c['title']}' [{c['start']:.1f}-{c['end']:.1f}s]"
-                f"{style}{variant} stages: {' → '.join(parts) or '(none)'}{focus}"
-            )
-        if active is not None:
-            lines.append(
-                f"ACTIVE CLIP: #{active} is in focus in the editor. When the "
-                "user edits without naming a clip ('make this punchier', "
-                "'altyazıyı büyüt'), they mean clip "
-                f"#{active}. The A/B approval gate still applies as always.")
-        if not self.data["clips"]:
-            lines.append("  (none yet — use generate_clips)")
-        comps = self.data.get("compilations", [])
-        if comps:
-            lines.append(f"COMPILATIONS ({len(comps)}):")
-            for cp in comps:
-                lines.append(f"  C{cp['id']} '{cp['title']}' "
-                             f"({cp['duration']}s, clips {cp['clips']})")
-        if self.data.get("preferences"):
-            lines.append("USER PREFERENCES (always respect): "
-                         + "; ".join(self.data["preferences"]))
-        if self.data.get("pending_plan"):
-            pp = self.data["pending_plan"]
-            if self.pending_plan_is_project():
-                ids = [str(p.get("clip_id")) for p in self.pending_plans()]
+            """Compact state block for the agent's system prompt."""
+            s = self.data["source"]
+            active = self.active_clip_id()
+            lines = [
+                f"FUENTE: {s['path']} ({s['duration']:.0f}s, {s['width']}x{s['height']})",
+                f"PLATAFORMA: {self.data['platform']}",
+                f"CLIPS ({len(self.data['clips'])}):",
+            ]
+            for c in self.data["clips"]:
+                parts = []
+                for st in c["stages"]:
+                    p = {k: v for k, v in st["params"].items()
+                         if k not in ("events", "windows", "path", "ranges")}
+                    if st["name"] == "music" and st["params"].get("path"):
+                        p["track"] = Path(st["params"]["path"]).name
+                    # Indexed event listings so the model can address "the second
+                    # zoom" by its 0-based index (cf. edit_event/delete_event).
+                    if st["name"] == "zoom":
+                        p["windows"] = [
+                            f"[{i}] {w[0]:.1f}-{w[1]:.1f}s x{w[2]:g}"
+                            + (f" {w[3]}" if len(w) > 3 else "")
+                            for i, w in enumerate(
+                                st["params"].get("windows", []))][:8]
+                    if st["name"] in ("sfx", "fx"):
+                        p["events"] = [
+                            f"[{i}] {e['time']:.1f}s"
+                            + (f" {e.get('kind', '')}" if e.get("kind") else "")
+                            for i, e in enumerate(
+                                st["params"].get("events", []))][:8]
+                    if st["name"] in ("broll", "overlay"):
+                        p["events"] = [
+                            f"[{i}] {e.get('start', 0):.1f}-{e.get('end', 0):.1f}s"
+                            for i, e in enumerate(
+                                st["params"].get("events", []))][:8]
+                    if st["name"] == "trim":
+                        p["removed"] = [
+                            f"{r['start']:.1f}-{r['end']:.1f}s"
+                            for r in st["params"].get("ranges", [])]
+                    parts.append(f"{st['name']}{p if p else ''}")
+                style = f" estilo={c['style']}" if c.get("style") else ""
+                variant = f" (variante de #{c['variant_of']})" \
+                    if c.get("variant_of") else ""
+                # Phase 4 — mark the focused clip so the agent resolves bare
+                # references ("this clip"/"bu klip", an edit with no clip named) to
+                # the queue cursor rather than guessing.
+                focus = " <-- ACTIVO (en foco ahora)" if c["id"] == active else ""
                 lines.append(
-                    f"PENDING PROJECT PLAN on clips #{', #'.join(ids)}:"
-                    f" '{pp.get('instruction', '')}' — one composite awaiting"
-                    " user approval. On approval call apply_plan (it applies"
-                    " EVERY clip's steps under a SINGLE undo); on rejection"
-                    " call discard_plan. NEVER run its steps yourself. The"
-                    " preview is a per-clip A/B carousel. If the user MODIFIES"
-                    " the request, call propose_edit (project scope) again —"
-                    " it replaces this plan.")
-            else:
+                    f"  #{c['id']} '{c['title']}' [{c['start']:.1f}-{c['end']:.1f}s]"
+                    f"{style}{variant} stages: {' → '.join(parts) or '(ninguno)'}{focus}"
+                )
+            if active is not None:
                 lines.append(
-                    f"PENDING PLAN on clip #{pp['clip_id']}: '{pp['instruction']}'"
-                    " — awaiting user approval. On approval call apply_plan; on"
-                    " rejection call discard_plan. NEVER run its steps yourself."
-                    " If the user MODIFIES the request instead ('aslında 3x"
-                    f" olsun'), call propose_edit on clip #{pp['clip_id']} with"
-                    " the new instruction — it replaces this plan.")
-        return "\n".join(lines)
+                    f"CLIP ACTIVO: #{active} está en foco en el editor. Cuando el "
+                    "usuario edita sin nombrar un clip ('hazlo más punchy', "
+                    "'agrandar subtitulos'), se refieren al clip "
+                    f"#{active}. La puerta de aprobación A/B sigue aplicando siempre.")
+            if not self.data["clips"]:
+                lines.append("  (ninguno aún — usa generate_clips)")
+            comps = self.data.get("compilations", [])
+            if comps:
+                lines.append(f"COMPILACIONES ({len(comps)}):")
+                for cp in comps:
+                    lines.append(f"  C{cp['id']} '{cp['title']}' "
+                                 f"({cp['duration']}s, clips {cp['clips']})")
+            if self.data.get("preferences"):
+                lines.append("PREFERENCIAS DEL USUARIO (siempre respetar): "
+                             + "; ".join(self.data["preferences"]))
+            if self.data.get("pending_plan"):
+                pp = self.data["pending_plan"]
+                if self.pending_plan_is_project():
+                    ids = [str(p.get("clip_id")) for p in self.pending_plans()]
+                    lines.append(
+                        f"PLAN DE PROYECTO PENDIENTE en clips #{', #'.join(ids)}:"
+                        f" '{pp.get('instruction', '')}' — uno compuesto esperando "
+                        "aprobación del usuario. Al aprobar llama a apply_plan (aplica "
+                        "los pasos de CADA clip bajo un SOLO deshacer); al rechazar "
+                        "llama a discard_plan. NUNCA ejecutes sus pasos tú mismo. La "
+                        "previsualización es un carrusel A/B por clip. Si el usuario "
+                        "MODIFICA la petición, llama a propose_edit (ámbito proyecto) "
+                        "de nuevo — reemplaza este plan.")
+                else:
+                    lines.append(
+                        f"PLAN PENDIENTE en clip #{pp['clip_id']}: '{pp['instruction']}'"
+                        " — esperando aprobación del usuario. Al aprobar llama a apply_plan; al "
+                        "rechazar llama a discard_plan. NUNCA ejecutes sus pasos tú mismo. "
+                        "Si el usuario MODIFICA la petición ('en realidad 3x "
+                        f"'), llama a propose_edit en clip #{pp['clip_id']} con "
+                        "la nueva instrucción — reemplaza este plan.")
+            return "\n".join(lines)
 
     # ------------------------------------------------------------- words
     # Phase 5 — clip-local transcript cache. words_for is called repeatedly per
@@ -724,8 +724,8 @@ class Session:
         clip = self.clip(clip_id)
         if timing_changed and clip.get("locked"):
             raise ValueError(
-                f"Clip {clip_id} is picture-locked — its timing "
-                f"({', '.join(TIMING_STAGES)}) is frozen. Unlock it first.")
+                f"El clip {clip_id} está bloqueado (picture-locked) — su tiempo "
+                f"({', '.join(TIMING_STAGES)}) está congelado. Desbloquéalo primero.")
         stack = clip["stages"]
         # Lazy clips (generate_clips records the stage recipe but renders
         # nothing) carry params with no 'output'. An edit to any later stage
@@ -844,7 +844,7 @@ class Session:
         clip = self.clip(clip_id)
         stages = clip.get("stages") or []
         if not stages or stages[0]["name"] != "cut":
-            raise ValueError(f"Clip #{clip_id} has no cut stage to export.")
+            raise ValueError(f"El clip #{clip_id} no tiene etapa 'cut' para exportar.")
 
         from pipeline import progress as _pg
         prev_render_source = self._render_source
@@ -882,8 +882,8 @@ class Session:
             if p.get(key):
                 p[key] = []
                 self.last_notes.append(
-                    f"{name}: timeline changed, cleared {key} "
-                    "(re-add or use auto mode)")
+                    f"{name}: línea de tiempo cambiada, {key} limpiados "
+                    "(vuelve a añadirlos o usa modo auto)")
             return p
 
         from pipeline.editplan import plan_clip_edits
@@ -905,7 +905,7 @@ class Session:
             p["events"] = [{"time": s["time"] / f, "path": SFX_LIBRARY[s["kind"]],
                             "volume": p.get("volume", 0.6)}
                            for s in plan["sfx"] if s["kind"] in SFX_LIBRARY]
-        self.last_notes.append(f"{name}: re-planned for the new timeline")
+        self.last_notes.append(f"{name}: re-planificado para la nueva línea de tiempo")
         return p
 
     def cut_source(self) -> str:
@@ -1004,7 +1004,7 @@ class Session:
             )
 
         if inp is None:
-            raise ValueError(f"Stage '{name}' needs a prior cut.")
+            raise ValueError(f"La etapa '{name}' necesita un 'cut' previo.")
 
         if name == "jumpcut":
             from pipeline.jumpcut import remove_silences
@@ -1187,7 +1187,7 @@ class Session:
                                lufs=p.get("lufs", lufs), tp=p.get("tp", tp),
                                out_path=out_path)
 
-        raise ValueError(f"Unhandled stage: {name}")
+        raise ValueError(f"Etapa no manejada: {name}")
 
 
 def _resolve_trim_ranges(words: list[dict],

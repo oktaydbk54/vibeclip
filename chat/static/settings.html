@@ -1,9 +1,9 @@
 <!doctype html>
-<html lang="en">
+<html lang="es">
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>VibeClip — Settings</title>
+<title>VibeClip — Configuración</title>
 <link rel="icon" type="image/svg+xml" href="/static/favicon.svg">
 <link rel="icon" type="image/x-icon" href="/static/favicon.ico" sizes="any">
 <link rel="apple-touch-icon" href="/static/apple-touch-icon.png">
@@ -101,98 +101,94 @@ button{font-family:inherit;font-weight:700;font-size:13.5px;border-radius:8px;
 <div class="appbar">
   <div class="brand">VIBE<b>CLIP</b></div>
   <div class="sp"></div>
-  <a class="back" href="/projects">← Back to projects</a>
+  <a class="back" href="/projects">← Volver a proyectos</a>
 </div>
 
 <div class="wrap">
-  <h1 class="h">Settings</h1>
-  <p class="sub">Run VibeClip on your own AI provider — bring your own key.</p>
+  <h1 class="h">Configuración</h1>
+  <p class="sub">Ejecuta VibeClip con tu propio proveedor IA — trae tu propia clave.</p>
 
   <div class="card">
-    <h2>LLM provider key</h2>
-    <p class="lead">VibeClip uses an LLM to understand your edits and score the
-      best moments. Add your own key to run on your account and your bill.</p>
+    <h2>Clave de proveedor LLM</h2>
+    <p class="lead">VibeClip usa un LLM para entender tus ediciones y puntuar los mejores momentos. Añade tu propia clave para ejecutar en tu cuenta y tu factura.</p>
 
     <div class="status" id="status">
       <span class="dot" id="statusDot"></span>
-      <span id="statusText">Loading…</span>
+      <span id="statusText">Cargando…</span>
     </div>
 
     <form id="form" autocomplete="off">
       <div class="field">
-        <label for="provider">Provider</label>
+        <label for="provider">Proveedor</label>
         <select id="provider" name="provider">
           <option value="openai">OpenAI</option>
           <option value="gemini">Google Gemini</option>
           <option value="claude">Anthropic Claude</option>
-          <option value="deepseek">DeepSeek (cheaper)</option>
-          <option value="custom">Custom — any OpenAI-compatible endpoint</option>
+          <option value="deepseek">DeepSeek (más barato)</option>
+          <option value="custom">Personalizado — cualquier endpoint compatible con OpenAI</option>
         </select>
       </div>
 
       <div class="field">
-        <label for="api_key">API key</label>
+        <label for="api_key">Clave API</label>
         <input id="api_key" name="api_key" type="password" autocomplete="off"
                placeholder="sk-…">
-        <div class="hint" id="keyHint">Stored encrypted. Leave blank to keep your saved key.</div>
+        <div class="hint" id="keyHint">Guardada encriptada. Déjala en blanco para mantener tu clave guardada.</div>
       </div>
 
       <div class="field hide" id="baseField">
-        <label for="base_url">Base URL</label>
+        <label for="base_url">URL base</label>
         <input id="base_url" name="base_url" type="text" spellcheck="false"
-               placeholder="https://your-endpoint/v1">
-        <div class="hint">For local models or gateways (Ollama, LM Studio, OpenRouter…).</div>
+               placeholder="https://tu-endpoint/v1">
+        <div class="hint">Para modelos locales o gateways (Ollama, LM Studio, OpenRouter…).</div>
       </div>
 
       <div class="row">
         <div class="field">
-          <label for="model">Model</label>
+          <label for="model">Modelo</label>
           <input id="model" name="model" type="text" spellcheck="false" placeholder="gpt-4o-mini">
         </div>
         <div class="field">
-          <label for="model_pro">Model (Pro tier)</label>
+          <label for="model_pro">Modelo (nivel Pro)</label>
           <input id="model_pro" name="model_pro" type="text" spellcheck="false" placeholder="gpt-4o">
         </div>
       </div>
 
       <div class="btns">
-        <button type="submit" class="primary" id="saveBtn">Save &amp; test</button>
-        <button type="button" class="ghost hide" id="removeBtn">Remove key</button>
+        <button type="submit" class="primary" id="saveBtn">Guardar y probar</button>
+        <button type="button" class="ghost hide" id="removeBtn">Eliminar clave</button>
       </div>
       <div class="msg" id="msg"></div>
     </form>
   </div>
 
   <div class="card">
-    <h2>YouTube automation</h2>
-    <p class="lead">Watch your channel and turn every new upload into edited,
-      publish-ready shorts automatically. VibeClip downloads the video, finds the
-      best moments, applies your style and pre-renders the clips — you just review
-      and hit publish. Nothing is ever posted without you.</p>
+    <h2>Automatización YouTube</h2>
+    <p class="lead">Observa tu canal y convierte cada subida nueva en shorts editados listos para publicar automáticamente. VibeClip descarga el vídeo, encuentra los mejores momentos, aplica tu estilo y pre-renderiza los clips — tú solo revisas y das a publicar. Nunca se publica nada sin tu aprobación.</p>
 
     <div class="status" id="autoStatus">
       <span class="dot" id="autoDot"></span>
-      <span id="autoStatusText">Loading…</span>
+      <span id="autoStatusText">Cargando…</span>
     </div>
 
     <form id="autoForm" autocomplete="off">
       <div class="field">
-        <label for="ytHandle">YouTube channel</label>
+        <label for="ytHandle">Canal de YouTube</label>
         <input id="ytHandle" type="text" spellcheck="false" placeholder="@codewithbod">
-        <div class="hint">Your @handle or channel URL. We poll the public RSS feed — no Google login or API key.</div>
+        <div class="hint">Tu @handle o URL del canal. Consultamos el feed RSS público — sin login de Google ni clave API.</div>
       </div>
       <div class="field">
-        <label for="autoStyle">Auto-edit style</label>
+        <label for="autoStyle">Estilo de auto-edición</label>
         <select id="autoStyle"></select>
-        <div class="hint">Every auto-ingested clip gets this style applied and pre-rendered.</div>
+        <div class="hint">Cada clip ingerido automáticamente recibe este estilo aplicado y pre-renderizado.</div>
       </div>
       <div class="field">
         <label class="tog"><input type="checkbox" id="autoEnabled">
-          <span>Watch this channel for new uploads</span></label>
+          <span>Observar este canal para nuevas subidas</span></label>
       </div>
       <div class="btns">
-        <button type="submit" class="primary" id="autoSaveBtn">Save</button>
-        <button type="button" class="ghost2" id="autoCheckBtn">Check for new videos now</button>
+        <button type="submit" class="primary" id="autoSaveBtn">Guardar</button>
+        <button type="button" class="ghost2" id="autoCheckBtn">Buscar nuevos vídeos ahora</button>
       </div>
       <div class="msg" id="autoMsg"></div>
     </form>
@@ -200,53 +196,44 @@ button{font-family:inherit;font-weight:700;font-size:13.5px;border-radius:8px;
   </div>
 
   <div class="card">
-    <h2>Learn my style from my Reels</h2>
-    <p class="lead">Paste a few of your own Instagram Reels and VibeClip studies
-      their <b>look</b> — caption style, pacing, color and energy — then saves it
-      as a reusable preset. It re-styles your other videos in that look; it does
-      <b>not</b> copy or regenerate your Reels. Single Reel links only — no
-      profile or bulk download.</p>
+    <h2>Aprende mi estilo de mis Reels</h2>
+    <p class="lead">Pega unos cuantos de tus propios Instagram Reels y VibeClip estudia su <b>look</b> — estilo de subtítulos, ritmo, color y energía — y lo guarda como preset reutilizable. Re-estiliza tus otros vídeos con ese look; <b>no</b> copia ni regenera tus Reels. Solo enlaces de Reels individuales — sin perfil ni descarga en lote.</p>
 
     <form id="learnForm" autocomplete="off">
       <div class="field">
-        <label for="reelUrls">Your Reel links (one per line)</label>
+        <label for="reelUrls">Tus enlaces de Reels (uno por línea)</label>
         <textarea id="reelUrls" rows="4" spellcheck="false"
           style="width:100%;resize:vertical;font:inherit;padding:10px;border-radius:8px"
           placeholder="https://www.instagram.com/reel/…&#10;https://www.instagram.com/reel/…"></textarea>
-        <div class="hint">Up to 8. We download each with yt-dlp and analyze it locally.</div>
+        <div class="hint">Hasta 8. Descargamos cada uno con yt-dlp y lo analizamos localmente.</div>
       </div>
       <div class="field">
-        <label for="learnName">Style name</label>
-        <input id="learnName" type="text" spellcheck="false" placeholder="my_style">
-        <div class="hint">Leave blank to auto-name it (e.g. learned_yourhandle).</div>
+        <label for="learnName">Nombre del estilo</label>
+        <input id="learnName" type="text" spellcheck="false" placeholder="mi_estilo">
+        <div class="hint">Déjalo en blanco para auto-nombrarlo (ej. learned_tuusuario).</div>
       </div>
       <div class="field">
         <label class="tog"><input type="checkbox" id="learnVision" checked>
-          <span>Use AI vision for font/color/emoji feel (needs a vision-capable key)</span></label>
+          <span>Usar IA vision para feel de fuente/color/emoji (necesita clave compatible con vision)</span></label>
       </div>
       <div class="field">
         <label class="tog"><input type="checkbox" id="learnAuto">
-          <span>Make this my auto-edit style</span></label>
+          <span>Hacer este mi estilo de auto-edición</span></label>
       </div>
       <div class="btns">
-        <button type="submit" class="primary" id="learnBtn">Learn my style</button>
+        <button type="submit" class="primary" id="learnBtn">Aprende mi estilo</button>
       </div>
       <div class="msg" id="learnMsg"></div>
     </form>
-    <p class="note" style="margin-top:18px">VibeClip is an editor: it learns a
-      look to apply to your footage. Downloading is limited to the exact Reel
-      links you paste; captions are read only to gauge style.</p>
+    <p class="note" style="margin-top:18px">VibeClip es un editor: aprende un look para aplicarlo a tu material. La descarga se limita a los enlaces exactos de Reels que pegues; los subtítulos se leen solo para inferir el estilo.</p>
   </div>
 
   <div class="card">
-    <h2>How your key is handled</h2>
+    <h2>Cómo se maneja tu clave</h2>
     <p class="note">
-      <b>Encrypted at rest.</b> Your key is encrypted before it touches the
-      database and is never sent back to your browser.<br>
-      <b>Only your provider.</b> It's used solely to call the provider you pick —
-      VibeClip never proxies your prompts anywhere else.<br>
-      <b>Your bill.</b> Usage is billed by your provider. DeepSeek is the
-      cost-friendly option; a typical short costs a few cents of tokens.
+      <b>Encriptada en reposo.</b> Tu clave se encripta antes de tocar la base de datos y nunca se devuelve a tu navegador.<br>
+      <b>Solo tu proveedor.</b> Se usa exclusivamente para llamar al proveedor que elijas — VibeClip nunca proxea tus prompts a otro lado.<br>
+      <b>Tu factura.</b> El uso lo factura tu proveedor. DeepSeek es la opción económica; un short típico cuesta unos céntimos en tokens.
     </p>
   </div>
 </div>
@@ -258,17 +245,17 @@ const DEFAULTS = {
   gemini:   {model:'gemini-2.5-flash', model_pro:'gemini-2.5-pro',      base:false, key:'AIza…'},
   claude:   {model:'claude-haiku-4-5-20251001', model_pro:'claude-sonnet-4-6', base:false, key:'sk-ant-…'},
   deepseek: {model:'deepseek-chat', model_pro:'deepseek-chat',          base:false, key:'sk-…'},
-  custom:   {model:'',              model_pro:'',                        base:true,  key:'your-api-key'},
+  custom:   {model:'',              model_pro:'',                        base:true,  key:'tu-clave-api'},
 };
 let STATE = null;
 
 function applyProvider(p){
   const d = DEFAULTS[p] || DEFAULTS.openai;
-  // The named providers carry an implicit base URL; only "custom" needs one.
+  // Los proveedores nombrados llevan URL base implícita; solo "custom" necesita una.
   $('baseField').classList.toggle('hide', !d.base);
-  $('model').placeholder = d.model || 'model-name';
-  $('model_pro').placeholder = d.model_pro || 'model-name';
-  $('api_key').placeholder = d.key || 'your-api-key';
+  $('model').placeholder = d.model || 'nombre-modelo';
+  $('model_pro').placeholder = d.model_pro || 'nombre-modelo';
+  $('api_key').placeholder = d.key || 'tu-clave-api';
 }
 
 function renderStatus(s){
@@ -276,20 +263,20 @@ function renderStatus(s){
   dot.className = 'dot';
   if (s.configured){
     dot.classList.add('on');
-    txt.innerHTML = `Using <b>your ${s.provider}</b> key — `+
-      `<span style="font-family:var(--mono)">${s.model||'default model'}</span>`+
+    txt.innerHTML = `Usando <b>tu clave ${s.provider}</b> — `+
+      `<span style="font-family:var(--mono)">${s.model||'modelo por defecto'}</span>`+
       (s.key_masked?` · <span style="font-family:var(--mono);color:var(--bone-faint)">${s.key_masked}</span>`:'');
     $('removeBtn').classList.remove('hide');
-    $('keyHint').textContent = 'Stored encrypted. Leave blank to keep your saved key.';
+    $('keyHint').textContent = 'Guardada encriptada. Déjala en blanco para mantener tu clave guardada.';
   } else if (s.server_key_available){
     dot.classList.add('env');
-    txt.textContent = 'Using the server’s key. Add your own below to run on your account.';
+    txt.textContent = 'Usando la clave del servidor. Añade la tuya abajo para ejecutar en tu cuenta.';
     $('removeBtn').classList.add('hide');
-    $('keyHint').textContent = 'Stored encrypted.';
+    $('keyHint').textContent = 'Guardada encriptada.';
   } else {
-    txt.textContent = 'No key configured yet — add one to start editing.';
+    txt.textContent = 'Aún no hay clave configurada — añade una para empezar a editar.';
     $('removeBtn').classList.add('hide');
-    $('keyHint').textContent = 'Stored encrypted.';
+    $('keyHint').textContent = 'Guardada encriptada.';
   }
 }
 
@@ -304,7 +291,7 @@ async function load(){
     if (STATE.model_pro) $('model_pro').value = STATE.model_pro;
     applyProvider($('provider').value);
     renderStatus(STATE);
-  }catch(e){ $('msg').className='msg err'; $('msg').textContent='Could not load settings.'; }
+  }catch(e){ $('msg').className='msg err'; $('msg').textContent='No se pudieron cargar los ajustes.'; }
 }
 
 $('provider').addEventListener('change', e => applyProvider(e.target.value));
@@ -313,7 +300,7 @@ $('form').addEventListener('submit', async e => {
   e.preventDefault();
   const btn = $('saveBtn'), msg = $('msg');
   msg.className='msg'; msg.textContent='';
-  btn.disabled = true; btn.innerHTML = '<span class="spin"></span>Testing…';
+  btn.disabled = true; btn.innerHTML = '<span class="spin"></span>Probando…';
   const body = {
     provider: $('provider').value,
     api_key: $('api_key').value,
@@ -326,30 +313,28 @@ $('form').addEventListener('submit', async e => {
       method:'POST', headers:{'Content-Type':'application/json'},
       body: JSON.stringify(body)});
     const d = await r.json();
-    if (!r.ok){ msg.className='msg err'; msg.textContent = d.error || 'Save failed.'; }
-    else { msg.className='msg ok'; msg.textContent = `Saved — running on ${d.provider} (${d.model}).`;
+    if (!r.ok){ msg.className='msg err'; msg.textContent = d.error || 'Error al guardar.'; }
+    else { msg.className='msg ok'; msg.textContent = `Guardado — ejecutando en ${d.provider} (${d.model}).`;
            $('api_key').value=''; await load(); }
-  }catch(e){ msg.className='msg err'; msg.textContent='Network error.'; }
-  finally{ btn.disabled=false; btn.textContent='Save & test'; }
+  }catch(e){ msg.className='msg err'; msg.textContent='Error de red.'; }
+  finally{ btn.disabled=false; btn.textContent='Guardar y probar'; }
 });
 
 $('removeBtn').addEventListener('click', async () => {
-  if (!confirm('Remove your key? VibeClip will fall back to the server key (if any).')) return;
+  if (!confirm('¿Eliminar tu clave? VibeClip volverá a la clave del servidor (si hay).')) return;
   const msg = $('msg'); msg.className='msg'; msg.textContent='';
   try{
     const r = await fetch('/api/settings/llm', {method:'DELETE'});
     if (r.ok){ $('api_key').value=''; $('model').value=''; $('model_pro').value='';
-               $('base_url').value=''; msg.className='msg ok'; msg.textContent='Key removed.'; await load(); }
+               $('base_url').value=''; msg.className='msg ok'; msg.textContent='Clave eliminada.'; await load(); }
     else { let d={}; try{ d = await r.json(); }catch(_){}
-           msg.className='msg err'; msg.textContent = d.error || 'Could not remove key.'; }
-  }catch(e){ msg.className='msg err'; msg.textContent='Could not remove key.'; }
+           msg.className='msg err'; msg.textContent = d.error || 'No se pudo eliminar la clave.'; }
+  }catch(e){ msg.className='msg err'; msg.textContent='No se pudo eliminar la clave.'; }
 });
 
-load();
-
-// ---------------------------------------------------------------- automation
+// ---------------------------------------------------------------- automatización
 let AUTO=null, AUTO_YT_OK=true;
-function esc(s){return (s||'').replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));}
+function esc(s){return (s||'').replace(/[&<>\"]/g,c=>({'&':'&','<':'<','>':'>','\"':'"'}[c]));}
 function fmtTime(iso){try{return new Date(iso).toLocaleString();}catch(_){return iso;}}
 
 function renderAuto(a){
@@ -357,18 +342,18 @@ function renderAuto(a){
   dot.className='dot';
   if(a.enabled && a.channel_id){
     dot.classList.add('on');
-    txt.innerHTML=`Watching <b>${esc(a.channel_title||a.channel_handle)}</b> — new uploads `+
-      `auto-edit with <b>${esc(a.auto_edit_style)}</b>.`;
+    txt.innerHTML=`Observando <b>${esc(a.channel_title||a.channel_handle)}</b> — nuevas subidas `+
+      `auto-edit con <b>${esc(a.auto_edit_style)}</b>.`;
   } else if(a.channel_id){
     dot.classList.add('env');
-    txt.innerHTML=`Channel set (<b>${esc(a.channel_title||a.channel_handle)}</b>) — watching is off.`;
+    txt.innerHTML=`Canal configurado (<b>${esc(a.channel_title||a.channel_handle)}</b>) — observación desactivada.`;
   } else {
-    txt.textContent='Not set up yet — add your channel below to start.';
+    txt.textContent='Aún no configurado — añade tu canal abajo para empezar.';
   }
   const bits=[];
-  if(!AUTO_YT_OK) bits.push('⚠ yt-dlp is not installed on the server — downloads will fail until it is.');
-  if(a.last_checked) bits.push('Last checked: '+fmtTime(a.last_checked));
-  if(a.last_video_id) bits.push('Latest seen: '+a.last_video_id);
+  if(!AUTO_YT_OK) bits.push('⚠ yt-dlp no está instalado en el servidor — las descargas fallarán hasta que lo esté.');
+  if(a.last_checked) bits.push('Última comprobación: '+fmtTime(a.last_checked));
+  if(a.last_video_id) bits.push('Último visto: '+a.last_video_id);
   if(a.last_error) bits.push('⚠ '+a.last_error);
   $('autoNote').textContent=bits.join(' · ');
 }
@@ -386,65 +371,65 @@ async function loadAuto(){
     sel.value=AUTO.auto_edit_style||'hormozi';
     $('autoEnabled').checked=!!AUTO.enabled;
     renderAuto(AUTO);
-  }catch(e){ $('autoMsg').className='msg err'; $('autoMsg').textContent='Could not load automation.'; }
+  }catch(e){ $('autoMsg').className='msg err'; $('autoMsg').textContent='No se pudo cargar la automatización.'; }
 }
 
 $('autoForm').addEventListener('submit', async e=>{
   e.preventDefault();
   const btn=$('autoSaveBtn'), msg=$('autoMsg');
   msg.className='msg'; msg.textContent='';
-  btn.disabled=true; btn.innerHTML='<span class="spin"></span>Saving…';
+  btn.disabled=true; btn.innerHTML='<span class="spin"></span>Guardando…';
   try{
     const r=await fetch('/api/automation',{method:'POST',headers:{'Content-Type':'application/json'},
       body:JSON.stringify({enabled:$('autoEnabled').checked, channel_handle:$('ytHandle').value,
                            auto_edit_style:$('autoStyle').value})});
     const d=await r.json();
-    if(!r.ok){ msg.className='msg err'; msg.textContent=d.error||'Save failed.'; }
+    if(!r.ok){ msg.className='msg err'; msg.textContent=d.error||'Error al guardar.'; }
     else{ AUTO=d.automation; msg.className='msg ok';
-      msg.textContent=AUTO.enabled?'Saved — watching your channel for new uploads.':'Saved.';
+      msg.textContent=AUTO.enabled?'Guardado — observando tu canal para nuevas subidas.':'Guardado.';
       if(AUTO.channel_handle) $('ytHandle').value=AUTO.channel_handle;
       $('autoEnabled').checked=!!AUTO.enabled; renderAuto(AUTO); }
-  }catch(_){ msg.className='msg err'; msg.textContent='Network error.'; }
-  finally{ btn.disabled=false; btn.textContent='Save'; }
+  }catch(_){ msg.className='msg err'; msg.textContent='Error de red.'; }
+  finally{ btn.disabled=false; btn.textContent='Guardar'; }
 });
 
 $('autoCheckBtn').addEventListener('click', async ()=>{
   const btn=$('autoCheckBtn'), msg=$('autoMsg'); const old=btn.textContent;
   msg.className='msg'; msg.textContent='';
-  btn.disabled=true; btn.innerHTML='<span class="spin" style="border-color:var(--bone-dim);border-top-color:transparent"></span>Checking…';
+  btn.disabled=true; btn.innerHTML='<span class="spin" style="border-color:var(--bone-dim);border-top-color:transparent"></span>Comprobando…';
   try{
     const r=await fetch('/api/automation/check',{method:'POST'});
     const d=await r.json();
-    if(!r.ok){ msg.className='msg err'; msg.textContent=d.error||'Check failed.'; }
+    if(!r.ok){ msg.className='msg err'; msg.textContent=d.error||'Fallo en comprobación.'; }
     else{ AUTO=d.automation; msg.className='msg ok';
       msg.textContent=d.queued>0
-        ? `Found ${d.queued} new video${d.queued>1?'s':''} — editing now. Watch the Projects page.`
-        : 'No new videos since the last check.';
+        ? `Encontrados ${d.queued} vídeo${d.queued>1?'s':''} nuevos — editando ahora. Mira la página de Proyectos.`
+        : 'No hay vídeos nuevos desde la última comprobación.';
       renderAuto(AUTO); }
-  }catch(_){ msg.className='msg err'; msg.textContent='Network error.'; }
+  }catch(_){ msg.className='msg err'; msg.textContent='Error de red.'; }
   finally{ btn.disabled=false; btn.textContent=old; }
 });
 
-// ------------------------------------------------------- learn style from reels
+// ------------------------------------------------------- aprende estilo de reels
 $('learnForm').addEventListener('submit', async e=>{
   e.preventDefault();
   const btn=$('learnBtn'), msg=$('learnMsg'); const old=btn.textContent;
   const urls=$('reelUrls').value.split('\n').map(s=>s.trim()).filter(Boolean);
   msg.className='msg'; msg.textContent='';
-  if(!urls.length){ msg.className='msg err'; msg.textContent='Paste at least one Reel link.'; return; }
-  btn.disabled=true; btn.innerHTML='<span class="spin" style="border-color:var(--bone-dim);border-top-color:transparent"></span>Learning…';
+  if(!urls.length){ msg.className='msg err'; msg.textContent='Pega al menos un enlace de Reel.'; return; }
+  btn.disabled=true; btn.innerHTML='<span class="spin" style="border-color:var(--bone-dim);border-top-color:transparent"></span>Aprendiendo…';
   try{
     const r=await fetch('/api/style/learn',{method:'POST',headers:{'Content-Type':'application/json'},
       body:JSON.stringify({urls, name:$('learnName').value.trim(),
         use_vision:$('learnVision').checked, set_as_auto:$('learnAuto').checked})});
     const d=await r.json();
-    if(!r.ok){ msg.className='msg err'; msg.textContent=d.error||'Could not start.'; }
+    if(!r.ok){ msg.className='msg err'; msg.textContent=d.error||'No se pudo iniciar.'; }
     else{ msg.className='msg ok';
-      msg.textContent='Downloading & analyzing your Reels… this runs in the background. '
-        +'Your new style will appear in the style list shortly — refresh to use it.';
-      // Pull the (eventually) new style into the auto-edit picker after a beat.
+      msg.textContent='Descargando y analizando tus Reels… esto corre en segundo plano. '+
+        'Tu nuevo estilo aparecerá en la lista de estilos en breve — recarga para usarlo.';
+      // Trae el estilo (eventualmente) nuevo al selector de auto-edit tras un rato.
       setTimeout(loadAuto, 8000); }
-  }catch(_){ msg.className='msg err'; msg.textContent='Network error.'; }
+  }catch(_){ msg.className='msg err'; msg.textContent='Error de red.'; }
   finally{ btn.disabled=false; btn.textContent=old; }
 });
 

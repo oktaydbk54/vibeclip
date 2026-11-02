@@ -1,9 +1,9 @@
 <!doctype html>
-<html lang="en">
+<html lang="es">
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>VibeClip Studio — Projects</title>
+<title>VibeClip Studio — Proyectos</title>
 <link rel="icon" type="image/svg+xml" href="/static/favicon.svg">
 <link rel="icon" type="image/x-icon" href="/static/favicon.ico" sizes="any">
 <link rel="apple-touch-icon" href="/static/apple-touch-icon.png">
@@ -235,8 +235,7 @@ body::before{
 .rec-meta{padding:9px 11px}
 .rec-nm{font-size:.78rem; font-weight:600; overflow:hidden;
   text-overflow:ellipsis; white-space:nowrap}
-.rec-sub{font-size:.58rem; color:var(--bone-faint); letter-spacing:.04em;
-  margin-top:2px}
+.rec-sub{font-size:.58rem; color:var(--bone-faint); letter-spacing:.04em; margin-top:2px}
 
 /* -------- publishing panel (scheduler surfacing) -------- */
 .publishing{margin-top:34px}
@@ -295,7 +294,7 @@ body::before{
 .auto-meta.err{color:var(--orange)}
 
 /* "AUTO · YouTube" chip on auto-ingested project thumbnails */
-.tauto{position:absolute; left:8px; bottom:8px; z-index:2; display:flex;
+.tauto{position:absolute; left:8px; bottom:8px; z-index=2; display:flex;
   align-items:center; gap:4px; font-family:'IBM Plex Mono',monospace;
   font-size:.52rem; letter-spacing:.12em; color:#fff; padding:3px 7px;
   border-radius:5px; background:rgba(255,0,0,.82)}
@@ -337,7 +336,7 @@ body.selmode .tauto{display:none}
 .st-err{color:var(--err)}
 @keyframes badgepulse{0%,100%{opacity:1} 50%{opacity:.5}}
 /* duration chip bottom-right on the thumbnail */
-.tdur{position:absolute; right:8px; bottom:8px; z-index:2;
+.tdur{position:absolute; right:8px; bottom:8px; z-index=2;
   font-family:'IBM Plex Mono',monospace; font-size:.56rem; letter-spacing:.04em;
   color:var(--bone); padding:2px 6px; border-radius:5px; background:rgba(7,4,14,.6)}
 .cbody{padding:14px 16px 16px; display:flex; flex-direction:column; gap:9px}
@@ -363,7 +362,7 @@ body.selmode .tauto{display:none}
 }
 
 /* ---- bulk selection ---- */
-.selbox{position:absolute; top:8px; left:8px; z-index:3; width:22px; height:22px;
+.selbox{position:absolute; top:8px; left:8px; z-index=3; width:22px; height:22px;
   border-radius:6px; border:1.5px solid var(--line-hi); background:rgba(7,4,14,.6);
   backdrop-filter:blur(2px); cursor:pointer; display:none; align-items:center;
   justify-content:center; color:transparent; transition:.12s}
@@ -556,10 +555,10 @@ body.selmode .tbadge{left:38px}
 
 <header class="appbar">
   <div class="brand"><span class="word">VibeClip</span><span class="sub">studio</span></div>
-  <span class="pglabel mono">PROJECTS</span>
+  <span class="pglabel mono">PROYECTOS</span>
   <div class="spacer"></div>
   <div class="jobchip" id="busychip" style="display:none"></div>
-  <a class="gearlink" href="/settings" title="Settings — your AI key" aria-label="Settings">
+  <a class="gearlink" href="/settings" title="Configuración — tu clave IA" aria-label="Configuración">
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
   </a>
   <div class="userchip mono" id="userchip"></div>
@@ -567,20 +566,20 @@ body.selmode .tbadge{left:38px}
 
 <div class="wrap">
   <div class="welcome" id="welcome" style="display:none">
-    <div class="welcome-hi">Welcome back<span id="welcomeName"></span>.</div>
+    <div class="welcome-hi">Bienvenido de vuelta<span id="welcomeName"></span>.</div>
     <div class="welcome-stats mono" id="welcomeStats"></div>
   </div>
 
   <div class="ingest" id="ingest">
-    <div class="ingest-drop" id="ingestDrop" role="button" tabindex="0" aria-label="Upload a long video">
+    <div class="ingest-drop" id="ingestDrop" role="button" tabindex="0" aria-label="Subir un vídeo largo">
       <span class="ingest-ic" aria-hidden="true">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 16V5M7 10l5-5 5 5"/><path d="M5 19h14"/></svg>
       </span>
       <span class="ingest-txt">
-        <span class="ingest-main">Drop a long video here — we'll find the clips</span>
-        <span class="ingest-sub mono">or click to choose · MP4, MOV, WEBM, MKV</span>
+        <span class="ingest-main">Arrastra un vídeo largo aquí — encontraremos los clips</span>
+        <span class="ingest-sub mono">o haz clic para elegir · MP4, MOV, WEBM, MKV</span>
       </span>
-      <span class="ingest-cta mono">UPLOAD</span>
+      <span class="ingest-cta mono">SUBIR</span>
     </div>
     <input type="file" id="ingestFile" hidden
       accept="video/mp4,video/quicktime,video/webm,video/x-matroska,.mp4,.mov,.webm,.mkv,.m4v,.avi">
@@ -588,43 +587,43 @@ body.selmode .tbadge{left:38px}
 
   <!-- recents — jump back into the freshest work; shown only with enough projects -->
   <div class="recents" id="recents">
-    <div class="rec-h mono">Jump back in</div>
+    <div class="rec-h mono">Volver a empezar</div>
     <div class="rec-strip" id="recStrip"></div>
   </div>
 
   <div class="phead">
-    <h1>Your projects</h1>
+    <h1>Tus proyectos</h1>
     <span class="count mono" id="count"></span>
-    <button class="pill" id="selectBtn" style="display:none; margin-left:14px">SELECT</button>
+    <button class="pill" id="selectBtn" style="display:none; margin-left:14px">SELECCIONAR</button>
     <button class="btn-primary" id="newBtn">
       <svg class="plus" viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg>
-      NEW PROJECT</button>
+      NUEVO PROYECTO</button>
   </div>
   <div class="toolbar" id="toolbar">
     <div class="filters" id="filters">
-      <button class="pill on" data-filter="all">ALL</button>
-      <button class="pill" data-filter="processing">PROCESSING</button>
-      <button class="pill" data-filter="ready">READY</button>
-      <button class="pill" data-filter="done">DONE</button>
+      <button class="pill on" data-filter="all">TODOS</button>
+      <button class="pill" data-filter="processing">PROCESANDO</button>
+      <button class="pill" data-filter="ready">LISTOS</button>
+      <button class="pill" data-filter="done">TERMINADOS</button>
     </div>
     <div class="filters" id="folderChips"></div>
     <div class="tb-right">
       <label class="search">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4-4"/></svg>
-        <input id="search" type="search" placeholder="Search projects…" autocomplete="off" aria-label="Search projects">
+        <input id="search" type="search" placeholder="Buscar proyectos…" autocomplete="off" aria-label="Buscar proyectos">
       </label>
-      <select id="sort" class="sortsel mono" aria-label="Sort projects">
-        <option value="recent">Recently edited</option>
-        <option value="score">Best score</option>
-        <option value="clips">Most clips</option>
-        <option value="duration">Longest</option>
-        <option value="name">Name A–Z</option>
+      <select id="sort" class="sortsel mono" aria-label="Ordenar proyectos">
+        <option value="recent">Editados recientemente</option>
+        <option value="score">Mejor puntuación</option>
+        <option value="clips">Más clips</option>
+        <option value="duration">Más largos</option>
+        <option value="name">Nombre A–Z</option>
       </select>
-      <div class="viewtoggle" id="viewtoggle" role="group" aria-label="View">
-        <button data-view="grid" class="on" title="Grid view" aria-label="Grid view">
+      <div class="viewtoggle" id="viewtoggle" role="group" aria-label="Vista">
+        <button data-view="grid" class="on" title="Vista cuadrícula" aria-label="Vista cuadrícula">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/></svg>
         </button>
-        <button data-view="list" title="List view" aria-label="List view">
+        <button data-view="list" title="Vista lista" aria-label="Vista lista">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M8 6h13M8 12h13M8 18h13"/><circle cx="3.5" cy="6" r="1.2" fill="currentColor" stroke="none"/><circle cx="3.5" cy="12" r="1.2" fill="currentColor" stroke="none"/><circle cx="3.5" cy="18" r="1.2" fill="currentColor" stroke="none"/></svg>
         </button>
       </div>
@@ -638,15 +637,15 @@ body.selmode .tbadge{left:38px}
     <div class="hub-grid">
       <div class="hub-card" id="accountsCard" style="display:none">
         <div class="hub-h">
-          <span class="rec-h mono">Connected accounts</span>
-          <a class="hub-link" href="/studio">Manage</a>
+          <span class="rec-h mono">Cuentas conectadas</span>
+          <a class="hub-link" href="/studio">Gestionar</a>
         </div>
         <div class="acct-row" id="acctRow"></div>
       </div>
       <div class="hub-card" id="autoCard" style="display:none">
         <div class="hub-h">
-          <span class="rec-h mono">YouTube automation</span>
-          <a class="hub-link" href="/settings">Configure</a>
+          <span class="rec-h mono">Automatización YouTube</span>
+          <a class="hub-link" href="/settings">Configurar</a>
         </div>
         <div class="auto-state"><span class="auto-dot" id="autoDot"></span>
           <span id="autoState">—</span></div>
@@ -660,132 +659,132 @@ body.selmode .tbadge{left:38px}
        Hidden unless there are shares (i.e. a social provider is configured + used). -->
   <section class="publishing" id="publishing" style="display:none">
     <div class="pub-h">
-      <span class="rec-h mono">Publishing</span>
+      <span class="rec-h mono">Publicación</span>
       <span class="pub-count mono" id="pubCount"></span>
     </div>
     <div class="pub-list" id="pubList"></div>
   </section>
 
   <div class="empty" id="empty" style="display:none">
-    <div class="em-label mono">CREATE YOUR FIRST PROJECT</div>
-    <h1 class="em-h1">Turn one long video into a week of shorts.</h1>
-    <p class="em-sub">Upload a long video and VibeClip finds the best moments for you, or
-      bring your own finished clips and jump straight into editing.</p>
+    <div class="em-label mono">CREA TU PRIMER PROYECTO</div>
+    <h1 class="em-h1">Convierte un vídeo largo en una semana de shorts.</h1>
+    <p class="em-sub">Sube un vídeo largo y VibeClip encuentra los mejores momentos por ti, o
+      trae tus propios clips terminados y ve directo a editar.</p>
     <div class="em-cards">
       <button class="em-card" id="emptyLong">
-        <span class="em-tag mono">RECOMMENDED</span>
+        <span class="em-tag mono">RECOMENDADO</span>
         <span class="em-glyph" aria-hidden="true">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round"><rect x="7" y="3" width="10" height="18" rx="2"/><path d="M11 9.5l4 2.5-4 2.5z" fill="currentColor" stroke="none"/></svg>
         </span>
-        <span class="em-ct">Start from a long video</span>
-        <span class="em-cd">Upload one long video. We find 10–20 clip candidates
-          automatically — you just review and export.</span>
-        <span class="em-go">UPLOAD &amp; FIND CLIPS</span>
+        <span class="em-ct">Empezar desde un vídeo largo</span>
+        <span class="em-cd">Sube un vídeo largo. Encontramos 10–20 candidatos
+          automáticamente — tú solo revisas y exportas.</span>
+        <span class="em-go">SUBIR Y ENCONTRAR CLIPS</span>
       </button>
       <button class="em-card" id="emptyOwn">
         <span class="em-glyph" aria-hidden="true">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="6" cy="6" r="2.5"/><circle cx="6" cy="18" r="2.5"/><path d="M8 7.5L20 18M8 16.5L20 6"/></svg>
         </span>
-        <span class="em-ct">I have my own clips</span>
-        <span class="em-cd">Upload finished clips. Skip auto-clipping and go straight
-          to editing, captions, and export.</span>
-        <span class="em-go">CREATE PROJECT</span>
+        <span class="em-ct">Tengo mis propios clips</span>
+        <span class="em-cd">Sube clips terminados. Salta el auto-clipping y ve
+          directo a editar, subtitular y exportar.</span>
+        <span class="em-go">CREAR PROYECTO</span>
       </button>
     </div>
     <div class="em-how">
-      <div class="em-step"><span class="em-num mono">01</span><b>UPLOAD</b><span>Add your video or clips.</span></div>
-      <div class="em-step"><span class="em-num mono">02</span><b>CLIPS</b><span>We find the best moments.</span></div>
-      <div class="em-step"><span class="em-num mono">03</span><b>EDIT</b><span>Reframe, caption, tighten.</span></div>
-      <div class="em-step"><span class="em-num mono">04</span><b>EXPORT</b><span>Download your shorts.</span></div>
+      <div class="em-step"><span class="em-num mono">01</span><b>SUBIR</b><span>Añade tu vídeo o clips.</span></div>
+      <div class="em-step"><span class="em-num mono">02</span><b>CLIPS</b><span>Encontramos los mejores momentos.</span></div>
+      <div class="em-step"><span class="em-num mono">03</span><b>EDITAR</b><span>Reframe, subtitula, aprieta.</span></div>
+      <div class="em-step"><span class="em-num mono">04</span><b>EXPORTAR</b><span>Descarga tus shorts.</span></div>
     </div>
   </div>
 </div>
 
 <!-- new-project modal -->
 <div class="scrim" id="scrim">
-  <div class="modal" role="dialog" aria-modal="true" aria-label="New project">
-    <button class="mclose" id="mClose" aria-label="Close" type="button">✕</button>
-    <h2>New project</h2>
-    <div class="msub mono">Pick how you want to start</div>
+  <div class="modal" role="dialog" aria-modal="true" aria-label="Nuevo proyecto">
+    <button class="mclose" id="mClose" aria-label="Cerrar" type="button">✕</button>
+    <h2>Nuevo proyecto</h2>
+    <div class="msub mono">Elige cómo quieres empezar</div>
     <div class="tiles">
       <div class="tile" id="tileLong" data-mode="long_video" role="button" tabindex="0">
-        <span class="tile-tag mono">RECOMMENDED</span>
+        <span class="tile-tag mono">RECOMENDADO</span>
         <div class="ic" aria-hidden="true">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round"><rect x="7" y="3" width="10" height="18" rx="2"/><path d="M11 9.5l4 2.5-4 2.5z" fill="currentColor" stroke="none"/></svg>
         </div>
-        <h3>Long video</h3>
-        <p>We find the best moments for you.</p>
+        <h3>Vídeo largo</h3>
+        <p>Encontramos los mejores momentos por ti.</p>
       </div>
       <div class="tile" id="tileOwn" data-mode="own_clips" role="button" tabindex="0">
         <div class="ic" aria-hidden="true">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="6" cy="6" r="2.5"/><circle cx="6" cy="18" r="2.5"/><path d="M8 7.5L20 18M8 16.5L20 6"/></svg>
         </div>
-        <h3>I have my own clips</h3>
-        <p>Skip auto-clipping, go straight to editing.</p>
+        <h3>Tengo mis propios clips</h3>
+        <p>Salta el auto-clipping, ve directo a editar.</p>
       </div>
     </div>
 
     <div class="panel" id="panelLong">
       <div class="drop on" id="dropLong">
-        <div>Drop a video here, or click to choose</div>
+        <div>Arrastra un vídeo aquí, o haz clic para elegir</div>
         <input type="file" id="fileLong" style="display:none"
           accept="video/mp4,video/quicktime,video/webm,video/x-matroska,.mp4,.mov,.webm,.mkv,.m4v,.avi">
         <div class="fn mono" id="fnLong"></div>
       </div>
       <div class="nameField on" id="longNameField" style="margin-top:16px">
-        <label class="mono">Project name <span class="opt">(optional)</span></label>
-        <input type="text" id="longName" placeholder="Auto-named from the file">
+        <label class="mono">Nombre del proyecto <span class="opt">(opcional)</span></label>
+        <input type="text" id="longName" placeholder="Auto-nombrado desde el archivo">
       </div>
     </div>
 
     <div class="nameField" id="ownFields">
-      <label class="mono">Project name</label>
-      <input type="text" id="ownName" placeholder="My clips">
+      <label class="mono">Nombre del proyecto</label>
+      <input type="text" id="ownName" placeholder="Mis clips">
       <div class="drop on" id="dropOwn" style="margin-top:14px">
-        <div>Drop your finished clips here, or click to choose (multiple)</div>
+        <div>Arrastra tus clips terminados aquí, o haz clic para elegir (múltiples)</div>
         <input type="file" id="fileOwn" multiple style="display:none"
           accept="video/mp4,video/quicktime,video/webm,video/x-matroska,.mp4,.mov,.webm,.mkv,.m4v,.avi">
         <div class="fn mono" id="fnOwn"></div>
       </div>
     </div>
 
-    <div class="busyNote mono" id="busyNote" style="display:none">A project is processing — you can prepare this one now and create it when the worker is free.</div>
+    <div class="busyNote mono" id="busyNote" style="display:none">Un proyecto se está procesando — puedes preparar este ahora y crearlo cuando el worker esté libre.</div>
     <div class="upbar" id="upbar"><i id="upfill"></i></div>
     <div class="uplabel mono" id="uplabel" style="display:none"></div>
     <div class="modal-foot">
-      <button class="btn-cancel" id="mCancel">Cancel</button>
-      <button class="btn-go" id="mGo" disabled>Create</button>
+      <button class="btn-cancel" id="mCancel">Cancelar</button>
+      <button class="btn-go" id="mGo" disabled>Crear</button>
     </div>
   </div>
 </div>
 
 <!-- move-to-folder modal -->
 <div class="scrim" id="folderScrim">
-  <div class="modal" style="width:min(440px,100%)" role="dialog" aria-modal="true" aria-label="Move to folder">
-    <button class="mclose" id="folderClose" aria-label="Close" type="button">✕</button>
-    <h2>Move to folder</h2>
-    <div class="msub mono" id="folderSub">Group your projects</div>
+  <div class="modal" style="width:min(440px,100%)" role="dialog" aria-modal="true" aria-label="Mover a carpeta">
+    <button class="mclose" id="folderClose" aria-label="Cerrar" type="button">✕</button>
+    <h2>Mover a carpeta</h2>
+    <div class="msub mono" id="folderSub">Agrupa tus proyectos</div>
     <div class="nameField on" style="margin-top:6px">
-      <label class="mono">Folder name <span class="opt">(blank removes from folder)</span></label>
-      <input type="text" id="folderInput" placeholder="e.g. Podcast · Client A · Drafts" maxlength="60">
+      <label class="mono">Nombre de la carpeta <span class="opt">(en blanco quita de la carpeta)</span></label>
+      <input type="text" id="folderInput" placeholder="ej. Podcast · Cliente A · Borradores" maxlength="60">
     </div>
     <div class="filters" id="folderSuggest" style="margin-top:12px"></div>
     <div class="modal-foot">
-      <button class="btn-cancel" id="folderCancel" type="button">Cancel</button>
-      <button class="btn-go" id="folderGo" type="button">Move</button>
+      <button class="btn-cancel" id="folderCancel" type="button">Cancelar</button>
+      <button class="btn-go" id="folderGo" type="button">Mover</button>
     </div>
   </div>
 </div>
 
 <!-- bulk-selection action bar -->
 <div class="selbar" id="selbar">
-  <span class="sel-n"><b id="selCount">0</b> selected</span>
+  <span class="sel-n"><b id="selCount">0</b> seleccionados</span>
   <span class="sep"></span>
-  <button id="selAll">Select all</button>
-  <button id="selMove">Move to folder…</button>
-  <button class="danger" id="selDelete">Delete</button>
+  <button id="selAll">Seleccionar todos</button>
+  <button id="selMove">Mover a carpeta…</button>
+  <button class="danger" id="selDelete">Eliminar</button>
   <span class="sep"></span>
-  <button id="selCancel">Done</button>
+  <button id="selCancel">Listo</button>
 </div>
 
 <div class="toast mono" id="toast"></div>

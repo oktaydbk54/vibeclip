@@ -1,9 +1,9 @@
 <!doctype html>
-<html lang="en">
+<html lang="es">
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>VibeClip Studio — Sign in</title>
+<title>VibeClip Studio — Iniciar sesión</title>
 <link rel="icon" type="image/svg+xml" href="/static/favicon.svg">
 <link rel="icon" type="image/x-icon" href="/static/favicon.ico" sizes="any">
 <link rel="apple-touch-icon" href="/static/apple-touch-icon.png">
@@ -141,8 +141,8 @@ form.on{display:flex; animation:fade .25s ease both}
 <div class="auth-shell">
 <div class="card">
   <div class="tabs">
-    <button class="tab on" id="tabLogin" data-tab="login">SIGN IN</button>
-    <button class="tab" id="tabSignup" data-tab="signup">SIGN UP</button>
+    <button class="tab on" id="tabLogin" data-tab="login">INICIAR SESIÓN</button>
+    <button class="tab" id="tabSignup" data-tab="signup">REGISTRARSE</button>
   </div>
 
   <div class="err mono" id="err"></div>
@@ -150,53 +150,53 @@ form.on{display:flex; animation:fade .25s ease both}
   <!-- SIGN IN -->
   <form class="on" id="formLogin" novalidate>
     <div class="field">
-      <label>Email</label>
+      <label>Correo</label>
       <input type="email" name="email" autocomplete="email" required>
     </div>
     <div class="field">
-      <label>Password</label>
+      <label>Contraseña</label>
       <input type="password" name="password" autocomplete="current-password" required>
     </div>
-    <button type="submit" class="submit">SIGN IN</button>
+    <button type="submit" class="submit">INICIAR SESIÓN</button>
   </form>
 
   <!-- SIGN UP -->
   <form id="formSignup" novalidate>
     <div class="field">
-      <label>Full name</label>
+      <label>Nombre completo</label>
       <input type="text" name="name" autocomplete="name" required>
     </div>
     <div class="field">
-      <label>Email</label>
+      <label>Correo</label>
       <input type="email" name="email" autocomplete="email" required>
     </div>
     <div class="field">
-      <label>Password (min 6 characters)</label>
+      <label>Contraseña (mínimo 6 caracteres)</label>
       <input type="password" name="password" autocomplete="new-password" minlength="6" required>
     </div>
-    <button type="submit" class="submit">CREATE ACCOUNT</button>
+    <button type="submit" class="submit">CREAR CUENTA</button>
   </form>
 
   <!-- VERIFY EMAIL -->
-  <form id="formVerify" novalidate>
-    <p class="verify-msg mono" id="verifyMsg">We sent a 6-digit code to your email.</p>
-    <div class="field">
-      <label>Verification code</label>
-      <div class="otp" id="otp">
-        <input class="otp-box" inputmode="numeric" maxlength="1" autocomplete="one-time-code" aria-label="Digit 1">
-        <input class="otp-box" inputmode="numeric" maxlength="1" aria-label="Digit 2">
-        <input class="otp-box" inputmode="numeric" maxlength="1" aria-label="Digit 3">
-        <input class="otp-box" inputmode="numeric" maxlength="1" aria-label="Digit 4">
-        <input class="otp-box" inputmode="numeric" maxlength="1" aria-label="Digit 5">
-        <input class="otp-box" inputmode="numeric" maxlength="1" aria-label="Digit 6">
+    <form id="formVerify" novalidate>
+      <p class="verify-msg mono" id="verifyMsg">Enviamos un código de 6 dígitos a tu correo.</p>
+      <div class="field">
+        <label>Código de verificación</label>
+        <div class="otp" id="otp">
+          <input class="otp-box" inputmode="numeric" maxlength="1" autocomplete="one-time-code" aria-label="Dígito 1">
+          <input class="otp-box" inputmode="numeric" maxlength="1" aria-label="Dígito 2">
+          <input class="otp-box" inputmode="numeric" maxlength="1" aria-label="Dígito 3">
+          <input class="otp-box" inputmode="numeric" maxlength="1" aria-label="Dígito 4">
+          <input class="otp-box" inputmode="numeric" maxlength="1" aria-label="Dígito 5">
+          <input class="otp-box" inputmode="numeric" maxlength="1" aria-label="Dígito 6">
+        </div>
+        <input type="hidden" name="code">
       </div>
-      <input type="hidden" name="code">
-    </div>
-    <button type="submit" class="submit">VERIFY &amp; CONTINUE</button>
-    <div class="resend mono" id="resend">
-      Didn't get it? <a id="resendLink">Resend code</a>
-    </div>
-  </form>
+      <button type="submit" class="submit">VERIFICAR Y CONTINUAR</button>
+      <div class="resend mono" id="resend">
+        ¿No lo recibiste? <a id="resendLink">Reenviar código</a>
+      </div>
+    </form>
 
   <div class="switch" id="switch"></div>
 </div>
@@ -208,10 +208,10 @@ form.on{display:flex; animation:fade .25s ease both}
            preload="auto" poster="/static/demo/poster.jpg"></video>
   </div>
   <div class="ar-copy">
-    <div class="ar-h">Edit video by <b>talking</b> to it.</div>
-    <div class="ar-sub">Turn long videos into publish-ready vertical clips — captioned,
-      reframed, and scored. Just describe the edit.</div>
-    <div class="ar-trust mono">FREE DURING EARLY ACCESS · NO CARD REQUIRED</div>
+    <div class="ar-h">Edita vídeo <b>hablando</b> con él.</div>
+    <div class="ar-sub">Convierte vídeos largos en clips verticales listos para publicar — subtitulados,
+      reframeados, y con música. Solo describe la edición.</div>
+    <div class="ar-trust mono">GRATIS DURANTE ACCESO TEMPRANO · SIN TARJETA REQUERIDA</div>
   </div>
 </aside>
 </div><!-- /.auth-shell -->
@@ -290,16 +290,16 @@ form.on{display:flex; animation:fade .25s ease both}
     showErr("");
     if (verify) {
       verifyMsg.innerHTML = pendingEmail
-        ? 'We sent a 6-digit code to <b>' + pendingEmail + '</b>.'
-        : 'We sent a 6-digit code to your email.';
+        ? 'Enviamos un código de 6 dígitos a <b>' + pendingEmail + '</b>.'
+        : 'Enviamos un código de 6 dígitos a tu correo.';
       startResendCooldown(45);
       otp.clear();
       setTimeout(function () { otp.focus(); }, 50);
       return;
     }
     switchEl.innerHTML = login
-      ? 'No account yet? <a id="sw">Sign up</a>'
-      : 'Already have an account? <a id="sw">Sign in</a>';
+      ? '¿No tienes cuenta? <a id="sw">Regístrate</a>'
+      : '¿Ya tienes cuenta? <a id="sw">Inicia sesión</a>';
     document.getElementById("sw").onclick = function () {
       setMode(login ? "signup" : "login");
     };
@@ -318,11 +318,11 @@ form.on{display:flex; animation:fade .25s ease both}
       if (left <= 0) {
         clearInterval(resendTimer);
         resendLink.classList.remove("wait");
-        resendLink.textContent = "Resend code";
+        resendLink.textContent = "Reenviar código";
         return;
       }
       resendLink.classList.add("wait");
-      resendLink.textContent = "Resend in " + left + "s";
+      resendLink.textContent = "Reenviar en " + left + "s";
       left--;
     }
     tick();
@@ -343,8 +343,8 @@ form.on{display:flex; animation:fade .25s ease both}
       });
       var d = {}; try { d = await r.json(); } catch (e) {}
       if (r.ok) { startResendCooldown(45); }
-      else { showErr(d.error || "Could not resend. Try again shortly."); }
-    } catch (e) { showErr("Could not reach the server."); }
+      else { showErr(d.error || "No se pudo reenviar. Inténtalo de nuevo en un momento."); }
+    } catch (e) { showErr("No se pudo contactar con el servidor."); }
   };
 
   // Initial mode: /verify (with a pending email) shows verification; else login/signup.
@@ -374,10 +374,10 @@ form.on{display:flex; animation:fade .25s ease both}
                  location.href = data.next || "/studio"; }
           btn.disabled = false; btn.textContent = label; return;
         } else {
-          showErr(data.error || "Something went wrong, please try again.");
+          showErr(data.error || "Algo salió mal, por favor inténtalo de nuevo.");
         }
       } catch (e3) {
-        showErr("Could not reach the server.");
+        showErr("No se pudo contactar con el servidor.");
       }
       btn.disabled = false;
       btn.textContent = label;
